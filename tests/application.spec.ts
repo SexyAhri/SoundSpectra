@@ -29,8 +29,8 @@ test('application dialog remains reachable on a small screen', async ({ page }) 
 })
 
 // Only test IPC is mocked. Production hooks, SDK resources and visible controls run unchanged.
-async function nativeFixture(page: Page, failure: 'check' | 'download' | 'backup' | 'none', automatic = false) {
-  await page.addInitScript(({ failure, automatic }) => {
+async function nativeFixture(page: Page, failure: 'check' | 'download' | 'backup' | 'none', automatic = false, holdDownload = false) {
+  await page.addInitScript(({ failure, automatic, holdDownload }) => {
     const app = window as unknown as Record<string, any>
     app.isTauri = true
     app.__commands = []
@@ -62,7 +62,8 @@ async function nativeFixture(page: Page, failure: 'check' | 'download' | 'backup
           case 'plugin:updater|download':
             args.onEvent.onmessage({ event: 'Started', data: { contentLength: 100 } })
             args.onEvent.onmessage({ event: 'Progress', data: { chunkLength: 40 } })
-            await new Promise(resolve => setTimeout(resolve, 250))
+            if (holdDownload) await new Promise<void>(resolve => { app.__releaseDownload = resolve })
+            else await new Promise(resolve => setTimeout(resolve, 250))
             if (failure === 'download' && downloadCount++ === 0) throw new Error('测试签名校验失败')
             args.onEvent.onmessage({ event: 'Progress', data: { chunkLength: 60 } })
             args.onEvent.onmessage({ event: 'Finished' })
@@ -79,7 +80,7 @@ async function nativeFixture(page: Page, failure: 'check' | 'download' | 'backup
         }
       },
     }
-  }, { failure, automatic })
+  }, { failure, automatic, holdDownload })
   await page.goto('/')
   await page.getByRole('button', { name: '应用设置与更新', exact: true }).click()
   if (!automatic) await page.getByRole('dialog').getByRole('button', { name: '检查更新', exact: true }).click()
@@ -123,12 +124,15 @@ test('failed update checks can retry without installing anything', async ({ page
 })
 
 test('download errors cannot proceed to installation, retry preserves the update', async ({ page }) => {
-  await nativeFixture(page, 'download')
+  await nativeFixture(page, 'download', false, true)
   await page.getByRole('button', { name: '下载更新', exact: true }).click()
   await expect(page.getByRole('progressbar', { name: '更新下载进度' })).toBeVisible()
+  await page.evaluate(() => (window as any).__releaseDownload())
   await expect(page.getByRole('alert')).toContainText('测试签名校验失败')
   await expect(page.getByRole('button', { name: '安装并重启' })).toHaveCount(0)
   await page.getByRole('button', { name: '重试下载' }).click()
+  await expect(page.getByRole('progressbar', { name: '更新下载进度' })).toBeVisible()
+  await page.evaluate(() => (window as any).__releaseDownload())
   await expect(page.getByRole('button', { name: '安装并重启' })).toBeVisible()
   expect(await page.evaluate(() => (window as any).__commands)).not.toContain('plugin:updater|install')
 })

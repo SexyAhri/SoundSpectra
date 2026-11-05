@@ -94,14 +94,11 @@ pub fn desktop_pointer(app: AppHandle, window: WebviewWindow) -> Result<[f64; 2]
         .primary_monitor()
         .map_err(|e| e.to_string())?
         .ok_or("主屏幕未就绪")?;
-    let mut point = windows_sys::Win32::Foundation::POINT { x: 0, y: 0 };
-    if unsafe { windows_sys::Win32::UI::WindowsAndMessaging::GetCursorPos(&mut point) } == 0 {
-        return Err("无法读取指针位置".into());
-    }
+    let point = app.cursor_position().map_err(|e| e.to_string())?;
     Ok([
-        ((point.x - monitor.position().x) as f64 / monitor.size().width.max(1) as f64 * 2. - 1.)
+        ((point.x - monitor.position().x as f64) / monitor.size().width.max(1) as f64 * 2. - 1.)
             .clamp(-1., 1.),
-        ((point.y - monitor.position().y) as f64 / monitor.size().height.max(1) as f64 * 2. - 1.)
+        ((point.y - monitor.position().y as f64) / monitor.size().height.max(1) as f64 * 2. - 1.)
             .clamp(-1., 1.),
     ])
 }

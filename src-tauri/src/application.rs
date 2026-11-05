@@ -106,8 +106,10 @@ pub fn restart_after_update(window: WebviewWindow, app: AppHandle) -> Result<(),
     #[cfg(target_os = "macos")]
     app.restart();
     #[cfg(not(target_os = "macos"))]
-    let _ = app;
-    Ok(())
+    {
+        let _ = app;
+        Ok(())
+    }
 }
 
 pub fn backup(app: &AppHandle, state: &AppState) -> Result<PathBuf, String> {
