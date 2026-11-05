@@ -68,11 +68,11 @@ npm run desktop
 npm run dev             # 浏览器模拟预览
 npm run build           # 类型检查与前端构建
 npm run version:check   # 检查前后端和锁文件版本
-npm run test:smoke      # 发布所需的核心浏览器回归
+npm run test:smoke      # 手动运行应用、工作区和歌词浏览器回归
 npm run desktop:build   # 当前平台安装包
 ```
 
-Windows 包输出到 `src-tauri/target/release/bundle/nsis/`，Mac 包位于 `bundle/dmg/`。推送 main 后由 GitHub Actions 执行核心检查并同时构建两端，两端成功后发布新版本；完整浏览器回归可手动运行，不阻塞发布。构建与测试见 [开发说明](docs/DEVELOPMENT.md)，签名配置和自动更新见 [发布指南](docs/RELEASING.md)。
+Windows 包输出到 `src-tauri/target/release/bundle/nsis/`，Mac 包位于 `bundle/dmg/`。推送 main 后由 GitHub Actions 校验版本、编译、原生测试与签名，并同时构建两端，两端成功后发布新版本。所有浏览器回归均改为手动运行，不阻塞发布。构建与测试见 [开发说明](docs/DEVELOPMENT.md)，签名配置和自动更新见 [发布指南](docs/RELEASING.md)。
 
 ## 仓库导航
 

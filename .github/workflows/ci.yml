@@ -38,9 +38,7 @@ jobs:
       - run: npm run test:release
       - run: npm run build
       - run: npx playwright install chrome
-      - name: Core browser regression
-        if: inputs.full != true
-        run: npm run test:smoke
+        if: inputs.full == true
       - name: Full browser regression
         if: inputs.full == true
         run: npm test

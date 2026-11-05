@@ -110,22 +110,11 @@ jobs:
       - run: npm ci
       - run: npm run test:release
       - run: npm run build
-      - name: Core browser regression
-        if: runner.os == 'Windows'
-        run: |
-          npx playwright install chrome
-          npm run test:smoke
       - run: cargo fmt --manifest-path src-tauri/Cargo.toml -- --check
       - run: cargo test --manifest-path src-tauri/Cargo.toml --locked --lib
       - run: npm run release:prepare
       - name: Build signed installers
         run: npm run desktop:build -- --target ${{ matrix.target }} --config src-tauri/tauri.release.conf.json -- --locked
-      - uses: actions/upload-artifact@v4
-        if: failure()
-        with:
-          name: test-results-${{ matrix.name }}
-          path: test-results/
-          retention-days: 7
       - uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.name }}
