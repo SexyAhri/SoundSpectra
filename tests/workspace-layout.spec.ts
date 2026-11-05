@@ -31,18 +31,24 @@ test('global editors have their own scope and preserve the selected effect regio
 })
 
 test('preview and transport stay visible while each inspector scrolls independently', async ({ page }) => {
+  // Layout assertions do not need a 60 fps high-resolution scene. Keep a real
+  // renderer while avoiding software-GPU saturation during repeated CI resizes.
+  await page.emulateMedia({ reducedMotion: 'reduce' })
   await page.addInitScript(settings => localStorage.setItem('soundspectra.settings.v1', JSON.stringify(settings)), {
-    ...defaults, effect: 'dream_stars', sceneMode: 'immersive', opacity: 100, bounds: { x: 0, y: 0, width: 1, height: 1 },
+    ...defaults, effect: 'dream_stars', quality: 'eco', sceneMode: 'immersive', opacity: 100, bounds: { x: 0, y: 0, width: 1, height: 1 },
     lyrics: { ...defaults.lyrics, enabled: true },
   })
   await page.setViewportSize({ width: 1440, height: 940 })
   await page.goto('/')
   await expect.poll(() => page.locator('.three-scene-surface canvas').first().getAttribute('data-frames')).not.toBeNull()
+  // Check layout with an idle preview after verifying the real renderer starts.
+  // Continuous animation and screenshots have their own rendering/capture suites.
+  await page.getByRole('switch', { name: '模拟预览', exact: true }).click()
+  await expect(page.locator('.three-scene-surface canvas').first()).toHaveAttribute('data-rms', '0.0000')
   for (const [width, height] of [[1440, 940], [1000, 620], [900, 620]]) {
     await page.setViewportSize({ width, height })
     for (const name of ['灯效', '歌词', '音乐卡片', '壁纸']) {
       await page.getByRole('button', { name, exact: true }).click()
-      if (width === 1440 && name === '歌词') await page.screenshot({ path: 'artifacts/workspace-overview.png' })
       if (name === '歌词') { await page.getByText('位置与同步', { exact: true }).click(); await page.getByRole('button', { name: '恢复歌词位置与同步' }).scrollIntoViewIfNeeded() }
       if (name === '音乐卡片') await page.getByRole('button', { name: '恢复卡片位置' }).scrollIntoViewIfNeeded()
       const geometry = await page.evaluate(() => {
@@ -58,10 +64,8 @@ test('preview and transport stay visible while each inspector scrolls independen
       expect(geometry.previewBottom).toBeLessThanOrEqual(height - 60)
       expect(geometry.previewTop).toBeGreaterThan(54)
       expect(geometry.previewWidth).toBeGreaterThan(width === 1440 ? 850 : 440)
-      if (width === 1440 && ['灯效', '歌词'].includes(name)) await page.screenshot({ path: `artifacts/workspace-${name === '歌词' ? 'lyrics' : 'effects'}-1440.png` })
     }
   }
   await page.getByRole('button', { name: '歌词', exact: true }).click()
   expect(await page.locator('.inspector-scroll').evaluate(node => node.scrollTop)).toBe(0)
-  await page.screenshot({ path: 'artifacts/workspace-short-900.png' })
 })
