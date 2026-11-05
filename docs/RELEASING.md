@@ -6,10 +6,12 @@
 
 1. 校验版本号、发布签名和构建配置。
 2. 分别在 Windows 和 macOS 云端构建。Windows 输出 x64 NSIS `setup.exe`；Mac 输出兼容 Intel / Apple Silicon 的 Universal `.dmg`。
-3. 两端全部通过测试、构建和签名后，合并平台更新清单，上传安装包、Mac 更新归档、签名和 SHA256 校验文件，再公开 Release。
+3. 完整验证和两端构建、签名全部通过后，合并平台更新清单，按明确的 Release ID 上传全部 7 个附件，核验远端大小和摘要，再公开 Release。
 4. 任一端失败时不公开这次 Release，已发布的版本和更新清单继续有效。
 
 同一版本已发布时仍构建 Actions 安装包产物，但不覆盖 Release。要推送更新，必须提升版本号。手动运行工作流默认只构建；勾选 `publish` 才发布。拉取请求只构建。
+
+发布时先上传安装包与签名，最后上传 `latest.json`；不会按标签模糊匹配草稿。公开 Release 的附件未验收完整时不能发布。修复缺失附件仅补充原版本的已验证产物，不替换已发布文件。
 
 ## 首次配置
 
@@ -73,7 +75,7 @@ npm run desktop:build -- --config src-tauri/tauri.release.conf.json -- --locked
 ## 版本与验收
 
 ```powershell
-npm run version:set -- 1.0.1
+npm run version:set -- 1.0.2
 npm run version:check
 npm run test:release
 npm run build

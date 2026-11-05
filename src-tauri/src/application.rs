@@ -281,4 +281,37 @@ mod tests {
         assert!(preferences.auto_install_updates);
         assert!(preferences.show_update_button);
     }
+
+    #[test]
+    #[ignore = "Requires the public GitHub release service; read-only updater integration"]
+    fn public_update_manifest_uses_the_native_updater_schema() {
+        let version = std::env::var("SOUNDSPECTRA_RELEASE_TEST_VERSION")
+            .unwrap_or_else(|_| env!("CARGO_PKG_VERSION").into());
+        let endpoint = format!(
+            "https://github.com/SexyAhri/SoundSpectra/releases/download/v{version}/latest.json"
+        );
+        let client = reqwest::blocking::Client::builder()
+            .connect_timeout(std::time::Duration::from_secs(15))
+            .timeout(std::time::Duration::from_secs(60))
+            .build()
+            .unwrap();
+        let release: tauri_plugin_updater::RemoteRelease = client
+            .get(endpoint)
+            .send()
+            .unwrap()
+            .error_for_status()
+            .unwrap()
+            .json()
+            .unwrap();
+        assert_eq!(release.version.to_string(), version);
+        for platform in ["windows-x86_64", "darwin-aarch64", "darwin-x86_64"] {
+            let url = release.download_url(platform).unwrap();
+            assert_eq!(url.scheme(), "https");
+            assert_eq!(url.host_str(), Some("github.com"));
+            assert!(url
+                .path()
+                .contains(&format!("/releases/download/v{version}/")));
+            assert!(!release.signature(platform).unwrap().is_empty());
+        }
+    }
 }

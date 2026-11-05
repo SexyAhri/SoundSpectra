@@ -17,6 +17,8 @@ concurrency:
   group: installer-release
   cancel-in-progress: false
 jobs:
+  checks:
+    uses: ./.github/workflows/ci.yml
   prepare:
     runs-on: ubuntu-latest
     permissions:
@@ -51,9 +53,9 @@ jobs:
             core.setOutput('version', version);
             const publish = context.eventName === 'push' || context.payload.inputs?.publish === 'true';
             if (!publish) { core.setOutput('publish', 'false'); return; }
-            let release;
-            try { release = (await github.rest.repos.getReleaseByTag({ ...context.repo, tag })).data; }
-            catch (error) { if (error.status !== 404) throw error; }
+            const releases = await github.paginate(github.rest.repos.listReleases, { ...context.repo, per_page: 100 });
+            const candidates = releases.filter(release => release.tag_name === tag);
+            let release = candidates.find(release => !release.draft) || candidates.find(release => release.draft);
             if (release && !release.draft) {
               core.setOutput('publish', 'false');
               core.info('Version already published: build artifacts only. Increment the version to publish an update.');
@@ -131,7 +133,7 @@ jobs:
             src-tauri/target/**/release/bundle/macos/*.app.tar.gz
             src-tauri/target/**/release/bundle/macos/*.app.tar.gz.sig
   publish:
-    needs: [prepare, package]
+    needs: [prepare, package, checks]
     if: needs.prepare.outputs.publish == 'true'
     runs-on: ubuntu-latest
     permissions:
@@ -154,6 +156,4 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           RELEASE_ID: ${{ needs.prepare.outputs.release_id }}
           VERSION: ${{ needs.prepare.outputs.version }}
-        run: |
-          find artifacts/release -type f -print0 | xargs -0 gh release upload "v$VERSION" --clobber
-          gh api --method PATCH "repos/$GITHUB_REPOSITORY/releases/$RELEASE_ID" -F draft=false
+        run: node scripts/publish-release.mjs artifacts/release

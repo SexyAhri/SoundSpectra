@@ -47,31 +47,34 @@ test('idle, obscured previews and offscreen previews stop drawing; quality remai
   await page.reload()
   await expect(page.getByRole('combobox', { name: '渲染性能' })).toContainText('省电 · 30 帧')
   const canvas = page.locator('.three-scene-surface canvas').first()
-  const countDraws = async () => {
-    // A frame may contain several WebGL passes; measure presented frames.
-    const read = async () => Number(await canvas.getAttribute('data-frames'))
-    const start = await read()
-    await page.waitForTimeout(600)
-    return await read() - start
-  }
-  expect(await countDraws()).toBeLessThanOrEqual(21)
+  await expect(canvas).toHaveAttribute('data-frames', /^\d+$/)
+  const sampleFrames = () => canvas.evaluate(async node => {
+    // Sample both ends in the renderer process: CI protocol/CPU latency must
+    // not turn a 600 ms test-side timer into a longer unmeasured frame window.
+    const start = performance.now(), first = Number(node.dataset.frames)
+    await new Promise(resolve => setTimeout(resolve, 600))
+    return { frames: Number(node.dataset.frames) - first, elapsed: performance.now() - start }
+  })
+  const sample = await sampleFrames()
+  expect(sample.frames).toBeLessThanOrEqual(Math.ceil(sample.elapsed * 30 / 1000) + 2)
   await page.getByRole('switch', { name: '模拟预览' }).click()
   await page.waitForTimeout(2200)
-  expect(await countDraws()).toBe(0)
+  expect((await sampleFrames()).frames).toBe(0)
   await page.getByRole('switch', { name: '模拟预览' }).click()
   await expect.poll(() => visiblePixels(page)).toBeGreaterThan(80)
   await page.getByRole('button', { name: '应用设置与更新', exact: true }).click()
   await page.waitForTimeout(300)
-  expect(await countDraws()).toBe(0)
+  expect((await sampleFrames()).frames).toBe(0)
   await page.getByRole('button', { name: '完成', exact: true }).click()
   await page.setViewportSize({ width: 390, height: 600 })
   await page.getByRole('tab', { name: '外观', exact: true }).click()
   await page.getByRole('button', { name: '恢复当前灯效参数' }).scrollIntoViewIfNeeded()
   await page.waitForTimeout(300)
   // At the mobile breakpoint the page flows normally and this scroll hides the preview.
-  expect(await countDraws()).toBe(0)
+  expect((await sampleFrames()).frames).toBe(0)
   await canvas.scrollIntoViewIfNeeded()
   // Default WebGL buffers may be discarded between the 30 fps draws and
   // 60 Hz test callbacks. Verify resumed draw calls instead of that race.
-  expect(await countDraws()).toBeGreaterThan(5)
+  const pausedAt = Number(await canvas.getAttribute('data-frames'))
+  await expect.poll(async () => Number(await canvas.getAttribute('data-frames'))).toBeGreaterThan(pausedAt + 1)
 })

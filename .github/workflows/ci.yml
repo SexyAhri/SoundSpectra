@@ -1,8 +1,9 @@
 name: Checks
 on:
+  workflow_call:
+  workflow_dispatch:
   push:
-    branches: ['**']
-  pull_request:
+    branches-ignore: [main, master]
 permissions:
   contents: read
 concurrency:
