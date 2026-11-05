@@ -1,3 +1,5 @@
+import { ModalContent } from '@/components/ui/modal'
+import { IconButton } from '@/components/ui/icon-button'
 import { useEffect, useRef, useState, type KeyboardEvent, type PointerEvent, type RefObject } from 'react'
 import { Dialog } from 'radix-ui'
 import { ImagePlus, Maximize2, Monitor, Move, RefreshCw, Scan, Sparkles, Undo2, X, Bookmark } from 'lucide-react'
@@ -23,6 +25,8 @@ import { emptyNowPlaying, type NowPlaying } from '../desktop-card/use-now-playin
 import { DepthWallpaper } from '../wallpaper-depth/wallpaper-depth-layer'
 import { LyricLayer } from '../lyrics/lyric-layer'
 import { emptyLyrics, type LyricDocument } from '../lyrics/model'
+import { RailLayer } from '../rail/rail-layer'
+import type { RailController } from '../rail/use-rail'
 
 interface Props {
   settings: SpectrumSettings; update: SettingsUpdate;
@@ -34,6 +38,8 @@ interface Props {
   nowPlaying?: NowPlaying;
   lyricDocument?: LyricDocument;
   onEditLyrics?: () => void; onEditCard?: () => void;
+  rail?: RailController; selectedRail?: string | null; railEditing?: boolean;
+  onSelectRail?: (groupId: string, itemId?: string) => void;
 }
 interface StageProps extends Props {
   viewPreviewOnly?: boolean;
@@ -124,6 +130,7 @@ function PreviewStage(props: StageProps) {
       {settings.lyrics.enabled && <LyricLayer settings={settings.lyrics} document={props.lyricDocument ?? emptyLyrics} info={props.nowPlaying ?? emptyNowPlaying} demo={props.demo} active={props.active}
         draggable={!disabled && !props.masking && !props.viewPreviewOnly} onSelect={props.onEditLyrics} onBoundsChange={(bounds, resized) => update(current => ({ lyrics: { ...current.lyrics, bounds,
           fontSize: resized ? Math.round(Math.max(18, Math.min(72, current.lyrics.fontSize * Math.sqrt(bounds.width * bounds.height / (current.lyrics.bounds.width * current.lyrics.bounds.height))))) : current.lyrics.fontSize } }))} />}
+      {props.rail && !props.viewPreviewOnly && <RailLayer controller={props.rail} selected={props.selectedRail ?? null} editing={!!props.railEditing && !disabled} interactive={!props.masking} onSelect={props.onSelectRail ?? (() => {})} />}
       {props.masking && <MaskEditor masks={settings.masks} selected={props.selectedMask} onSelect={props.onSelectMask} disabled={disabled} onChange={masks => update({ masks })} />}
     </div>
   </div>
@@ -192,7 +199,7 @@ export function DesktopPreview(props: Props) {
         <label className="demo-control" htmlFor="demo-switch">模拟预览<Switch id="demo-switch" checked={props.demo} onCheckedChange={props.onDemoChange} /></label>
         {arrangementButton}
         {maskButton}
-        <button className="toolbar-button" aria-label="放大预览" title="放大预览" onClick={() => setExpanded(true)}><Maximize2 size={15} /></button>
+        <IconButton aria-label="放大预览" title="放大预览" onClick={() => setExpanded(true)}><Maximize2 size={15} /></IconButton>
       </div>
     </div>
     {!expanded && !autoOpen && !libraryOpen ? stage : <div className="preview-open-notice">{autoOpen ? '正在预览搭配' : libraryOpen ? '正在预览收藏' : '正在放大预览'}</div>}
@@ -203,8 +210,8 @@ export function DesktopPreview(props: Props) {
         <button aria-pressed={background.mode === 'desktop'} onClick={() => background.choose('desktop')}>桌面壁纸</button>
         <button aria-label="纯色预览背景" aria-pressed={background.mode === 'plain'} onClick={() => background.choose('plain')}>纯色</button>
         {background.custom && <button aria-pressed={background.mode === 'custom'} onClick={() => background.choose('custom')}>参考图片</button>}
-        <button className="toolbar-button" aria-label="选择参考图片" title="选择参考图片，仅用于预览" disabled={background.importing} onClick={() => fileInput.current?.click()}><ImagePlus size={15} /></button>
-        {background.mode === 'desktop' && native && <button className="toolbar-button" aria-label="刷新桌面壁纸" title="刷新桌面壁纸" disabled={background.loading} onClick={() => void background.refresh()}><RefreshCw size={14} className={background.loading ? 'spinning' : ''} /></button>}
+        <IconButton aria-label="选择参考图片" title="选择参考图片，仅用于预览" disabled={background.importing} onClick={() => fileInput.current?.click()}><ImagePlus size={15} /></IconButton>
+        {background.mode === 'desktop' && native && <IconButton aria-label="刷新桌面壁纸" title="刷新桌面壁纸" disabled={background.loading} onClick={() => void background.refresh()}><RefreshCw size={14} className={background.loading ? 'spinning' : ''} /></IconButton>}
       </div></div>
       <span className="preview-screen-info">{background.desktop ? '主屏幕' : '参考比例'} · {screen.width} × {screen.height}</span>
     </div>
@@ -216,14 +223,14 @@ export function DesktopPreview(props: Props) {
     {(status || background.fileError || background.importing) && <p className="preview-message" role={background.fileError || background.error && background.mode === 'desktop' ? 'alert' : 'status'}>{background.fileError ?? (background.importing ? '正在保存参考图片…' : status)}</p>}
     {arranging && !props.disabled && <p className="preview-message">拖动位置，右下角以中心缩放；方向键微调，Shift 加速。</p>}
     <Dialog.Root open={expanded} onOpenChange={setExpanded}>
-      <Dialog.Portal><Dialog.Overlay className="application-dialog-backdrop" /><Dialog.Content className="preview-dialog">
-        <div className="preview-dialog-heading"><Dialog.Title>桌面预览</Dialog.Title><div className="preview-tools">{arrangementButton}{maskButton}<Dialog.Close className="toolbar-button" aria-label="关闭放大预览"><X size={18} /></Dialog.Close></div></div>
+      <ModalContent className="preview-dialog">
+        <div className="preview-dialog-heading"><Dialog.Title>桌面预览</Dialog.Title><div className="preview-tools">{arrangementButton}{maskButton}<Dialog.Close asChild><IconButton aria-label="关闭放大预览"><X size={18} /></IconButton></Dialog.Close></div></div>
         <Dialog.Description className="sr-only">按主屏幕比例预览壁纸和动效，可布置位置与大小。</Dialog.Description>
         {expanded && stage}
         {arranging && !props.disabled && presets}
         {masking && !props.disabled && maskControls}
         <div className="preview-dialog-footer">{arranging ? '拖动位置 · 右下角居中缩放 · 方向键微调' : `${screen.width} × ${screen.height}`} · Esc 关闭</div>
-      </Dialog.Content></Dialog.Portal>
+      </ModalContent>
     </Dialog.Root>
     {autoOpen && <AutoSceneDialog settings={props.settings} image={background.image} desktop={background.mode === 'desktop' ? background.desktop : null} screen={screen}
       available={background.mode === 'plain' || background.mode === 'custom' && !!background.image || background.mode === 'desktop' && !!background.desktop && !background.error && !background.loading}

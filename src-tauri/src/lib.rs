@@ -25,7 +25,9 @@ mod now_playing;
 #[cfg(target_os = "macos")]
 #[path = "platform/macos/now_playing.rs"]
 mod now_playing;
+mod rail;
 mod settings;
+mod system_tray;
 #[cfg(windows)]
 mod wallpaper;
 #[cfg(target_os = "macos")]
@@ -42,11 +44,7 @@ use std::{
         Arc, Mutex,
     },
 };
-use tauri::{
-    menu::{Menu, MenuItem},
-    tray::TrayIconBuilder,
-    AppHandle, Emitter, Manager, State,
-};
+use tauri::{AppHandle, Emitter, Manager, State};
 
 #[derive(Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -330,6 +328,15 @@ pub fn run() {
             now_playing::get_now_playing,
             lyrics::get_current_lyrics,
             lyrics::discovery::rescan_lyric_locations,
+            rail::rail_get,
+            rail::rail_change,
+            rail::rail_add_paths,
+            rail::rail_pick,
+            rail::rail_desktop_entries,
+            rail::rail_open,
+            rail::rail_media,
+            rail::rail_popup,
+            rail::rail_hit_regions,
             get_settings,
             debug_desktop_state,
             get_status,
@@ -385,37 +392,8 @@ pub fn run() {
                 shutdown: AtomicBool::new(false),
             });
             app.manage(state.clone());
-            let open = MenuItem::with_id(app, "open", "打开设置", true, None::<&str>)?;
-            let quit = MenuItem::with_id(app, "quit", "退出 SoundSpectra", true, None::<&str>)?;
-            let menu = Menu::with_items(app, &[&open, &quit])?;
-            let mut pixels = vec![0u8; 32 * 32 * 4];
-            for (x, height) in [(6, 10), (12, 24), (18, 18), (24, 12)] {
-                for dx in 0..3 {
-                    for y in (32 - height) / 2..(32 + height) / 2 {
-                        let offset = (y * 32 + x + dx) * 4;
-                        pixels[offset..offset + 4].copy_from_slice(&[200, 175, 242, 255]);
-                    }
-                }
-            }
-            TrayIconBuilder::new()
-                .icon(tauri::image::Image::new_owned(pixels, 32, 32))
-                .tooltip("SoundSpectra · 声谱")
-                .menu(&menu)
-                .on_menu_event(|app, event| match event.id.as_ref() {
-                    "open" => show_settings(app),
-                    "quit" => {
-                        if change_editing(app, &app.state::<Arc<AppState>>(), false).is_err() {
-                            show_settings(app);
-                            return;
-                        }
-                        app.state::<Arc<AppState>>()
-                            .shutdown
-                            .store(true, Ordering::Relaxed);
-                        app.exit(0);
-                    }
-                    _ => (),
-                })
-                .build(app)?;
+            app.manage(rail::RailState::new(app.handle()));
+            system_tray::setup(app)?;
             if std::env::args().any(|arg| arg == "--autostart") {
                 if let Some(window) = app.get_webview_window("settings") {
                     let _ = window.hide();
@@ -425,25 +403,26 @@ pub fn run() {
             now_playing::start(state.clone());
             lyrics::discovery::start(state.clone());
             audio::start(app.handle().clone(), state);
+            rail::start(app.handle().clone());
             Ok(())
         })
         .on_window_event(|window, event| {
             if let tauri::WindowEvent::CloseRequested { api, .. } = event {
                 api.prevent_close();
+                if window.label() == "settings"
+                    && !application::read_preferences(window.app_handle())
+                        .unwrap_or_default()
+                        .close_to_tray
+                {
+                    system_tray::dispatch(window.app_handle(), "quit");
+                    return;
+                }
                 let state = window.app_handle().state::<Arc<AppState>>();
                 if state.status.lock().map(|s| s.editing).unwrap_or(false) {
                     if change_editing(window.app_handle(), &state, false).is_err() {
                         show_settings(window.app_handle());
                         return;
                     }
-                }
-                if window.label() == "settings"
-                    && !application::read_preferences(window.app_handle())
-                        .unwrap_or_default()
-                        .close_to_tray
-                {
-                    window.app_handle().exit(0);
-                    return;
                 }
                 if window.label() == "overlay" {
                     if let Some(overlay) = window.app_handle().get_webview_window("overlay") {

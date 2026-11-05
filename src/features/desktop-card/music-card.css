@@ -30,5 +30,24 @@
 .music-card-layer.arrange-card { pointer-events: auto; cursor: move; touch-action: none; outline: 1px dashed #ffb075; outline-offset: 3px; border-radius: 4%; }
 .music-card-layer.arrange-card:focus-visible { outline: 2px solid #ffb075; }
 .live-meter { display: block; width: 100%; height: 100%; }
+.music-card-afternoon { color: #43503f; }
+.music-card-afternoon .music-card-shell { gap: 5cqw; padding: 4.5cqw 5.5cqw; border-radius: 4.7cqw; border-color: #ffffffe6; background: #f7f6edee; box-shadow: 0 12px 36px #40594315,inset 0 1px #fff; }
+.music-card-afternoon .music-card-shell::before { display: none; }
+.music-card-afternoon .music-card-art { width: 23cqw; height: 23cqw; }
+.music-card-afternoon .vinyl-disc { border: 0; background: repeating-radial-gradient(circle,#343d37 0 1px,#28312b 2px 3px); box-shadow: 0 4px 8px #34463722; }
+.music-card-afternoon .vinyl-disc::after { content: ''; position: absolute; inset: 0; border-radius: 50%; background: conic-gradient(transparent,#ffffff20,transparent 40%,#ffffff12,transparent 80%); }
+.music-card-afternoon .vinyl-label { background: #c0c6a4; color: #53664d; }
+.music-card-afternoon .music-card-cover { display: none; }
+.music-card-afternoon .music-card-art:has(.music-card-cover) .vinyl-disc { transform: none; }
+.music-card-afternoon .music-card-kicker { font-size: 2.7cqw; color: #7b866f; letter-spacing: .06em; margin-bottom: 2cqw; }
+.music-card-afternoon .music-card-kicker > svg { width: 3cqw; height: 3cqw; }
+.music-card-afternoon .music-card-source { display: none; }
+.music-card-afternoon .music-card-title { color: #43503f; font-size: 5.4cqw; font-weight: 500; letter-spacing: .05em; }
+.music-card-afternoon .music-card-artist { font-size: 2.8cqw; color: #7a846e; margin-top: 1.6cqw; }
+.music-card-afternoon .music-card-bottom { height: 6cqw; margin-top: 2.2cqw; }
+.music-card-afternoon .music-card-bottom .live-meter { width: 24cqw; height: 5cqw; opacity: .65; }
+.music-card-afternoon .music-card-time { color: #738069; font-size: 2.3cqw; }
+.music-card-afternoon .music-card-time i { color: #939b86; }
+.music-card-afternoon .music-card-progress { left: 5.5cqw; right: 5.5cqw; bottom: 2.5cqw; height: 1px; background: #dce0d0; }
 @keyframes vinyl-turn { to { rotate: 360deg; } }
 @media (prefers-reduced-motion: reduce) { .vinyl-disc { animation: none !important; } }

@@ -1,6 +1,6 @@
-import { Switch } from '@/components/ui/switch'
+import { SettingToggle } from '@/components/ui/setting-toggle'
 import { Button } from '@/components/ui/button'
-import { Parameter } from '../settings/appearance-panel'
+import { Parameter } from '@/components/ui/parameter'
 import { defaultDesktopCard, type SpectrumSettings } from '../spectrum/model'
 import { MusicCard } from './music-card'
 import { emptyNowPlaying } from './use-now-playing'
@@ -16,9 +16,9 @@ export function CardControls({ settings, update, disabled }: { settings: Spectru
     update({ desktopCard: { ...card, bounds: b } })
   }
   return <div className="inspector-content card-controls">
-    <label className="card-enable"><span>桌面音乐卡片<small>歌曲信息 · 封面 · 实时律动</small></span><Switch aria-label="显示桌面音乐卡片" disabled={disabled} checked={card.enabled} onCheckedChange={enabled => update({ desktopCard: { ...card, enabled } })} /></label>
+    <SettingToggle className="card-enable" label="桌面音乐卡片" description="歌曲信息 · 封面 · 实时律动" accessibleLabel="显示桌面音乐卡片" disabled={disabled} checked={card.enabled} onChange={enabled => update({ desktopCard: { ...card, enabled } })} />
     <div className="card-style-preview"><MusicCard info={emptyNowPlaying} settings={card} color={settings.color} bands={bands} receivedAt={received} demo active={false} /></div>
-    <div className="scene-mode-options" role="group" aria-label="音乐卡片样式">{[['record', '唱片'], ['compact', '简约']].map(([variant, label]) => <Button key={variant} variant="ghost" aria-pressed={card.variant === variant} disabled={disabled} onClick={() => update({ desktopCard: { ...card, variant: variant as 'record' | 'compact' } })}>{label}</Button>)}</div>
+    <div className="scene-mode-options" role="group" aria-label="音乐卡片样式">{[['record', '唱片'], ['compact', '简约'], ['afternoon', '午后 · 紧凑']].map(([variant, label]) => <Button key={variant} variant="ghost" aria-pressed={card.variant === variant} disabled={disabled} onClick={() => update({ desktopCard: { ...card, variant: variant as typeof card.variant } })}>{label}</Button>)}</div>
     <div className="card-accent-control"><span>卡片点缀色</span><div>{[['琥珀', '#efb273'], ['薄荷', '#8dd8bf'], ['冰蓝', '#91bdeb'], ['蔷薇', '#e8a4bc']].map(([name, value]) => <button key={value} type="button" aria-label={`${name}色卡片`} aria-pressed={settings.color === value} disabled={disabled} onClick={() => update({ color: value })} style={{ background: value }} />)}<input type="color" aria-label="卡片自定义点缀色" disabled={disabled} value={settings.color} onChange={event => update({ color: event.target.value })} /></div></div>
     <div className="section-label card-position-label">放在哪里</div>
     <div className="card-position-options">{[['左下', .035, .81], ['右下', .965 - card.bounds.width, .81], ['左上', .035, .05]].map(([label, x, y]) => <Button key={label} variant="outline" size="sm" disabled={disabled} onClick={() => update({ desktopCard: { ...card, bounds: { ...card.bounds, x: Number(x), y: Math.min(Number(y), 1 - card.bounds.height) } } })}>{label}</Button>)}</div>

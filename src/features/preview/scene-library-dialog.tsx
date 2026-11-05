@@ -1,3 +1,5 @@
+import { ModalContent } from '@/components/ui/modal'
+import { IconButton } from '@/components/ui/icon-button'
 import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { Dialog } from 'radix-ui'
 import { Bookmark, Download, Upload, Trash2, X } from 'lucide-react'
@@ -80,8 +82,8 @@ export function SceneLibraryDialog(props: Props) {
     finally { savingRef.current = false; setSaving(false) }
   }
   return <Dialog.Root open onOpenChange={open => { if (!open && !savingRef.current) props.onClose() }}>
-    <Dialog.Portal><Dialog.Overlay className="application-dialog-backdrop" /><Dialog.Content className="auto-scene-dialog" onEscapeKeyDown={event => { if (savingRef.current) event.preventDefault() }} onCloseAutoFocus={event => { event.preventDefault(); props.onReturnFocus() }}>
-      <div className="auto-scene-heading"><div><Dialog.Title><Bookmark size={17} />场景收藏</Dialog.Title><Dialog.Description>保存喜欢的搭配，下次用同一张壁纸继续。</Dialog.Description></div><Dialog.Close className="toolbar-button" aria-label="关闭场景收藏" disabled={locked}><X size={18} /></Dialog.Close></div>
+    <ModalContent className="auto-scene-dialog" onEscapeKeyDown={event => { if (savingRef.current) event.preventDefault() }} onCloseAutoFocus={event => { event.preventDefault(); props.onReturnFocus() }}>
+      <div className="auto-scene-heading"><div><Dialog.Title><Bookmark size={17} />场景收藏</Dialog.Title><Dialog.Description>保存喜欢的搭配，下次用同一张壁纸继续。</Dialog.Description></div><Dialog.Close asChild><IconButton aria-label="关闭场景收藏" disabled={locked}><X size={18} /></IconButton></Dialog.Close></div>
       <div className="auto-scene-body">
         <div className="auto-scene-preview">
           {props.renderPreview(item ? { ...props.settings, ...item.scene } : props.settings, simulate)}
@@ -102,6 +104,6 @@ export function SceneLibraryDialog(props: Props) {
         </div>
       </div>
       <div className="auto-scene-footer"><div><p>应用会恢复动效、布局和遮罩，保留桌面开关与性能，可撤销。导出不含壁纸图片。</p>{error && <p role="alert">{error}</p>}{notice && <p role="status">{notice}</p>}</div><Button disabled={locked || !item} onClick={() => void apply()}>{saving ? '正在处理…' : '应用此场景'}</Button></div>
-    </Dialog.Content></Dialog.Portal>
+    </ModalContent>
   </Dialog.Root>
 }

@@ -669,7 +669,7 @@ impl Settings {
         self.music.validate()?;
         validate_bounds(&self.desktop_card.bounds, 0.15, 0.08, 0.24)?;
         if self.desktop_card.bounds.width > 0.45
-            || !["record", "compact"].contains(&self.desktop_card.variant.as_str())
+            || !["record", "compact", "afternoon"].contains(&self.desktop_card.variant.as_str())
         {
             return Err("桌面音乐卡片参数超出允许范围".into());
         }

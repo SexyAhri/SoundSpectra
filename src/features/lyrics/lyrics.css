@@ -14,9 +14,9 @@
 .lyric-style-options button { min-width: 0; height: 105px; padding: 8px 2px; display: flex; flex-direction: column; gap: 5px; font-size: 11px; }
 .lyric-style-options button small { color: var(--muted-foreground); font-size: 9px; font-weight: 400; }
 .lyric-style-options button[aria-pressed="true"] { background: var(--accent); border-color: var(--primary); color: var(--primary); }
-.composition-mark { display: grid; place-items: center; height: 37px; width: 100%; color: #d6c3a0; font: 19px/1 Georgia,SimSun,serif; white-space: pre; letter-spacing: .15em; }
+.composition-mark { display: grid; place-items: center; height: 37px; width: 100%; color: var(--primary); font: 19px/1 Georgia,SimSun,serif; white-space: pre; letter-spacing: .15em; }
 .composition-option-depth .composition-mark { transform: rotate(-5deg); word-spacing: 6px; }
 .composition-option-stage .composition-mark { font-size: 16px; line-height: .9; transform: rotate(-8deg); text-align: right; }
-.composition-option-stardust .composition-mark { border-bottom: 1px solid #b1c8c52c; border-radius: 0 0 50% 50%; width: 68%; letter-spacing: .3em; transform: rotate(7deg); color: #bad5cf; }
+.composition-option-stardust .composition-mark { border-bottom: 1px solid var(--border); border-radius: 0 0 50% 50%; width: 68%; letter-spacing: .3em; transform: rotate(7deg); color: var(--success); }
 .lyric-stage-expand { width: 100%; margin-bottom: 18px; font-size: 11px; }
 .lyric-status { color: var(--muted-foreground); font-size: 11px; line-height: 1.6; margin: 12px 0; overflow-wrap: anywhere; }

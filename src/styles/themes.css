@@ -1,0 +1,62 @@
+/* UI colors only. Scene artwork, music-card materials and hanging paper keep their own palettes. */
+:root {
+  color-scheme: dark;
+  --background: #181e24;
+  --foreground: #e4e8eb;
+  --card: #20282f;
+  --popover: #29333c;
+  --secondary: #2c3740;
+  --muted: #252f38;
+  --muted-foreground: #a8b5bf;
+  --primary: #e8b48b;
+  --primary-foreground: #302218;
+  --accent: #3b3029;
+  --border: #3b4853;
+  --border-strong: #647583;
+  --sidebar: #151b20;
+  --chrome: #1c242b;
+  --inset: #141b21;
+  --active-surface: #374651;
+  --success: #a0ceb7;
+  --destructive: #f0a4ac;
+  --destructive-foreground: #341a20;
+  --danger-surface: #3a252e;
+  --danger-border: #87515c;
+  --backdrop: #0b1019a6;
+  --shadow: #050a1040;
+  --shadow-strong: #050a1070;
+  --on-art: #eef1f3;
+  --on-art-error: #f0a4ac;
+  --art-background: #141b21;
+  --art-scrim: #111a23d9;
+  --radius: 9px;
+  color: var(--foreground);
+  background: var(--background);
+}
+:root[data-theme=light] {
+  color-scheme: light;
+  --background: #f3f1ec;
+  --foreground: #343c42;
+  --card: #faf8f4;
+  --popover: #fdfbf7;
+  --secondary: #e9e7e1;
+  --muted: #ebe9e3;
+  --muted-foreground: #5c666e;
+  --primary: #8b5635;
+  --primary-foreground: #fff8f0;
+  --accent: #f0e3d6;
+  --border: #d6d7d1;
+  --border-strong: #929c9f;
+  --sidebar: #eae8e2;
+  --chrome: #eeede7;
+  --inset: #e5e5df;
+  --active-surface: #faf8f4;
+  --success: #366c55;
+  --destructive: #a13e4f;
+  --destructive-foreground: #fff5f6;
+  --danger-surface: #f5e4e6;
+  --danger-border: #d7a5ae;
+  --backdrop: #28333d52;
+  --shadow: #34404b12;
+  --shadow-strong: #34404b26;
+}

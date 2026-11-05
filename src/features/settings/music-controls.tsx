@@ -1,4 +1,4 @@
-import { Slider } from '@/components/ui/slider'
+import { Parameter } from '@/components/ui/parameter'
 import { ChoiceSelect } from '@/components/ui/choice-select'
 import { Button } from '@/components/ui/button'
 import type { SpectrumSettings } from '../spectrum/model'
@@ -119,10 +119,8 @@ export function MusicControls({ settings, update, disabled }: {
           onClick={() => change({ [driftKey]: option.value })}>{option.label}</Button>)}</div>
       <p className="scene-view-hint">以默认视角为准，负值向左、正值向右；垂直时保留自然轻摆。</p>
     </section>}
-    {fields.map(({ key, label, min, max, step = 1, unit = '' }) => <div className="parameter" key={key}>
-      <div className="parameter-label"><span>{label}</span><output>{Number(music[key].toFixed(step < .1 ? 2 : step < 1 ? 1 : 0))}{unit}</output></div>
-      <Slider aria-label={label} value={[music[key]]} min={min} max={max} step={step} disabled={disabled} onValueChange={([value]) => change({ [key]: value })} />
-    </div>)}
+    {fields.map(({ key, label, min, max, step = 1, unit = '' }) => <Parameter key={key} label={label} value={music[key]} min={min} max={max} step={step} unit={unit}
+      format={value => Number(value.toFixed(step < .1 ? 2 : step < 1 ? 1 : 0))} disabled={disabled} onChange={value => change({ [key]: value })} />)}
     <Button variant="ghost" className="reset-button" disabled={disabled} onClick={() => {
       const keys = [...fields.map(field => field.key), ...['speed', 'response', 'fieldPalette'] as const, ...(terrain ? ['fieldRippleMode'] as const : []), ...(settings.effect==='rhythm_rain'?['rainDirection'] as const:[])]
       change(Object.fromEntries(keys.map(key => [key, defaultMusicSettings[key]])))

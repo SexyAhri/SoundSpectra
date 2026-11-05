@@ -1,3 +1,4 @@
+import { IconButton } from '@/components/ui/icon-button'
 import { useEffect, useRef, useState } from 'react'
 import { Check, Pencil, Plus, Trash2 } from 'lucide-react'
 import { Switch } from '@/components/ui/switch'
@@ -46,9 +47,9 @@ export function RegionPanel({ settings, selected, onSelect, disabled, update }: 
       {renaming ? <input aria-label="区域名称" autoFocus value={name} maxLength={24} onFocus={event => event.currentTarget.select()} onChange={event => setName(event.target.value)} onBlur={finishRename}
         onKeyDown={event => { if (event.key === 'Enter' || event.key === 'Escape') { event.preventDefault(); cancelRename.current = event.key === 'Escape'; event.currentTarget.blur(); requestAnimationFrame(() => renameButton.current?.focus()) } }} /> : <ChoiceSelect label="当前装饰区域" disabled={disabled} value={region.id} onChange={onSelect}
           options={regions.map(item => ({ value: item.id, label: `${item.name}${item.visible ? '' : '（隐藏）'}` }))} />}
-      <button ref={renameButton} className="toolbar-button" aria-label={renaming ? '完成重命名' : '重命名当前区域'} title={renaming ? '完成重命名' : '重命名当前区域'} disabled={disabled} onMouseDown={event => { if (renaming) event.preventDefault() }} onClick={() => { if (renaming) finishRename(); else { cancelRename.current = false; setName(region.name); setRenaming(true) } }}>{renaming ? <Check size={14} /> : <Pencil size={14} />}</button>
-      <button className="toolbar-button" aria-label="添加装饰区域" title={`添加区域（最多 ${MAX_REGIONS} 个）`} disabled={disabled || regions.length >= MAX_REGIONS} onClick={add}><Plus size={15} /></button>
-      <button className="toolbar-button" aria-label="删除当前区域" title="删除当前区域" disabled={disabled || regions.length < 2} onClick={remove}><Trash2 size={14} /></button>
+      <IconButton ref={renameButton} aria-label={renaming ? '完成重命名' : '重命名当前区域'} title={renaming ? '完成重命名' : '重命名当前区域'} disabled={disabled} onMouseDown={event => { if (renaming) event.preventDefault() }} onClick={() => { if (renaming) finishRename(); else { cancelRename.current = false; setName(region.name); setRenaming(true) } }}>{renaming ? <Check size={14} /> : <Pencil size={14} />}</IconButton>
+      <IconButton aria-label="添加装饰区域" title={`添加区域（最多 ${MAX_REGIONS} 个）`} disabled={disabled || regions.length >= MAX_REGIONS} onClick={add}><Plus size={15} /></IconButton>
+      <IconButton aria-label="删除当前区域" title="删除当前区域" disabled={disabled || regions.length < 2} onClick={remove}><Trash2 size={14} /></IconButton>
     </div>
   </div>
 }

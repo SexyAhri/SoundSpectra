@@ -1,0 +1,14 @@
+.toolbar-button { display: inline-grid; place-items: center; position: relative; width: 32px; height: 32px; flex-shrink: 0; padding: 0; border: 0; border-radius: 5px; color: var(--muted-foreground); background: transparent; }
+.toolbar-button:hover:not(:disabled) { color: var(--foreground); background: var(--secondary); }
+.toolbar-button:disabled { opacity: .45; }
+.dialog-backdrop { position: fixed; inset: 0; z-index: 80; background: var(--backdrop); }
+.parameter { margin-bottom: 27px; }
+.parameter-label { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 14px; color: var(--muted-foreground); font-size: 11px; }
+.parameter-label output { font: 11px Consolas,monospace; color: var(--primary); white-space: nowrap; }
+[data-slot=slider-track] { background: var(--inset); }
+[data-slot=slider-thumb] { background: var(--card); border-color: var(--primary); box-shadow: 0 1px 3px var(--shadow); }
+.setting-toggle { display: flex; align-items: center; justify-content: space-between; gap: 20px; padding: 13px 0; cursor: pointer; }
+.setting-toggle > div { min-width: 0; }
+.setting-toggle span { font-size: 12px; color: var(--foreground); }
+.setting-toggle > div > p { margin-top: 5px; color: var(--muted-foreground); font-size: 11px; line-height: 1.7; }
+.setting-toggle:has(:disabled) { cursor: default; }

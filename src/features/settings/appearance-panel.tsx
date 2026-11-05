@@ -1,4 +1,4 @@
-import { Slider } from "@/components/ui/slider";
+import { Parameter } from "@/components/ui/parameter";
 import type { SpectrumSettings } from "../spectrum/model";
 import { MusicControls } from './music-controls';
 
@@ -6,44 +6,6 @@ interface Props {
   settings: SpectrumSettings;
   disabled: boolean;
   update: (patch: Partial<SpectrumSettings>) => void;
-}
-export function Parameter({
-  label,
-  value,
-  min,
-  max,
-  unit = "%",
-  onChange,
-  disabled,
-}: {
-  label: string;
-  value: number;
-  min: number;
-  max: number;
-  unit?: string;
-  onChange: (value: number) => void;
-  disabled?: boolean;
-}) {
-  return (
-    <div className="parameter">
-      <div className="parameter-label">
-        <span>{label}</span>
-        <output>
-          {Math.round(value)}
-          {unit}
-        </output>
-      </div>
-      <Slider
-        aria-label={label}
-        min={min}
-        max={max}
-        step={1}
-        value={[value]}
-        onValueChange={([next]) => onChange(next)}
-        disabled={disabled || min === max}
-      />
-    </div>
-  );
 }
 export function AppearancePanel({ settings, update, disabled }: Props) {
   return <div className="inspector-content appearance-controls">

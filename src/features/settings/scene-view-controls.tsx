@@ -1,7 +1,7 @@
 import { Button } from '@/components/ui/button'
 import { useState } from 'react'
 import { ChoiceSelect } from '@/components/ui/choice-select'
-import { Slider } from '@/components/ui/slider'
+import { Parameter } from '@/components/ui/parameter'
 import { defaultSceneView, normalizeSceneView, rotateSceneView, type SceneView } from '../spectrum/three/view'
 
 const axes = [
@@ -32,11 +32,9 @@ export function SceneViewControls({ view, onChange, disabled }: { view: SceneVie
       onChange={value => setStep(Number(value))} options={[1, 5, 15, 45, 90].map(value => ({ value: String(value), label: `${value}°` }))} /></label>
     <div className="scene-view-turns">{turns.map(turn => <Button key={turn.label} variant="outline" disabled={disabled}
       onClick={() => onChange(rotateSceneView(view, turn.yaw * step, turn.pitch * step, turn.roll * step))}>{turn.label}</Button>)}</div>
-    <div className="scene-view-axes">{axes.map(axis => <div className="parameter" key={axis.key}>
-      <div className="parameter-label"><span>{axis.label}</span><output>{axis.key === 'distance' ? view[axis.key].toFixed(2) : Math.round(view[axis.key])}{axis.unit}</output></div>
-      <Slider aria-label={axis.label} min={axis.min} max={axis.max} step={axis.step} value={[view[axis.key]]} disabled={disabled}
-        onValueChange={([value]) => onChange(normalizeSceneView({ ...view, [axis.key]: value }))} />
-    </div>)}</div>
+    <div className="scene-view-axes">{axes.map(axis => <Parameter key={axis.key} label={axis.label} min={axis.min} max={axis.max} step={axis.step} unit={axis.unit} value={view[axis.key]}
+      format={value => axis.key === 'distance' ? value.toFixed(2) : Math.round(value)} disabled={disabled}
+      onChange={value => onChange(normalizeSceneView({ ...view, [axis.key]: value }))} />)}</div>
     <p className="scene-view-hint">拖动旋转 · Ctrl＋拖动精调 · Shift＋拖动平移 · 滚轮前后 · Alt＋拖动画面旋转。方向键微调，Home 恢复视角。</p>
     <Button variant="ghost" className="reset-button" disabled={disabled} onClick={() => onChange({ ...defaultSceneView })}>恢复三维视角</Button>
   </section>

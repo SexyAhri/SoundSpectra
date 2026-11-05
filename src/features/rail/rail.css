@@ -1,0 +1,109 @@
+@import './rail-surface.css';
+
+.rail-controls { min-width: 0; }
+.rail-controls .section-label { margin: 0; font-size: 12px; font-weight: 500; }
+.rail-control-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding-bottom: 10px; border-bottom: 1px solid var(--border); }
+.rail-enable { display: flex; align-items: center; gap: 10px; font-size: 12px; }
+.rail-save-state { display: inline-flex; align-items: center; gap: 4px; flex-shrink: 0; font-size: 10px; color: var(--muted-foreground); }
+.rail-save-state.is-error { color: var(--destructive); }
+.rail-browser-hint { margin-top: 10px; font-size: 11px; line-height: 1.6; color: var(--muted-foreground); }
+.rail-group-label, .rail-list-heading { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin: 10px 0 6px; }
+.rail-group-label > button { display: inline-flex; align-items: center; gap: 4px; min-height: 28px; border: 0; border-radius: 4px; padding: 3px 6px; font-size: 11px; background: transparent; color: var(--muted-foreground); }
+.rail-group-label > button:hover { background: var(--secondary); color: var(--foreground); }
+.rail-group-label > button:disabled { opacity: .4; }
+.rail-group-tabs { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; margin-bottom: 10px; }
+.rail-group-tabs > button { display: flex; align-items: center; justify-content: space-between; gap: 8px; min-width: 0; min-height: 34px; padding: 7px 10px; font-size: 12px; border: 1px solid var(--border); border-radius: 5px; background: transparent; color: var(--muted-foreground); text-align: left; }
+.rail-group-tabs > button > strong { min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; font-weight: 400; }
+.rail-group-tabs > button:only-child { grid-column: 1 / -1; }
+.rail-group-tabs > button[aria-pressed=true] { color: var(--primary); border-color: var(--primary); background: var(--accent); }
+.rail-group-tabs > button > span { flex-shrink: 0; font-size: 10px; font-variant-numeric: tabular-nums; }
+.rail-settings-tabs { gap: 10px; }
+.rail-settings-tab-list { width: 100%; }
+.rail-settings-tab-list > button { font-size: 12px; }
+.rail-settings-tabs > [role=tabpanel] { min-width: 0; }
+.rail-add-actions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; }
+.rail-add-actions > button { min-width: 0; height: 32px; justify-content: flex-start; gap: 7px; padding: 0 9px; font-size: 11px; background: transparent; }
+.rail-add-actions > .rail-add-desktop { border-color: var(--primary); color: var(--primary); background: var(--accent); }
+.rail-path-entry { margin-top: 8px; font-size: 11px; color: var(--muted-foreground); }
+.rail-path-entry > summary { cursor: pointer; padding: 7px 0; }
+.rail-path-entry form { display: flex; gap: 6px; margin: 6px 0 10px; }
+.rail-path-entry input { flex: 1; min-width: 0; border: 1px solid var(--border); background: var(--background); color: var(--foreground); border-radius: 5px; padding: 7px 8px; font-size: 12px; }
+.rail-path-entry form > button { font-size: 11px; padding: 0 9px; }
+.rail-list-heading { margin-top: 18px; }
+.rail-list-heading > span:last-child { color: var(--muted-foreground); font-size: 11px; font-variant-numeric: tabular-nums; }
+/* The active tab owns scrolling; the group selector and tabs stay in place. */
+.rail-control-list { position: relative; border-top: 1px solid var(--border); }
+.rail-control-item { display: flex; align-items: center; gap: 2px; padding: 4px 3px; border-bottom: 1px solid var(--border); }
+.rail-control-item.is-selected { background: var(--accent); }
+.rail-control-item { transition: background-color .12s ease; }
+.rail-control-item > button { flex-shrink: 0; background: transparent; border: 0; border-radius: 4px; color: var(--muted-foreground); padding: 7px; }
+.rail-control-item > button:hover { color: var(--foreground); background: var(--secondary); }
+.rail-control-item > button:disabled { opacity: .25; }
+.rail-control-item > .rail-control-select { display: flex; align-items: center; gap: 10px; text-align: left; min-width: 0; flex: 1; padding: 2px 4px; color: var(--foreground); }
+.rail-control-select > span:last-child { min-width: 0; }
+.rail-control-select > span:last-child { display: flex; align-items: baseline; gap: 6px; flex: 1; }
+.rail-control-select strong { display: block; min-width: 0; font-size: 12px; font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.rail-control-select small { flex-shrink: 0; font-size: 10px; color: var(--muted-foreground); }
+.rail-control-icon { width: 28px; height: 30px; display: grid; place-items: center; flex-shrink: 0; }
+.rail-control-icon > img { max-width: 100%; max-height: 100%; object-fit: contain; }
+.rail-control-icon > svg { width: 20px; height: 20px; color: var(--muted-foreground); }
+.rail-list-empty { font-size: 12px; line-height: 1.8; padding: 24px 0; color: var(--muted-foreground); }
+.rail-list-empty small { display: block; font-size: 11px; margin-top: 6px; }
+.rail-list-empty > button { display: flex; margin-top: 12px; }
+.rail-item-controls { padding: 6px 8px 8px; border-bottom: 1px solid var(--border); }
+.rail-item-controls-heading { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.rail-item-controls-heading > button { display: grid; place-items: center; width: 28px; height: 28px; border: 0; border-radius: 4px; background: transparent; color: var(--muted-foreground); }
+.rail-item-controls-heading > button:hover { background: var(--secondary); color: var(--foreground); }
+.rail-form-row { display: flex; align-items: center; gap: 10px; font-size: 12px; margin: 8px 0; }
+.rail-form-row label { flex: 0 0 62px; color: var(--muted-foreground); }
+.rail-form-row input, .rail-form-row select { flex: 1; min-width: 0; height: 32px; background: var(--background); color: var(--foreground); border: 1px solid var(--border); border-radius: 5px; padding: 5px 8px; font-size: 12px; }
+.rail-target-path { color: var(--muted-foreground); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 10px; line-height: 1.6; margin: 4px 0 8px; }
+.rail-item-controls > button { font-size: 11px; }
+.rail-item-remove { display: flex; align-items: center; gap: 10px; margin-top: 4px; }
+.rail-unmount { color: var(--destructive); font-size: 11px; padding-left: 0; }
+.rail-control-note { color: var(--muted-foreground); font-size: 10px; }
+.rail-layout-settings > .rail-form-row { margin-top: 0; padding-bottom: 18px; border-bottom: 1px solid var(--border); }
+.rail-layout-settings > .section-label { margin: 18px 0 12px; }
+.rail-position-presets { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; margin-bottom: 22px; }
+.rail-position-presets > button { color: var(--foreground); border: 1px solid var(--border); background: transparent; border-radius: 5px; padding: 8px 2px; font-size: 11px; }
+.rail-position-presets > button:hover { background: var(--secondary); }
+.rail-controls .rail-remove-group { font-size: 11px; color: var(--muted-foreground); }
+.rail-companion { margin-top: 20px; padding-top: 16px; border-top: 1px solid var(--border); }
+.rail-companion > .rail-afternoon-action { width: 100%; margin: 0; font-size: 11px; color: var(--muted-foreground); background: transparent; }
+.rail-control-error { font-size: 11px; color: var(--destructive); border: 1px solid var(--destructive); border-radius: 5px; padding: 10px; margin: 12px 0; line-height: 1.6; overflow-wrap: anywhere; }
+.rail-control-error > button { margin-top: 6px; height: 28px; font-size: 11px; }
+
+/* Settings-specific layout; popup colors are shared with the desktop rail. */
+.rail-controls .rail-popup.rail-add-inline { max-height: none; overflow: visible; padding: 14px 0; border: 0; border-block: 1px solid var(--border); border-radius: 0; background: transparent; color: var(--foreground); box-shadow: none; }
+.rail-controls .rail-popup-heading { font-size: 12px; }
+.rail-controls .rail-add-choices { grid-template-columns: 1fr; }
+.rail-controls .rail-desktop-picker-list { grid-template-columns: 1fr; max-height: 252px; }
+.rail-controls .rail-note-editor textarea { font-size: 12px; }
+.rail-controls button:focus-visible, .rail-controls input:focus-visible, .rail-controls select:focus-visible, .rail-controls summary:focus-visible, .rail-controls textarea:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
+.rail-controls .rail-desktop-search > input:focus-visible { outline: none; }
+.studio-shell .rail-controls.inspector-content { padding: 0; }
+.rail-settings-header { padding: 12px 16px 0; }
+.rail-settings-tabs > .rail-settings-tab-list { width: auto; margin: 0 16px; flex-shrink: 0; }
+.rail-settings-tabs > [role=tabpanel] { padding: 0 16px 16px; }
+.rail-settings-tabs > [role=tabpanel][data-state=active] { animation: rail-panel-in .12s ease-out; }
+.rail-item-controls { animation: rail-panel-in .16s ease-out; }
+.rail-item { touch-action: pan-y; user-select: none; }
+.rail-popup input, .rail-popup textarea { user-select: text; touch-action: auto; }
+.rail-reorder-target .rail-item { outline: 2px solid var(--primary); outline-offset: 4px; }
+@keyframes rail-panel-in { from { opacity: 0; } to { opacity: 1; } }
+.rail-control-select small { max-width: 45%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+@media (min-width: 761px) {
+  .studio-shell .rail-inspector-pane { overflow: hidden; display: flex; flex-direction: column; }
+  .rail-controls { display: flex; flex-direction: column; min-height: 0; flex: 1; }
+  .rail-settings-header { flex-shrink: 0; }
+  .rail-settings-tabs { flex: 1; min-height: 0; }
+  .rail-settings-tabs > [role=tabpanel] { min-height: 0; overflow-y: auto; }
+}
+@media (max-width: 760px) {
+  .workspace-mobile-nav { grid-template-columns: repeat(5, minmax(0, 1fr)); }
+  .studio-shell .workspace-mobile-nav .nav-button { font-size: 10px; gap: 4px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .rail-settings-tabs > [role=tabpanel], .rail-item-controls { animation: none !important; }
+  .rail-control-item { transition: none; }
+}

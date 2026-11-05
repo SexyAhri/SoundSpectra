@@ -1,7 +1,6 @@
-import { Switch } from '@/components/ui/switch'
+import { SettingToggle } from '@/components/ui/setting-toggle'
 import { Button } from '@/components/ui/button'
-import { Slider } from '@/components/ui/slider'
-import { Parameter } from '../settings/appearance-panel'
+import { Parameter } from '@/components/ui/parameter'
 import { defaultLyrics, type LyricSettings, type SpectrumSettings, type SettingsUpdate } from '../spectrum/model'
 import type { LyricDocument } from './model'
 import './lyrics.css'
@@ -31,7 +30,7 @@ export function LyricControls({ settings, document, update, disabled }: { settin
     change({ bounds: b })
   }
   return <section className="inspector-content lyric-controls" aria-label="歌词动效设置">
-    <label className="card-enable"><span>歌词动效<small>动态构图 · 文字编排</small></span><Switch aria-label="显示桌面歌词" disabled={disabled} checked={lyrics.enabled} onCheckedChange={enabled => change({ enabled })} /></label>
+    <SettingToggle className="card-enable" label="歌词动效" description="动态构图 · 文字编排" accessibleLabel="显示桌面歌词" disabled={disabled} checked={lyrics.enabled} onChange={enabled => change({ enabled })} />
     {lyrics.enabled && <>
       <p className="lyric-status" role="status">{document.status === 'ready' ? '歌词已就绪' : document.message}</p>
       {document.issue && <p className="lyric-status" role="alert">{document.issue}</p>}
@@ -42,8 +41,8 @@ export function LyricControls({ settings, document, update, disabled }: { settin
       <p className="lyric-status">0% 为完全透明，数值越大背景越深。</p>
       <p className="lyric-status">在预览中拖动歌词，右下角缩放。</p>
       <details className="inspector-advanced"><summary>位置与同步</summary>
-      <div className="parameter"><div className="parameter-label"><span>歌词同步偏移</span><output>{lyrics.offsetMs > 0 ? '+' : ''}{lyrics.offsetMs} ms</output></div>
-        <Slider aria-label="歌词同步偏移" min={-10000} max={10000} step={100} value={[lyrics.offsetMs]} disabled={disabled} onValueChange={([offsetMs]) => change({ offsetMs })} /></div>
+      <Parameter label="歌词同步偏移" value={lyrics.offsetMs} min={-10000} max={10000} step={100} unit=" ms"
+        format={value => `${value > 0 ? '+' : ''}${value}`} disabled={disabled} onChange={offsetMs => change({ offsetMs })} />
       <p className="lyric-status">歌词慢了向右调，歌词快了向左调。</p>
       <Parameter label="歌词区域宽度" value={lyrics.bounds.width * 100} min={25} max={100} disabled={disabled} onChange={value => bounds('width', value)} />
       <Parameter label="歌词距左侧" value={lyrics.bounds.x * 100} min={0} max={Math.round((1 - lyrics.bounds.width) * 100)} disabled={disabled} onChange={value => bounds('x', value)} />

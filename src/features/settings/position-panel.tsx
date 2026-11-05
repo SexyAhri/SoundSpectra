@@ -1,5 +1,5 @@
 import { Button } from '@/components/ui/button'
-import { Parameter } from './appearance-panel'
+import { Parameter } from '@/components/ui/parameter'
 import { LayoutPresets } from '../preview/layout-presets'
 import { defaults, type SpectrumSettings } from '../spectrum/model'
 import { isThreeEffect } from '../spectrum/music-engine/catalog'

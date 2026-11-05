@@ -1,4 +1,5 @@
 import { invoke } from '@tauri-apps/api/core'
+import { listen } from '@tauri-apps/api/event'
 import { openUrl } from '@tauri-apps/plugin-opener'
 import { native } from '../spectrum/bridge'
 import packageInfo from '../../../package.json'
@@ -36,3 +37,8 @@ async function openGithub(repository: string, path: '' | '/releases') {
 }
 export const backupConfiguration = () => invoke<string>('backup_configuration')
 export const exportDiagnostics = () => invoke<string>('export_diagnostics')
+
+export type ApplicationAction = 'quit' | 'settings' | 'updates' | 'about' | 'rail' | 'scene' | 'lyrics' | 'card' | 'wallpaper'
+export function subscribeApplicationActions(onAction: (action: ApplicationAction) => void) {
+  return listen<ApplicationAction>('application-action', event => onAction(event.payload))
+}

@@ -136,6 +136,14 @@ pub fn backup(app: &AppHandle, state: &AppState) -> Result<PathBuf, String> {
         std::fs::copy(preferences, folder.join("preferences.json")).map_err(|e| e.to_string())?;
     }
     let audio_source = crate::audio_source::path(&state.path);
+    let rail_path = app
+        .path()
+        .app_config_dir()
+        .map_err(|e| e.to_string())?
+        .join("rail.json");
+    if rail_path.exists() {
+        std::fs::copy(rail_path, folder.join("rail.json")).map_err(|e| e.to_string())?;
+    }
     if audio_source.exists() {
         std::fs::copy(audio_source, folder.join("audio-source.json")).map_err(|e| e.to_string())?;
     }

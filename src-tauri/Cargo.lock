@@ -4009,6 +4009,7 @@ version = "1.0.2"
 dependencies = [
  "base64 0.22.1",
  "lyrics-crypto",
+ "png 0.18.1",
  "regex",
  "reqwest",
  "rustfft",

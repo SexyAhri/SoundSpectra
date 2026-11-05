@@ -1,3 +1,5 @@
+import { ModalContent } from '@/components/ui/modal'
+import { IconButton } from '@/components/ui/icon-button'
 import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { Dialog } from 'radix-ui'
 import { Check, RefreshCw, Sparkles, X } from 'lucide-react'
@@ -53,9 +55,9 @@ export function AutoSceneDialog(props: Props) {
     finally { applyingRef.current = false; setApplying(false) }
   }
   return <Dialog.Root open onOpenChange={open => { if (!open && !applyingRef.current) props.onClose() }}>
-    <Dialog.Portal><Dialog.Overlay className="application-dialog-backdrop" /><Dialog.Content className="auto-scene-dialog" onCloseAutoFocus={event => { if (props.onReturnFocus) { event.preventDefault(); props.onReturnFocus() } }} onEscapeKeyDown={event => { if (applyingRef.current) event.preventDefault() }}>
+    <ModalContent className="auto-scene-dialog" onCloseAutoFocus={event => { if (props.onReturnFocus) { event.preventDefault(); props.onReturnFocus() } }} onEscapeKeyDown={event => { if (applyingRef.current) event.preventDefault() }}>
       <div className="auto-scene-heading"><div><Dialog.Title><Sparkles size={17} />自动搭配</Dialog.Title><Dialog.Description>先看效果，选喜欢的再应用。</Dialog.Description></div>
-        <Dialog.Close className="toolbar-button" aria-label="关闭自动搭配" disabled={applying}><X size={18} /></Dialog.Close>
+        <Dialog.Close asChild><IconButton aria-label="关闭自动搭配" disabled={applying}><X size={18} /></IconButton></Dialog.Close>
       </div>
       <div className="auto-scene-body">
         <div className="auto-scene-preview">
@@ -80,6 +82,6 @@ export function AutoSceneDialog(props: Props) {
       <div className="auto-scene-footer"><div><p>应用后替换当前动效与区域，保留遮罩和整体性能，可撤销。</p>{applyError && <p role="alert">{applyError}</p>}</div>
         <Button onClick={() => void apply()} disabled={!scene || applying || props.disabled}>{applying ? '正在应用…' : '应用搭配'}</Button>
       </div>
-    </Dialog.Content></Dialog.Portal>
+    </ModalContent>
   </Dialog.Root>
 }
