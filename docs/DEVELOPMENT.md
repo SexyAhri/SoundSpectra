@@ -15,12 +15,12 @@ npm run desktop
 npm run version:check
 npm run test:release
 npm run build
-npx playwright test tests/application.spec.ts tests/workspace-layout.spec.ts tests/lyrics.spec.ts
+npm run test:smoke
 node scripts/desktop.mjs --cargo fmt --manifest-path src-tauri/Cargo.toml -- --check
 node scripts/desktop.mjs --cargo test --manifest-path src-tauri/Cargo.toml --locked
 ```
 
-`npm test` 运行完整前端回归集；本地和 Windows CI 均使用稳定版 Chrome。前端测试采用软件 WebGL，不代表真实显卡性能；CI 对软件光栅化设置较长等待上限，断言与本地一致。安装包与签名配置见 [发布指南](RELEASING.md)。
+`npm run test:smoke` 运行发布所需的应用、工作区和歌词核心回归。`npm test` 运行完整前端回归集，也可手动运行 Checks 并勾选 `full`；完整回归不作为发布门槛。本地和 Windows CI 均使用稳定版 Chrome。前端测试采用软件 WebGL，不代表真实显卡性能；CI 对软件光栅化设置较长等待上限，断言与本地一致。安装包与签名配置见 [发布指南](RELEASING.md)。
 
 ## 模块边界
 

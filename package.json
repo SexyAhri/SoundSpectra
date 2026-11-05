@@ -18,6 +18,7 @@
     "desktop": "node scripts/desktop.mjs",
     "doctor": "node scripts/desktop.mjs --check",
     "test": "playwright test",
+    "test:smoke": "playwright test tests/application.spec.ts tests/workspace-layout.spec.ts tests/lyrics.spec.ts",
     "desktop:build": "node scripts/desktop.mjs --build",
     "release:prepare": "node scripts/release-config.mjs",
     "release:setup": "node scripts/setup-release.mjs",

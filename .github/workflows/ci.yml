@@ -2,6 +2,11 @@ name: Checks
 on:
   workflow_call:
   workflow_dispatch:
+    inputs:
+      full:
+        description: 'Run the full browser regression suite'
+        type: boolean
+        default: false
   push:
     branches-ignore: [main, master]
 permissions:
@@ -33,7 +38,12 @@ jobs:
       - run: npm run test:release
       - run: npm run build
       - run: npx playwright install chrome
-      - run: npm test
+      - name: Core browser regression
+        if: inputs.full != true
+        run: npm run test:smoke
+      - name: Full browser regression
+        if: inputs.full == true
+        run: npm test
       - run: cargo fmt --manifest-path src-tauri/Cargo.toml -- --check
       - run: cargo test --manifest-path src-tauri/Cargo.toml --locked
       - run: cargo build --manifest-path src-tauri/Cargo.toml --locked --features custom-protocol
