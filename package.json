@@ -1,0 +1,55 @@
+{
+  "name": "soundspectra",
+  "private": true,
+  "license": "GPL-3.0-only",
+  "author": "SexyAhri",
+  "description": "Windows desktop music visualization with kinetic lyrics",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/SexyAhri/SoundSpectra.git"
+  },
+  "version": "1.0.1",
+  "type": "module",
+  "scripts": {
+    "dev": "vite --host 127.0.0.1",
+    "build": "tsc -b && vite build",
+    "preview": "vite preview --host 127.0.0.1",
+    "tauri": "tauri",
+    "desktop": "node scripts/desktop.mjs",
+    "doctor": "node scripts/desktop.mjs --check",
+    "test": "playwright test",
+    "desktop:build": "node scripts/desktop.mjs --build",
+    "release:prepare": "node scripts/release-config.mjs",
+    "release:setup": "node scripts/setup-release.mjs",
+    "version:check": "node scripts/version.mjs --check",
+    "version:set": "node scripts/version.mjs",
+    "test:release": "node --test scripts/tests/*.test.mjs"
+  },
+  "dependencies": {
+    "@tauri-apps/api": "^2.12.4",
+    "@tauri-apps/plugin-autostart": "^2.7.0",
+    "@tauri-apps/plugin-opener": "^2.7.2",
+    "@tauri-apps/plugin-updater": "^2.14.0",
+    "class-variance-authority": "^0.7.1",
+    "clsx": "^2.1.1",
+    "lucide-react": "^1.59.0",
+    "radix-ui": "^1.8.1",
+    "react": "^19.3.1",
+    "react-dom": "^19.3.1",
+    "tailwind-merge": "^3.7.0",
+    "three": "^0.180.0"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.64.1",
+    "@tailwindcss/vite": "^4.3.3",
+    "@tauri-apps/cli": "^2.12.3",
+    "@types/node": "^26.6.5",
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "@types/three": "^0.180.0",
+    "@vitejs/plugin-react": "^6.1.2",
+    "tailwindcss": "^4.3.3",
+    "typescript": "~5.9.3",
+    "vite": "^8.3.4"
+  }
+}

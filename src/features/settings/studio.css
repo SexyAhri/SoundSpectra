@@ -1,0 +1,130 @@
+.studio-shell { background: #14181c; font-family: "Segoe UI Variable", "Segoe UI", "Microsoft YaHei UI", sans-serif; }
+.studio-shell .sidebar { width: 80px; background: #101316; border-color: #2a3036; padding: 18px 10px; }
+.studio-shell .brand-mark { height: 47px; margin-bottom: 34px; position: relative; color: #ffac72; }
+.studio-shell .brand-mark > svg { width: 28px; height: 28px; }
+.brand-monogram { position: absolute; right: -2px; bottom: -1px; font: 600 8px Consolas,monospace; letter-spacing: .04em; color: #ffb073; }
+.studio-shell .sidebar nav { display: grid; gap: 14px; }
+.studio-shell .nav-active,.studio-shell .nav-item { width: 56px; min-height: 61px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; border-radius: 11px; font-size: 10px; text-decoration: none; }
+.studio-shell .nav-active { color: #ffc39b; border: 1px solid #865536; background: #35291f; box-shadow: inset 0 1px 0 #ffe3b312; }
+.studio-shell .nav-item { color: #88939d; border: 1px solid transparent; background: transparent; }
+.studio-shell .nav-item:hover { color: #e7edf2; background: #20262b; }
+.studio-shell .nav-button { font: inherit; font-size: 10px; }
+.studio-shell .sidebar-version { font-family: Consolas,monospace; color: #65717c; font-size: 9px; }
+.studio-shell .topbar { height: 54px; padding-left: 25px; border-bottom: 1px solid #2b3239; background: #181d21; }
+.studio-shell .workspace-title { display: flex; align-items: center; gap: 12px; font-size: 14px; font-weight: 650; letter-spacing: -.015em; }
+.workspace-edition { border-left: 1px solid #49515a; padding-left: 12px; font: 9px Consolas,monospace; color: #94a0ab; letter-spacing: .18em; }
+.studio-shell .save-status { color: #9aa7ad; font-size: 10px; }
+.studio-shell .save-status svg { color: #91c8a7; }
+.studio-shell .window-controls button { height: 54px; }
+.studio-shell .main-pane { padding: 25px 26px 22px; background: #14181c; }
+.studio-heading { display: flex; align-items: center; justify-content: space-between; gap: 18px; margin-bottom: 24px; }
+.studio-eyebrow { display: flex; align-items: center; gap: 7px; color: #8c9aa5; font: 9px Consolas,monospace; letter-spacing: .19em; margin-bottom: 9px; }
+.studio-eyebrow > span { width: 5px; height: 5px; background: #ffac72; border-radius: 1px; }
+.studio-heading h2 { font-size: 25px; font-weight: 650; letter-spacing: -.03em; }
+.studio-heading-period { color: #ff9c5c; padding-left: 3px; }
+.studio-session { width: 157px; padding-left: 19px; border-left: 1px solid #363e45; }
+.studio-session-caption { display: flex; align-items: center; gap: 6px; color: #b2c2cd; font-size: 10px; white-space: nowrap; }
+.studio-session-caption > svg { color: #e7b46d; }
+.studio-session-count { display: flex; align-items: center; gap: 4px; margin-left: auto; color: #89959f; font: 10px Consolas,monospace; }
+.studio-session .live-meter { height: 26px; width: 130px; margin-top: 4px; }
+.studio-shell .section-toolbar { margin-bottom: 12px; }
+.studio-shell .section-toolbar h2 { color: #bdc7ce; font-size: 11px; gap: 7px; }
+.studio-shell .section-toolbar h2 svg { width: 14px; color: #ffb581; }
+.studio-shell .demo-control { color: #a1adb7; }
+.studio-shell .desktop-preview { border-radius: 13px; box-shadow: 0 0 0 1px #434b54,0 14px 36px #0003; background: #20262c; }
+.studio-shell .preview-corner { background: #12181dd9; border-color: #7486934d; color: #d4dce1; border-radius: 5px; letter-spacing: .03em; padding: 5px 9px; }
+.studio-shell .demo-dot { background: #ffb171; }
+.studio-shell .preview-footer { color: #8798a5; margin-top: 15px; }
+.studio-shell .preview-background-controls { padding: 3px; border: 1px solid #303941; border-radius: 7px; background: #1c2227; }
+.studio-shell .preview-background-controls button { border-radius: 4px; }
+.studio-shell .auto-scene-entry { margin-top: 16px; gap: 8px; }
+.studio-shell .auto-scene-entry > button { color: #d9e1e7; border-color: #3b454d; background: #21282e; height: 34px; padding: 0 12px; border-radius: 7px; }
+.studio-shell .auto-scene-entry > button:first-child { background: #3a2b20; border-color: #785034; color: #ffc49d; }
+.studio-shell .preview-message { color: #94a4af; line-height: 1.6; }
+.studio-shell .desktop-actions { padding: 13px 15px; border: 1px solid #384149; border-radius: 11px; background: #1b2228; margin-top: 23px; gap: 8px; }
+.studio-shell .desktop-toggle { font-size: 12px; }
+.studio-shell .desktop-toggle > svg { color: #a2becd; }
+.studio-shell .desktop-actions > button { border-color: #46535e; color: #d8e4ec; background: #28323a; height: 31px; font-size: 11px; border-radius: 6px; }
+.studio-shell .context-note { margin-top: 8px; color: #84949f; font-size: 10px; }
+.studio-shell .audio-source-panel { margin-top: 16px; padding-top: 14px; border-top-color: #303a43; }
+.studio-shell .audio-source-choice { font-size: 11px; }
+.studio-shell .audio-source-choice .choice-trigger { background: #222b32; border-color: #3b4852; width: 185px; }
+.studio-footer { display: grid; grid-template-columns: minmax(260px,.9fr) minmax(0,1.1fr); margin-top: 20px; border: 1px solid #38434b; border-radius: 11px; background: #1b2228; overflow: hidden; }
+.studio-shell .studio-footer .desktop-actions { border: 0; border-right: 1px solid #38434b; border-radius: 0; padding: 14px; margin: 0; gap: 8px; }
+.studio-shell .studio-footer .desktop-actions > button { font-size: 10px; padding: 0 9px; }
+.studio-shell .studio-footer .desktop-toggle { font-size: 11px; gap: 7px; }
+.studio-shell .studio-footer .audio-source-panel { margin: 0; padding: 13px 14px; border: 0; grid-template-columns: 19px minmax(0,1fr); gap: 5px 8px; align-content: center; }
+.studio-footer .audio-source-choice { gap: 8px; }
+.studio-footer .audio-source-choice .choice-trigger { width: 160px; height: 30px; }
+.studio-footer .audio-source-panel .source-status { grid-column: 2; }
+.studio-footer .source-icon { width: 18px; }
+.studio-shell .source-status { color: #8f9fa9; font-size: 9px; }
+.studio-shell .source-status.connected { color: #a4d9bd; }
+.studio-shell .inspector { background: #1b2025; border-left-color: #343c44; }
+.studio-shell .inspector-heading { padding-top: 24px; color: #dce5ec; }
+.studio-shell .inspector-heading > svg { color: #ffb77d; }
+.studio-shell .region-panel { padding-bottom: 18px; }
+.studio-shell .region-panel-heading { color: #9baab5; font-size: 11px; }
+.studio-shell .region-panel-heading small { color: #e1ac73; }
+.studio-shell .region-selector-row .choice-trigger { background: #262f37; border-color: #44515b; border-radius: 7px; }
+.studio-shell .inspector-tab-list { border: 1px solid #3b444c; background: #12191f; padding: 3px; height: 40px; border-radius: 8px; }
+.studio-shell .inspector-tab-list > button { font-size: 11px; gap: 5px; }
+.studio-shell .inspector-tab-list > button[data-state="active"] { background: #39434b; border-color: #5e6c78; box-shadow: 0 2px 3px #0003; color: #f5f3ed; }
+.studio-shell .inspector-tab-list > button[data-state="active"] svg { color: #ffc08b; }
+.studio-shell .inspector-scroll { scrollbar-color: #505e69 transparent; }
+.studio-shell .inspector-content { padding-top: 21px; }
+.studio-shell .section-label { font-size: 11px; font-weight: 600; color: #b7c7d2; margin-bottom: 13px; letter-spacing: .025em; }
+.effect-art { display: block; width: 100%; height: 60px; flex: none; filter: drop-shadow(0 0 3px currentColor); }
+.effect-category + .effect-category { margin-top: 24px; }
+.desktop-layout-choices { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 6px; margin-bottom: 23px; }
+.immersive-presets { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 8px; margin-bottom: 14px; }
+.immersive-presets > button { height: auto; display: flex; flex-direction: column; align-items: stretch; gap: 0; padding: 0; overflow: hidden; border-color: #526879; background: #15232d; text-align: left; }
+.immersive-presets .effect-art { height: 63px; background: linear-gradient(140deg,#102e3c,#1a1731); }
+.immersive-presets > button > span { display: block; padding: 8px 9px; font-size: 12px; color: #d8e8ed; }
+.immersive-presets small { display: block; margin-top: 3px; color: #93aab9; font-size: 10px; font-weight: 400; }
+.immersive-presets > .immersive-current { grid-column: 1 / -1; flex-direction: row; align-items: center; justify-content: center; gap: 8px; height: 36px; font-size: 12px; background: #243641; color: #d0e8f1; }
+.desktop-layout-choices > button { display: flex; flex-direction: column; height: 49px; gap: 6px; padding: 7px 3px; font-size: 9px; background: #202a32; border-color: #435461; }
+.desktop-layout-choices > button > svg { color: #dfb48e; }
+.effect-category > .section-label { display: flex; align-items: center; justify-content: space-between; }
+.effect-category > .section-label small { font: 9px Consolas,monospace; color: #798e9c; }
+.studio-shell .effect-options { gap: 10px; }
+.studio-shell .effect-options .effect-tile { position: relative; display: flex; flex-direction: column; justify-content: flex-start; align-items: stretch; height: 103px; padding: 0; gap: 0; overflow: hidden; border-radius: 8px; border: 1px solid #3b4650; background: #171e24; text-align: left; transition: border-color .16s,transform .16s; }
+.effect-tile > .effect-art { height: 65px; background: #12191f; border-bottom: 1px solid #323d46; padding: 2px 2px 0; }
+.effect-tile > img.effect-art, .immersive-presets img.effect-art { object-fit: cover; filter: none; padding: 0; }
+.effect-tile-caption { display: flex; align-items: center; justify-content: space-between; gap: 6px; padding: 10px 10px; font-size: 11px; color: #c6d0d7; }
+.effect-tile-caption small { font: 7px Consolas,monospace; letter-spacing: .06em; color: #7e919f; }
+.studio-shell .effect-tile:hover { border-color: #8093a2; transform: translateY(-1px); }
+.studio-shell .effect-options .effect-tile[aria-pressed="true"] { border-color: #ffac71; box-shadow: 0 0 0 1px #ffac7120,inset 0 -2px 0 #ffac71; background: #352b22; }
+.effect-tile[aria-pressed="true"] .effect-tile-caption { color: #ffcb9e; }
+.studio-shell .scene-choice { display: flex; padding: 0 13px 0 0; gap: 13px; min-height: 70px; height: 70px; margin-bottom: 12px; overflow: hidden; border-radius: 9px; border-color: #3a4650; background: #172027; }
+.scene-choice > .effect-art { width: 93px; height: 70px; background: #121a23; border-right: 1px solid #36424e; padding: 8px 0; }
+.scene-choice-copy { display: flex; flex: 1; min-width: 0; flex-direction: column; gap: 7px; align-items: flex-start; }
+.studio-shell .scene-choice-detail { margin-left: 0; color: #97aab7; font-size: 9px; }
+.scene-choice > svg:last-child { color: #738b9e; margin-left: auto; width: 15px; }
+.studio-shell .scene-choice[aria-pressed="true"] { border-color: #d3b185; background: #322c23; }
+.studio-shell .scene-choice[aria-pressed="true"] .scene-choice-copy > span:first-child { color: #f8c690; }
+.studio-shell .scene-choice:last-of-type { margin-bottom: 22px; }
+.studio-shell .inspector-performance { background: #171d22; border-top-color: #3b4650; font-size: 10px; }
+.studio-shell .inspector-performance .choice-trigger { background: #2c373f; border-color: #455967; color: #e4edf4; }
+.studio-shell .parameter-label { color: #a9b9c5; font-size: 11px; }
+.studio-shell .parameter-label output { color: #edbd8a; font-size: 11px; }
+.studio-shell [data-slot="slider-track"] { background: #10171c; box-shadow: inset 0 1px 2px #0006; height: 5px; }
+.studio-shell [data-slot="slider-thumb"] { width: 11px; height: 17px; border: 1px solid #d2b496; border-radius: 3px; background: #ead8c3; box-shadow: 0 1px 3px #000a; }
+.studio-shell [data-slot="slider-thumb"]::after { content: ''; display: block; width: 1px; height: 8px; margin: 3px auto; background: #71553e; }
+.card-enable { display: flex; align-items: center; justify-content: space-between; gap: 12px; font-size: 12px; color: #e6e5df; margin-bottom: 17px; }
+.card-enable small { display: block; font-size: 10px; color: #8ea0ad; margin-top: 7px; }
+.card-style-preview { width: 100%; aspect-ratio: 3.2; margin: 0 0 16px; }
+.card-position-label { margin-top: 25px; }
+.card-accent-control { display: flex; align-items: center; justify-content: space-between; gap: 9px; margin-top: 22px; font-size: 11px; color: #afbec8; }
+.card-accent-control > div { display: flex; align-items: center; gap: 7px; }
+.card-accent-control button { width: 16px; height: 16px; border-radius: 50%; border: 1px solid #ffffff3b; }
+.card-accent-control button[aria-pressed="true"] { outline: 1px solid #ffbd87; outline-offset: 3px; }
+.card-accent-control input { width: 23px; height: 23px; border: 0; padding: 0; background: transparent; cursor: pointer; }
+.card-position-options { display: flex; gap: 7px; margin-bottom: 25px; }
+.card-position-options button { flex: 1; font-size: 11px; }
+.card-provider-note { font-size: 10px; color: #91a2ae; line-height: 1.8; margin-top: 15px; }
+@media (min-width: 1500px) { .studio-shell .main-pane { padding: 28px 36px; } }
+@media (max-width: 1199px) { .effect-tile-caption { padding: 10px 8px; font-size: 10px; } .effect-tile-caption small { display: none; } .studio-shell .main-pane { padding: 23px 22px; } .studio-shell .scene-choice { gap: 9px; } .scene-choice > .effect-art { width: 76px; } }
+@media (max-width: 1199px) { .studio-footer { grid-template-columns: 1fr; } .studio-shell .studio-footer .desktop-actions { border-right: 0; border-bottom: 1px solid #38434b; } .studio-shell .studio-footer .audio-source-panel { grid-template-columns: 22px minmax(0,1fr) auto; } .studio-footer .audio-source-panel .source-status { grid-column: 3; grid-row: 1; } }
+@media (max-width: 760px) { .studio-shell .studio-footer .audio-source-panel { grid-template-columns: 19px minmax(0,1fr); } .studio-footer .audio-source-panel .source-status { grid-column: 2; grid-row: auto; } }
+@media (max-width: 760px) { .studio-shell .sidebar { display: none; } .studio-shell .topbar { height: 52px; padding-left: 16px; } .workspace-edition { display: none; } .studio-shell .main-pane { padding: 24px 18px; } .studio-heading { margin-bottom: 24px; } .studio-heading h2 { font-size: 23px; } .studio-session { width: 117px; padding-left: 13px; } .studio-session .live-meter { width: 100px; } .studio-session-count { display: none; } .studio-shell .inspector { border-left: 0; } .studio-shell .desktop-actions { gap: 12px; } .studio-shell .workspace-title { font-size: 13px; } .studio-shell .preview-tools { gap: 2px; } .studio-shell .preview-tools > button { padding-left: 7px; padding-right: 7px; } .effect-tile-caption small { display: inline; } .studio-shell .effect-options .effect-tile { height: 112px; } .effect-tile > .effect-art { height: 73px; } }

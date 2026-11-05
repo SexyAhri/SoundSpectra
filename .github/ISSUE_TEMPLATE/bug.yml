@@ -1,0 +1,20 @@
+name: 问题反馈
+description: 报告桌面显示、音频或更新问题
+body:
+  - type: input
+    id: version
+    attributes:
+      label: SoundSpectra 版本
+    validations:
+      required: true
+  - type: input
+    id: windows
+    attributes:
+      label: Windows 版本与显示器缩放比例
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: 如何重现
+      description: 描述操作步骤、预期结果和实际结果。可附上应用导出的诊断文件；提交前检查是否包含个人信息。
+    validations:
+      required: true

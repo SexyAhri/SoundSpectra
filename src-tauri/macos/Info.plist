@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0"><dict>
+  <key>NSScreenCaptureUsageDescription</key><string>SoundSpectra 仅捕获所选音乐播放器的音频，用于桌面灯效；不保存屏幕内容。</string>
+  <key>NSAudioCaptureUsageDescription</key><string>SoundSpectra 根据音乐播放器的实时音频绘制桌面灯效，不录制或上传音频。</string>
+  <key>NSAppleEventsUsageDescription</key><string>SoundSpectra 读取音乐播放器提供的歌曲和进度，用于音乐卡片与同步歌词。</string>
+</dict></plist>

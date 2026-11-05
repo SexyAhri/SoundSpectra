@@ -1,0 +1,22 @@
+.lyric-layer { position: absolute; z-index: 4; display: grid; place-items: center; container-type: size; pointer-events: none; overflow: hidden; }
+.kinetic-lyrics-canvas { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
+.lyric-layer.is-draggable { pointer-events: auto; cursor: grab; touch-action: none; outline: 1px dashed transparent; outline-offset: -1px; }
+.lyric-layer.is-draggable:hover, .lyric-layer.is-draggable:focus-visible { outline-color: #f1b87580; }
+.lyric-layer.is-draggable:active { cursor: grabbing; }
+.lyric-resize { position: absolute; right: 0; bottom: 0; width: 23px; height: 23px; border: 0; background: linear-gradient(135deg, transparent 45%, #f4bc7b 46% 52%, transparent 53% 65%, #f4bc7b 66% 72%, transparent 73%); cursor: nwse-resize; opacity: 0; touch-action: none; }
+.lyric-drag-hint { position: absolute; top: 4px; left: 6px; color: #edc79b; background: #121920cc; font-size: 10px; padding: 2px 5px; border-radius: 3px; opacity: 0; pointer-events: none; }
+.is-draggable:hover .lyric-resize, .is-draggable:focus-within .lyric-resize, .is-draggable:hover .lyric-drag-hint, .is-draggable:focus-visible .lyric-drag-hint { opacity: 1; }
+.lyric-demo-label { position: absolute; right: 8px; top: 4px; font-size: 8px; color: #acb8c4; opacity: .65; pointer-events: none; }
+.lyric-empty { color: var(--muted-foreground); font-size: 11px; padding: 8px; border: 1px dashed var(--border); background: var(--background); border-radius: 6px; text-align: center; }
+.lyric-controls { border-bottom: 1px solid var(--border); }
+.lyric-controls .card-enable { margin-bottom: 16px; }
+.lyric-style-options { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 6px; margin-bottom: 10px; }
+.lyric-style-options button { min-width: 0; height: 105px; padding: 8px 2px; display: flex; flex-direction: column; gap: 5px; font-size: 11px; }
+.lyric-style-options button small { color: var(--muted-foreground); font-size: 9px; font-weight: 400; }
+.lyric-style-options button[aria-pressed="true"] { background: var(--accent); border-color: var(--primary); color: var(--primary); }
+.composition-mark { display: grid; place-items: center; height: 37px; width: 100%; color: #d6c3a0; font: 19px/1 Georgia,SimSun,serif; white-space: pre; letter-spacing: .15em; }
+.composition-option-depth .composition-mark { transform: rotate(-5deg); word-spacing: 6px; }
+.composition-option-stage .composition-mark { font-size: 16px; line-height: .9; transform: rotate(-8deg); text-align: right; }
+.composition-option-stardust .composition-mark { border-bottom: 1px solid #b1c8c52c; border-radius: 0 0 50% 50%; width: 68%; letter-spacing: .3em; transform: rotate(7deg); color: #bad5cf; }
+.lyric-stage-expand { width: 100%; margin-bottom: 18px; font-size: 11px; }
+.lyric-status { color: var(--muted-foreground); font-size: 11px; line-height: 1.6; margin: 12px 0; overflow-wrap: anywhere; }

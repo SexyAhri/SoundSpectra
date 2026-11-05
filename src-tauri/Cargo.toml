@@ -1,0 +1,58 @@
+[package]
+name = "soundspectra"
+version = "1.0.1"
+description = "Music-reactive desktop scenes with per-application audio capture"
+license = "GPL-3.0-only"
+authors = ["SexyAhri"]
+repository = "https://github.com/SexyAhri/SoundSpectra"
+edition = "2021"
+rust-version = "1.85"
+
+[lib]
+name = "soundspectra_lib"
+crate-type = ["rlib"]
+
+[features]
+custom-protocol = ["tauri/custom-protocol"]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = ["tray-icon"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+base64 = "0.22"
+lyrics-crypto = "=0.5.1"
+regex = "1"
+reqwest = { version = "0.13", default-features = false, features = ["blocking", "json", "rustls"] }
+tokio = { version = "1", features = ["rt", "sync", "time"] }
+rustfft = "6"
+tauri-plugin-updater = "2"
+tauri-plugin-single-instance = "2"
+tauri-plugin-autostart = "2"
+tauri-plugin-opener = "2"
+
+[target.'cfg(windows)'.dependencies]
+wasapi = "0.26"
+windows = { version = "0.62", features = ["Media_Control", "Foundation", "Storage_Streams"] }
+windows-sys = { version = "0.61", features = ["Win32_Foundation", "Win32_UI_WindowsAndMessaging", "Win32_Graphics_Gdi", "Win32_System_Diagnostics_ToolHelp", "Win32_System_Threading", "Win32_System_Com"] }
+
+[target.'cfg(target_os = "macos")'.dependencies]
+tauri = { version = "2", features = ["tray-icon", "macos-private-api"] }
+
+[profile.dev]
+debug = 0
+incremental = false
+
+[profile.test]
+debug = 0
+incremental = false
+
+# Generated Windows bindings are large; omit dependency-only debug assertions.
+# Keep assertions enabled in SoundSpectra itself.
+[profile.dev.package.windows]
+debug-assertions = false
+
+[profile.test.package.windows]
+debug-assertions = false

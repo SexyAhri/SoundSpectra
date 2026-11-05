@@ -1,0 +1,12 @@
+.source-section.audio-source-panel { display: grid; grid-template-columns: 24px minmax(0, 1fr) auto; gap: 10px; }
+.audio-source-choice { display: flex; align-items: center; gap: 12px; min-width: 0; font-size: 12px; }
+.audio-source-choice > span { flex-shrink: 0; }
+.audio-source-choice .choice-trigger { width: 220px; max-width: 100%; min-width: 0; }
+.audio-source-message { grid-column: 2 / -1; color: var(--muted-foreground); font-size: 11px; line-height: 1.6; overflow-wrap: anywhere; }
+.audio-source-message [role="alert"] { color: var(--destructive); }
+.source-placeholder { color: var(--muted-foreground); font-size: 11px; }
+@media (max-width: 1100px) {
+  .source-section.audio-source-panel { grid-template-columns: 24px minmax(0, 1fr); }
+  .audio-source-panel .source-status { grid-column: 2; white-space: normal; }
+  .audio-source-choice { flex-wrap: wrap; }
+}

@@ -1,0 +1,473 @@
+mod application;
+#[cfg(windows)]
+mod audio;
+#[cfg(target_os = "macos")]
+#[path = "platform/macos/audio.rs"]
+mod audio;
+#[cfg(windows)]
+mod audio_discovery;
+#[cfg(target_os = "macos")]
+#[path = "platform/macos/discovery.rs"]
+mod audio_discovery;
+mod audio_source;
+#[cfg(windows)]
+mod desktop;
+#[cfg(target_os = "macos")]
+#[path = "platform/macos/desktop.rs"]
+mod desktop;
+mod dsp;
+mod lyrics;
+#[cfg(target_os = "macos")]
+#[path = "platform/macos/helper.rs"]
+mod macos_helper;
+#[cfg(windows)]
+mod now_playing;
+#[cfg(target_os = "macos")]
+#[path = "platform/macos/now_playing.rs"]
+mod now_playing;
+mod settings;
+#[cfg(windows)]
+mod wallpaper;
+#[cfg(target_os = "macos")]
+#[path = "platform/macos/wallpaper.rs"]
+mod wallpaper;
+mod wallpaper_depth;
+
+use serde::Serialize;
+use settings::Settings;
+use std::{
+    path::PathBuf,
+    sync::{
+        atomic::{AtomicBool, Ordering},
+        Arc, Mutex,
+    },
+};
+use tauri::{
+    menu::{Menu, MenuItem},
+    tray::TrayIconBuilder,
+    AppHandle, Emitter, Manager, State,
+};
+
+#[derive(Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RuntimeStatus {
+    state: String,
+    message: String,
+    process_id: Option<u32>,
+    source_name: Option<String>,
+    desktop_attached: bool,
+    editing: bool,
+    desktop_error: Option<String>,
+}
+
+pub struct AppState {
+    now_playing: Mutex<now_playing::NowPlaying>,
+    lyric_cache: Mutex<lyrics::LyricCache>,
+    lyric_library: Mutex<lyrics::discovery::Library>,
+    audio_source: Mutex<audio_source::SourceState>,
+    audio_discovery: Mutex<audio_source::Discovery>,
+    settings: Mutex<Settings>,
+    status: Mutex<RuntimeStatus>,
+    operation: Mutex<()>,
+    config_error: Mutex<Option<String>>,
+    path: PathBuf,
+    shutdown: AtomicBool,
+}
+
+#[tauri::command]
+fn get_settings(state: State<'_, Arc<AppState>>) -> Result<Settings, String> {
+    if let Some(error) = state
+        .config_error
+        .lock()
+        .map_err(|e| e.to_string())?
+        .as_ref()
+    {
+        return Err(error.clone());
+    }
+    Ok(state.settings.lock().map_err(|e| e.to_string())?.clone())
+}
+
+#[tauri::command]
+fn get_status(app: AppHandle, state: State<'_, Arc<AppState>>) -> Result<RuntimeStatus, String> {
+    let mut current = state.status.lock().map_err(|e| e.to_string())?.clone();
+    current.desktop_attached = app
+        .get_webview_window("overlay")
+        .is_some_and(|window| desktop::is_attached(&window));
+    Ok(current)
+}
+
+#[tauri::command]
+fn debug_desktop_state(app: AppHandle) -> Result<serde_json::Value, String> {
+    if !cfg!(debug_assertions) {
+        return Err("此接口仅用于开发验证".into());
+    }
+    desktop::diagnostics(&app.get_webview_window("overlay").ok_or("找不到效果窗口")?)
+}
+
+#[tauri::command]
+fn reset_settings(app: AppHandle, state: State<'_, Arc<AppState>>) -> Result<Settings, String> {
+    let _operation = state.operation.lock().map_err(|e| e.to_string())?;
+    if state.path.exists() {
+        let stamp = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map_err(|e| e.to_string())?
+            .as_millis();
+        std::fs::copy(
+            &state.path,
+            state.path.with_extension(format!("{stamp}.backup.json")),
+        )
+        .map_err(|e| format!("备份原设置失败：{e}"))?;
+    }
+    let settings = Settings::default();
+    apply_display(&app, &settings)?;
+    settings::write(&state.path, &settings)?;
+    *state.settings.lock().map_err(|e| e.to_string())? = settings.clone();
+    *state.config_error.lock().map_err(|e| e.to_string())? = None;
+    state.status.lock().map_err(|e| e.to_string())?.editing = false;
+    state
+        .status
+        .lock()
+        .map_err(|e| e.to_string())?
+        .desktop_error = None;
+    app.emit("settings-changed", &settings)
+        .map_err(|e| e.to_string())?;
+    Ok(settings)
+}
+
+fn apply_display(app: &AppHandle, settings: &Settings) -> Result<(), String> {
+    let window = app
+        .get_webview_window("overlay")
+        .ok_or("找不到频谱窗口，请重启客户端")?;
+    if let Some(bounds) = settings.display_bounds().filter(|_| settings.enabled) {
+        desktop::attach(&window, &bounds)
+    } else {
+        desktop::hide(&window)
+    }
+}
+
+#[tauri::command]
+fn update_settings(
+    app: AppHandle,
+    state: State<'_, Arc<AppState>>,
+    settings: Settings,
+) -> Result<Settings, String> {
+    let _operation = state.operation.lock().map_err(|e| e.to_string())?;
+    settings.validate()?;
+    let old = state.settings.lock().map_err(|e| e.to_string())?.clone();
+    let editing = state.status.lock().map_err(|e| e.to_string())?.editing;
+    if editing
+        && (settings.regions != old.regions
+            || settings.region_visible != old.region_visible
+            || settings.desktop_card != old.desktop_card)
+    {
+        return Err("请先完成桌面位置调整，再修改装饰区域".into());
+    }
+    let display_changed = settings.enabled != old.enabled
+        || settings.display_bounds() != old.display_bounds()
+        || (settings.enabled
+            && settings.display_bounds().is_some()
+            && !app
+                .get_webview_window("overlay")
+                .is_some_and(|w| desktop::is_attached(&w)));
+    if !editing && display_changed {
+        if let Err(error) = apply_display(&app, &settings) {
+            let _ = apply_display(&app, &old);
+            return Err(error);
+        }
+    }
+    if let Err(error) = settings::write(&state.path, &settings) {
+        if !editing && display_changed {
+            let _ = apply_display(&app, &old);
+        }
+        return Err(error);
+    }
+    *state.settings.lock().map_err(|e| e.to_string())? = settings.clone();
+    *state.config_error.lock().map_err(|e| e.to_string())? = None;
+    if !editing {
+        state
+            .status
+            .lock()
+            .map_err(|e| e.to_string())?
+            .desktop_error = None;
+    }
+    app.emit("settings-changed", &settings)
+        .map_err(|e| e.to_string())?;
+    Ok(settings)
+}
+
+fn change_editing(app: &AppHandle, state: &AppState, editing: bool) -> Result<Settings, String> {
+    let _operation = state.operation.lock().map_err(|e| e.to_string())?;
+    let mut settings = state.settings.lock().map_err(|e| e.to_string())?.clone();
+    if state.status.lock().map_err(|e| e.to_string())?.editing == editing {
+        return Ok(settings);
+    }
+    let window = app.get_webview_window("overlay").ok_or("找不到频谱窗口")?;
+    if editing {
+        if !settings.regions.is_empty() || !settings.region_visible || settings.desktop_card.enabled
+        {
+            return Err("多个区域请在设置预览中布置".into());
+        }
+        if let Err(error) = desktop::begin_edit(&window, &settings.bounds) {
+            let _ = apply_display(app, &settings);
+            return Err(error);
+        }
+    } else {
+        settings.bounds = desktop::read_bounds(&window)?;
+        settings.validate()?;
+        if let Err(error) = apply_display(app, &settings) {
+            let _ = desktop::begin_edit(&window, &settings.bounds);
+            return Err(error);
+        }
+        if let Err(error) = settings::write(&state.path, &settings) {
+            let _ = desktop::begin_edit(&window, &settings.bounds);
+            return Err(error);
+        }
+        *state.settings.lock().map_err(|e| e.to_string())? = settings.clone();
+    }
+    state.status.lock().map_err(|e| e.to_string())?.editing = editing;
+    if !editing {
+        app.emit("geometry-changed", &settings)
+            .map_err(|e| e.to_string())?;
+    }
+    app.emit("settings-changed", &settings)
+        .map_err(|e| e.to_string())?;
+    Ok(settings)
+}
+
+#[tauri::command]
+fn set_editing(
+    app: AppHandle,
+    state: State<'_, Arc<AppState>>,
+    editing: bool,
+) -> Result<Settings, String> {
+    change_editing(&app, &state, editing)
+}
+
+fn show_settings(app: &AppHandle) {
+    if let Some(window) = app.get_webview_window("settings") {
+        let _ = window.show();
+        let _ = window.unminimize();
+        let _ = window.set_focus();
+    }
+}
+
+fn start_desktop_recovery(app: AppHandle, state: Arc<AppState>) {
+    std::thread::spawn(move || {
+        while !state.shutdown.load(Ordering::Relaxed) {
+            std::thread::sleep(std::time::Duration::from_secs(3));
+            if state.shutdown.load(Ordering::Relaxed) {
+                break;
+            }
+            let app_copy = app.clone();
+            let state_copy = state.clone();
+            let _ = app.run_on_main_thread(move || {
+                let Ok(_guard) = state_copy.operation.try_lock() else {
+                    return;
+                };
+                let settings = state_copy.settings.lock().unwrap().clone();
+                if !settings.enabled
+                    || settings.display_bounds().is_none()
+                    || state_copy.status.lock().unwrap().editing
+                {
+                    return;
+                }
+                if app_copy
+                    .get_webview_window("overlay")
+                    .is_some_and(|w| desktop::is_attached(&w))
+                {
+                    state_copy.status.lock().unwrap().desktop_error = None;
+                    return;
+                }
+                let result = (|| {
+                    if app_copy.get_webview_window("overlay").is_none() {
+                        let config = app_copy
+                            .config()
+                            .app
+                            .windows
+                            .iter()
+                            .find(|c| c.label == "overlay")
+                            .ok_or("找不到效果窗口配置")?;
+                        tauri::WebviewWindowBuilder::from_config(&app_copy, config)
+                            .map_err(|e| e.to_string())?
+                            .build()
+                            .map_err(|e| e.to_string())?;
+                    }
+                    apply_display(&app_copy, &settings)
+                })();
+                state_copy.status.lock().unwrap().desktop_error = result.err();
+            });
+        }
+    });
+}
+
+pub fn run() {
+    let app = tauri::Builder::default()
+        .plugin(tauri_plugin_single_instance::init(|app, _, _| {
+            show_settings(app)
+        }))
+        .plugin(tauri_plugin_updater::Builder::new().build())
+        .plugin(tauri_plugin_opener::init())
+        .plugin(
+            tauri_plugin_autostart::Builder::new()
+                .args(["--autostart"])
+                .build(),
+        )
+        .invoke_handler(tauri::generate_handler![
+            application::application_info,
+            application::get_preferences,
+            application::save_preferences,
+            application::backup_configuration,
+            application::export_diagnostics,
+            application::export_scene,
+            application::quit_application,
+            application::restart_after_update,
+            wallpaper::get_desktop_background,
+            wallpaper_depth::save_depth_image,
+            wallpaper_depth::load_depth_image,
+            wallpaper_depth::desktop_pointer,
+            audio_source::get_audio_sources,
+            audio_source::set_audio_source,
+            now_playing::get_now_playing,
+            lyrics::get_current_lyrics,
+            lyrics::discovery::rescan_lyric_locations,
+            get_settings,
+            debug_desktop_state,
+            get_status,
+            update_settings,
+            set_editing,
+            reset_settings
+        ])
+        .setup(|app| {
+            // Keep the roomier default inside smaller or high-DPI work areas.
+            if let Some(window) = app.get_webview_window("settings") {
+                if let Ok(Some(monitor)) = window.current_monitor() {
+                    let area = monitor.work_area();
+                    let scale = monitor.scale_factor();
+                    let width = (area.size.width as f64 / scale - 48.0).clamp(1.0, 1440.0);
+                    let height = (area.size.height as f64 / scale - 48.0).clamp(1.0, 940.0);
+                    let _ = window.set_min_size(Some(tauri::LogicalSize::new(
+                        width.min(900.0),
+                        height.min(620.0),
+                    )));
+                    let _ = window.set_size(tauri::LogicalSize::new(width, height));
+                    let _ = window.set_position(tauri::PhysicalPosition::new(
+                        area.position.x
+                            + ((area.size.width as f64 - width * scale) / 2.0).round() as i32,
+                        area.position.y
+                            + ((area.size.height as f64 - height * scale) / 2.0).round() as i32,
+                    ));
+                }
+            }
+            let path = app.path().app_config_dir()?.join("settings.json");
+            let (settings, error) = match settings::read(&path) {
+                Ok(value) => (value, None),
+                Err(error) => (Settings::default(), Some(error)),
+            };
+            let state = Arc::new(AppState {
+                now_playing: Mutex::new(now_playing::NowPlaying::default()),
+                lyric_cache: Mutex::new(lyrics::LyricCache::default()),
+                lyric_library: Mutex::new(lyrics::discovery::Library::default()),
+                audio_source: Mutex::new(audio_source::read(&path)),
+                audio_discovery: Mutex::new(audio_source::Discovery::default()),
+                settings: Mutex::new(settings.clone()),
+                status: Mutex::new(RuntimeStatus {
+                    state: "waiting".into(),
+                    message: "正在查找音乐客户端…".into(),
+                    process_id: None,
+                    source_name: None,
+                    desktop_attached: false,
+                    editing: false,
+                    desktop_error: None,
+                }),
+                operation: Mutex::new(()),
+                config_error: Mutex::new(error),
+                path,
+                shutdown: AtomicBool::new(false),
+            });
+            app.manage(state.clone());
+            let open = MenuItem::with_id(app, "open", "打开设置", true, None::<&str>)?;
+            let quit = MenuItem::with_id(app, "quit", "退出 SoundSpectra", true, None::<&str>)?;
+            let menu = Menu::with_items(app, &[&open, &quit])?;
+            let mut pixels = vec![0u8; 32 * 32 * 4];
+            for (x, height) in [(6, 10), (12, 24), (18, 18), (24, 12)] {
+                for dx in 0..3 {
+                    for y in (32 - height) / 2..(32 + height) / 2 {
+                        let offset = (y * 32 + x + dx) * 4;
+                        pixels[offset..offset + 4].copy_from_slice(&[200, 175, 242, 255]);
+                    }
+                }
+            }
+            TrayIconBuilder::new()
+                .icon(tauri::image::Image::new_owned(pixels, 32, 32))
+                .tooltip("SoundSpectra · 声谱")
+                .menu(&menu)
+                .on_menu_event(|app, event| match event.id.as_ref() {
+                    "open" => show_settings(app),
+                    "quit" => {
+                        if change_editing(app, &app.state::<Arc<AppState>>(), false).is_err() {
+                            show_settings(app);
+                            return;
+                        }
+                        app.state::<Arc<AppState>>()
+                            .shutdown
+                            .store(true, Ordering::Relaxed);
+                        app.exit(0);
+                    }
+                    _ => (),
+                })
+                .build(app)?;
+            if std::env::args().any(|arg| arg == "--autostart") {
+                if let Some(window) = app.get_webview_window("settings") {
+                    let _ = window.hide();
+                }
+            }
+            start_desktop_recovery(app.handle().clone(), state.clone());
+            now_playing::start(state.clone());
+            lyrics::discovery::start(state.clone());
+            audio::start(app.handle().clone(), state);
+            Ok(())
+        })
+        .on_window_event(|window, event| {
+            if let tauri::WindowEvent::CloseRequested { api, .. } = event {
+                api.prevent_close();
+                let state = window.app_handle().state::<Arc<AppState>>();
+                if state.status.lock().map(|s| s.editing).unwrap_or(false) {
+                    if change_editing(window.app_handle(), &state, false).is_err() {
+                        show_settings(window.app_handle());
+                        return;
+                    }
+                }
+                if window.label() == "settings"
+                    && !application::read_preferences(window.app_handle())
+                        .unwrap_or_default()
+                        .close_to_tray
+                {
+                    window.app_handle().exit(0);
+                    return;
+                }
+                if window.label() == "overlay" {
+                    if let Some(overlay) = window.app_handle().get_webview_window("overlay") {
+                        let _ = desktop::hide(&overlay);
+                    }
+                } else {
+                    let _ = window.hide();
+                }
+            }
+        })
+        .build(tauri::generate_context!())
+        .expect("SoundSpectra 启动失败");
+    app.run(|app, event| {
+        if let tauri::RunEvent::Ready = event {
+            let state = app.state::<Arc<AppState>>();
+            let settings = state.settings.lock().unwrap().clone();
+            if settings.enabled {
+                state.status.lock().unwrap().desktop_error = apply_display(app, &settings).err();
+            }
+        }
+        if let tauri::RunEvent::Exit = event {
+            app.state::<Arc<AppState>>()
+                .shutdown
+                .store(true, Ordering::Relaxed);
+        }
+    });
+}

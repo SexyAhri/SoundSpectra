@@ -1,0 +1,14 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "settings-application",
+  "description": "Window controls and update operations available only to the settings window",
+  "windows": ["settings"],
+  "permissions": [
+    "core:window:allow-minimize",
+    "core:window:allow-toggle-maximize",
+    "core:window:allow-close",
+    "updater:default",
+    "autostart:default",
+    { "identifier": "opener:allow-open-url", "allow": [{ "url": "https://github.com/SexyAhri/SoundSpectra" }, { "url": "https://github.com/SexyAhri/SoundSpectra/releases" }] }
+  ]
+}
