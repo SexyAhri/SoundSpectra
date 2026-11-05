@@ -20,7 +20,7 @@ node scripts/desktop.mjs --cargo fmt --manifest-path src-tauri/Cargo.toml -- --c
 node scripts/desktop.mjs --cargo test --manifest-path src-tauri/Cargo.toml --locked
 ```
 
-`npm test` 运行完整前端回归集；本地 Playwright 使用 Chrome，CI 使用 Chromium。前端测试采用软件 WebGL，不代表真实显卡性能。安装包与签名配置见 [发布指南](RELEASING.md)。
+`npm test` 运行完整前端回归集；本地和 Windows CI 均使用稳定版 Chrome。前端测试采用软件 WebGL，不代表真实显卡性能；CI 对软件光栅化设置较长等待上限，断言与本地一致。安装包与签名配置见 [发布指南](RELEASING.md)。
 
 ## 模块边界
 

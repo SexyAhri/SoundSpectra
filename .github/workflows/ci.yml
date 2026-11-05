@@ -31,7 +31,7 @@ jobs:
       - run: npm run version:check
       - run: npm run test:release
       - run: npm run build
-      - run: npx playwright install chromium
+      - run: npx playwright install chrome
       - run: npm test
       - run: cargo fmt --manifest-path src-tauri/Cargo.toml -- --check
       - run: cargo test --manifest-path src-tauri/Cargo.toml --locked

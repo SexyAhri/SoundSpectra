@@ -113,7 +113,7 @@ jobs:
       - name: Browser regression
         if: runner.os == 'Windows'
         run: |
-          npx playwright install chromium
+          npx playwright install chrome
           npx playwright test tests/application.spec.ts tests/workspace-layout.spec.ts tests/lyrics.spec.ts
       - run: cargo fmt --manifest-path src-tauri/Cargo.toml -- --check
       - run: cargo test --manifest-path src-tauri/Cargo.toml --locked --lib

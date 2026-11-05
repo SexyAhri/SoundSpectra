@@ -157,7 +157,7 @@ case "capture":
             while true {
                 try await Task.sleep(nanoseconds: 1_000_000_000)
                 if getppid() != parent { exit(0) }
-                _ = streams.count; _ = outputs.count
+                withExtendedLifetime((streams, outputs)) {}
             }
         } catch { fail("请在系统设置的隐私与安全性中允许 SoundSpectra 录制屏幕与系统音频：\(error.localizedDescription)") }
     }

@@ -72,10 +72,10 @@ export function ApplicationToolbar({ beforeClose, open, onOpenChange: setOpen }:
         <button aria-label="关闭窗口" title={preferences.closeToTray ? '收起到托盘' : '退出 SoundSpectra'} className="window-close" disabled={pending || updater.state.phase === 'installing'} onClick={() => void close()}><X size={17} /></button>
       </div>}
     </div>
-    {updateAvailable && dismissed !== updater.state.version && !open && <div className="update-notification" role="status">
-      <span>发现新版本 {updater.state.version}</span>
-      <button onClick={() => setOpen(true)}>查看更新</button>
-      <button onClick={() => setDismissed(updater.state.version ?? null)}>稍后提醒</button>
+    {(updateAvailable || ['downloading', 'installing'].includes(updater.state.phase)) && dismissed !== updater.state.version && !open && <div className="update-notification" role="status">
+      <span>{updater.state.phase === 'downloading' ? '正在下载更新' : updater.state.phase === 'installing' ? '正在安装，即将重启' : '发现新版本'} {updater.state.version}</span>
+      <button onClick={() => setOpen(true)}>{updateBusy ? '查看进度' : '查看更新'}</button>
+      {!updateBusy && <button onClick={() => setDismissed(updater.state.version ?? null)}>稍后提醒</button>}
     </div>}
     <Dialog.Root open={open} onOpenChange={setOpen}>
       <Dialog.Portal><Dialog.Overlay className="application-dialog-backdrop" /><Dialog.Content className="application-dialog">
