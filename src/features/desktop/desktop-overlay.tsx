@@ -41,17 +41,26 @@ export function DesktopOverlay() {
   useEffect(() => {
     let disposed = false;
     let stop: (() => void) | undefined;
-    loadSettings()
-      .then((value) => {
-        if (!disposed) setSettings(value);
-      })
-      .catch((reason) => setError(describeError(reason)));
-    subscribeSettings(setSettings)
+    let revision = 0;
+    subscribeSettings(value => {
+      if (!disposed) { revision++; setSettings(value); }
+    })
       .then((unsubscribe) => {
         if (disposed) unsubscribe();
         else stop = unsubscribe;
       })
-      .catch((reason) => setError(describeError(reason)));
+      .catch((reason) => { if (!disposed) setError(describeError(reason)); })
+      .finally(() => {
+        if (disposed) return;
+        // A recreated desktop window must subscribe before its initial read.
+        // Changes received during that read take precedence over the older snapshot.
+        const startedAt = revision;
+        void loadSettings().then(value => {
+          if (!disposed && startedAt === revision) setSettings(value);
+        }).catch(reason => {
+          if (!disposed && startedAt === revision) setError(describeError(reason));
+        });
+      });
     let timer: ReturnType<typeof setTimeout>;
     const poll = async () => {
       try {

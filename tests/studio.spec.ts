@@ -1,6 +1,7 @@
 import { test, expect, type Page } from '@playwright/test'
 import { defaults, normalizeSettings } from '../src/features/spectrum/model'
 import { displayBounds } from '../src/features/spectrum/regions'
+import { musicEffects } from '../src/features/spectrum/music-engine/catalog'
 
 const saved = (page: Page) => page.evaluate(() => JSON.parse(localStorage.getItem('soundspectra.settings.v1')!))
 
@@ -9,8 +10,8 @@ test('studio uses the real effect catalog and persists choices through illustrat
   const errors: string[] = []; page.on('pageerror', error => errors.push(error.message))
   await page.goto('/')
   await expect(page.getByRole('heading', { name: '桌面预览', exact: true })).toBeVisible()
-  await expect(page.locator('.effect-tile')).toHaveCount(13)
-  await expect(page.locator('.effect-tile .effect-art')).toHaveCount(13)
+  await expect(page.locator('.effect-tile')).toHaveCount(musicEffects.length)
+  await expect(page.locator('.effect-tile .effect-art')).toHaveCount(musicEffects.length)
   await page.getByRole('button', { name: '雪花飘舞', exact: true }).click()
   await expect.poll(async () => (await saved(page)).effect).toBe('ripple')
   await expect(page.getByRole('button', { name: '雪花飘舞', exact: true })).toHaveAttribute('aria-pressed', 'true')
@@ -75,9 +76,10 @@ test('studio controls fit short and narrow windows and retain keyboard access', 
   await page.setViewportSize({ width: 1000, height: 620 })
   await page.goto('/')
   await page.getByRole('button', { name: '音乐卡片', exact: true }).click()
+  await page.getByText('精确位置', { exact: true }).click()
   await page.getByRole('button', { name: '恢复卡片位置', exact: true }).scrollIntoViewIfNeeded()
   expect(await page.evaluate(() => document.documentElement.scrollHeight <= innerHeight && document.documentElement.scrollWidth <= innerWidth)).toBe(true)
-  const footer = await page.locator('.inspector-performance').boundingBox()
+  const footer = await page.getByRole('contentinfo', { name: '播放与桌面控制' }).boundingBox()
   expect(footer!.y + footer!.height).toBeLessThanOrEqual(620)
   await page.screenshot({ path: 'artifacts/studio-short.png' })
   await page.setViewportSize({ width: 390, height: 844 })

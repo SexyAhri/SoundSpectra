@@ -43,9 +43,22 @@ export function useRailReorder(
     setDragging(null);
   };
   useEffect(() => {
+    // Pointer capture does not transfer keyboard focus. Escape must also work
+    // when the drag started while another field/window surface held focus.
+    const escape = (event: globalThis.KeyboardEvent) => {
+      if (event.key === "Escape" && gesture.current) {
+        event.preventDefault();
+        cancel();
+      }
+    };
+    const visibility = () => { if (document.hidden) cancel(); };
     window.addEventListener("blur", cancel);
+    window.addEventListener("keydown", escape);
+    document.addEventListener("visibilitychange", visibility);
     return () => {
       window.removeEventListener("blur", cancel);
+      window.removeEventListener("keydown", escape);
+      document.removeEventListener("visibilitychange", visibility);
       cancel();
     };
   }, []);

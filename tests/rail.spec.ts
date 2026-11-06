@@ -155,7 +155,8 @@ test('mounting and unmounting animate while removed references immediately stop 
   await page.emulateMedia({ reducedMotion: 'reduce' })
   const count = (await motion()).length
   await page.getByRole('tab', { name: '添加', exact: true }).click()
-  await page.getByText('输入本地路径预览布局', { exact: true }).click()
+  // The add tab preserves the already expanded manual-path disclosure.
+  await expect(page.getByRole('textbox', { name: '挂件目标路径' })).toBeVisible()
   await page.getByRole('textbox', { name: '挂件目标路径' }).fill('C:\\Apps\\Third.exe')
   await page.getByRole('button', { name: '挂上去', exact: true }).click()
   await expect(page.getByRole('button', { name: 'Third，软件', exact: true })).toBeVisible()

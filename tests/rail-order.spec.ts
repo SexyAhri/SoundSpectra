@@ -114,3 +114,39 @@ test('filtered reordering preserves hidden items and a held edge drag scrolls a 
   expect(new Set(await storedOrder(page))).toEqual(new Set(expected))
   await expect(panel.locator('.rail-overflow-entry[data-dragging]')).toHaveCount(0)
 })
+
+test('Escape cancels a captured drag even when keyboard focus is outside the rail', async ({ page }) => {
+  const before = await storedOrder(page)
+  const source = page.locator('[data-rail-item="item-1"] .rail-item')
+  const target = page.locator('[data-rail-item="item-3"]')
+  const a = (await source.boundingBox())!, b = (await target.boundingBox())!
+  await page.mouse.move(a.x + a.width / 2, a.y + a.height / 2)
+  await page.mouse.down()
+  await page.mouse.move(b.x + b.width * .8, b.y + b.height / 2, { steps: 10 })
+  await expect(target).toHaveAttribute('data-reorder-side', 'after')
+  await page.evaluate(() => { document.body.tabIndex = -1; document.body.focus() })
+  await page.keyboard.press('Escape')
+  await expect(page.locator('[data-dragging=true]')).toHaveCount(0)
+  await page.mouse.up()
+  expect(await storedOrder(page)).toEqual(before)
+  await expect(page.locator('.rail-popup')).toHaveCount(0)
+})
+
+test('window blur cancels sorting without opening a target or throwing a DOM error', async ({ page }) => {
+  const errors: string[] = []
+  page.on('pageerror', error => errors.push(error.message))
+  const before = await storedOrder(page)
+  const source = page.locator('[data-rail-item="item-1"] .rail-item')
+  const target = page.locator('[data-rail-item="item-3"]')
+  const a = (await source.boundingBox())!, b = (await target.boundingBox())!
+  await page.mouse.move(a.x + a.width / 2, a.y + a.height / 2)
+  await page.mouse.down()
+  await page.mouse.move(b.x + b.width * .8, b.y + b.height / 2, { steps: 10 })
+  await expect(target).toHaveAttribute('data-reorder-side', 'after')
+  await page.evaluate(() => window.dispatchEvent(new FocusEvent('blur')))
+  await expect(page.locator('[data-dragging=true]')).toHaveCount(0)
+  await page.mouse.up()
+  expect(await storedOrder(page)).toEqual(before)
+  expect(errors).toEqual([])
+  await expect(page.locator('.rail-popup, .rail-inline-notice')).toHaveCount(0)
+})

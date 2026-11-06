@@ -2,16 +2,18 @@
 
 ## 上传后会发生什么
 
-推送到 `main` / `master` 或推送与项目版本一致的 `v*` 标签后，GitHub Actions 执行：
+推送到 `main` / `master` 或推送与项目版本一致的 `v*` 标签后，若该版本尚未发布，GitHub Actions 执行：
 
 1. 校验版本号、发布签名和构建配置。
 2. 分别在 Windows 和 macOS 云端构建。Windows 输出 x64 NSIS `setup.exe`；Mac 输出兼容 Intel / Apple Silicon 的 Universal `.dmg`。
 3. 两端构建、签名全部通过后，合并平台更新清单，按明确的 Release ID 上传全部 7 个附件，核验远端大小和摘要，再公开 Release。
 4. 任一端失败时不公开这次 Release，已发布的版本和更新清单继续有效。
 
-同一版本已发布时仍构建 Actions 安装包产物，但不覆盖 Release。要推送更新，必须提升版本号。手动运行工作流默认只构建；勾选 `publish` 才发布。拉取请求只构建。
+同一版本已发布时，自动推送只运行准备任务，跳过 Windows / macOS 打包与发布。要推送更新，必须提升版本号。手动运行工作流默认只构建，可为同版本重新生成 Actions 产物；勾选 `publish` 才发布未发布的版本，已有正式 Release 不会被替换。拉取请求只构建。
 
-自动发布仅保留版本与签名配置校验、依赖安装、两端签名安装包构建，以及更新清单和附件完整性校验。Tauri 通过 `beforeBuildCommand` 执行一次类型检查与前端构建，不再提前重复构建。发布流程不运行发布脚本测试、Rust 格式检查、Rust 单元测试或浏览器回归，也不依赖 Checks。上述检查在本地按改动范围运行；需要云端验证时手动运行 Checks，勾选 `full` 可追加完整浏览器回归。Checks 不随分支推送自动触发。
+分支推送或拉取请求仅改动 `docs/`、`tests/`、`scripts/tests/`、本机检查脚本、Playwright 配置、Checks 工作流以及 README / CONTRIBUTING / CHANGELOG 时，不启动自动打包；具体路径见 `.github/workflows/release.yml`。标签推送与手动运行不受此路径过滤限制。安装包已压缩，上传 Actions 产物时关闭额外压缩，临时产物保留 7 天；正式 Release 附件不受此期限影响。
+
+自动发布仅保留版本与签名配置校验、依赖安装、两端签名安装包构建，以及更新清单和附件完整性校验。Tauri 通过 `beforeBuildCommand` 执行一次类型检查与前端构建，不再提前重复构建。发布流程不运行发布脚本测试、Rust 格式检查、Rust 单元测试或浏览器回归，也不依赖 Checks。推送前在本地运行 `npm run check:full`；需要云端验证时手动运行 Checks，勾选 `full` 可追加完整浏览器回归。Checks 不随分支推送自动触发。
 
 发布时先上传安装包与签名，最后上传 `latest.json`；不会按标签模糊匹配草稿。公开 Release 的附件未验收完整时不能发布。修复缺失附件仅补充原版本的已验证产物，不替换已发布文件。
 

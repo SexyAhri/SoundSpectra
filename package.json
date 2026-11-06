@@ -17,6 +17,7 @@
     "tauri": "tauri",
     "desktop": "node scripts/desktop.mjs",
     "doctor": "node scripts/desktop.mjs --check",
+    "check:full": "node scripts/check-full.mjs",
     "test": "playwright test",
     "test:smoke": "playwright test tests/application.spec.ts tests/workspace-layout.spec.ts tests/lyrics.spec.ts",
     "desktop:build": "node scripts/desktop.mjs --build",

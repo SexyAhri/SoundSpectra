@@ -22,6 +22,7 @@ export function useRail() {
   const queue = useRef(Promise.resolve()),
     alive = useRef(true),
     revision = useRef(0),
+    eventRevision = useRef(0),
     refreshRequest = useRef(0);
   const accept = useCallback((value: RailSnapshot) => {
     if (alive.current) {
@@ -50,7 +51,9 @@ export function useRail() {
       stop: (() => void) | undefined;
     // Subscribe before reading so a change between startup and the first
     // snapshot cannot be missed or replaced by an older request.
-    void subscribeRail(value => { if (!disposed) accept(value) })
+    void subscribeRail(value => {
+      if (!disposed) { eventRevision.current++; accept(value); }
+    })
       .then((unsubscribe) => {
         if (disposed) unsubscribe();
         else stop = unsubscribe;
@@ -72,18 +75,21 @@ export function useRail() {
       revision.current++;
       setPending((value) => value + 1);
       const task = queue.current
-        .then(operation)
-        .then(
-          (value) => {
+        .then(async () => {
+          const startedAt = eventRevision.current;
+          const value = await operation();
+          // Another window or recovery broadcast can arrive before this IPC reply.
+          // Keep that newer snapshot instead of rolling layout and missing targets back.
+          if (startedAt === eventRevision.current) {
             accept(value);
-            if (alive.current) setError(null);
-            return value;
-          },
-          (reason) => {
-            if (alive.current) setError(String(reason));
-            throw reason;
-          },
-        )
+          }
+          if (alive.current) setError(null);
+          return value;
+        })
+        .catch((reason) => {
+          if (alive.current) setError(String(reason));
+          throw reason;
+        })
         .finally(() => {
           if (alive.current) setPending((value) => value - 1);
         });

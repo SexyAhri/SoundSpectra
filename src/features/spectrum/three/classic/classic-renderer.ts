@@ -155,7 +155,7 @@ export class ClassicSceneRenderer {
     // field of view and stretches rounded silhouettes at its edges. A longer
     // lens preserves the vertical framing and normal proportions of geometry.
     const geometric=config.effect==='rhythm_balls'
-    const fov=geometric?Math.min(38,130/this.camera.aspect):62
+    const fov=geometric?Math.min(38,90/this.camera.aspect):62
     const lensScale=Math.tan(31*Math.PI/180)/Math.tan(fov*Math.PI/360)
     const scale=1.35/config.music.fieldScale*Math.max(1,1.15/this.camera.aspect)*lensScale
     this.basePosition.set(position[0]*scale,position[1]*scale,position[2]*scale)

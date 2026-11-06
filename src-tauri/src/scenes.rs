@@ -28,7 +28,9 @@ pub fn merge(current: &Settings, scene: Value) -> Result<Settings, String> {
                 "motion",
                 "bounds",
             ];
-            if lyrics.len() != keys.len() || !keys.iter().all(|key| lyrics.contains_key(*key)) {
+            if lyrics.len() != keys.len() + usize::from(lyrics.contains_key("readability"))
+                || !keys.iter().all(|key| lyrics.contains_key(*key))
+            {
                 return Err("桌面方案只能修改歌词展示样式".into());
             }
             target.insert("desktopCard".into(), desktop["card"].clone());
@@ -90,14 +92,32 @@ mod tests {
         style.as_object_mut().unwrap().remove("folder");
         style.as_object_mut().unwrap().remove("offsetMs");
         style["enabled"] = json!(true);
+        style["readability"] = json!("contrast");
         let next = merge(&current, json!({"desktop": {"version":1, "card": current.desktop_card, "lyrics":style, "followCover":true}})).unwrap();
         assert!(next.enabled && next.lyrics.enabled && next.follow_cover);
         assert_eq!(next.lyrics.folder, current.lyrics.folder);
         assert_eq!(next.lyrics.offset_ms, current.lyrics.offset_ms);
+        assert_eq!(next.lyrics.readability, "contrast");
         assert_eq!(next.wallpaper_depth, current.wallpaper_depth);
         assert!(merge(&current, json!({"enabled":false})).is_err());
         assert!(merge(&current, json!({"lyrics":{"folder":"changed"}})).is_err());
         assert!(merge(&current, json!({"color":"invalid"})).is_err());
+
+        let mut desktop = json!({"version":1, "card":current.desktop_card,
+            "lyrics":style, "followCover":false});
+        desktop["lyrics"]
+            .as_object_mut()
+            .unwrap()
+            .remove("readability");
+        let legacy = merge(&next, json!({"desktop":desktop})).unwrap();
+        assert_eq!(legacy.lyrics.readability, "contrast");
+        for key in ["folder", "offsetMs", "unknown"] {
+            let mut invalid = desktop.clone();
+            invalid["lyrics"][key] = json!("private");
+            assert!(merge(&current, json!({"desktop":invalid})).is_err());
+        }
+        desktop["lyrics"]["readability"] = json!("invalid");
+        assert!(merge(&current, json!({"desktop":desktop})).is_err());
     }
     #[test]
     fn desktop_layer_order_is_persisted_and_invalid_orders_are_rejected() {

@@ -21,14 +21,21 @@ export function LiveMeter({ bands, receivedAt, demo = false, active = true, desk
       if (demo) demoSpectrum(source, now / 1000)
       else if (receivedAt.current > 0 && now - receivedAt.current < 350) source.set(bands.current)
       else source.fill(0)
+      let moving = false
       nodes.forEach((node, i) => {
         const value = source[Math.floor(i / nodes.length * BAND_COUNT)]
         const target = Number.isFinite(value) ? Math.pow(Math.max(0, Math.min(1, value)), 1.6) : 0
         levels[i] += (target - levels[i]) * (1 - Math.exp(-elapsed / (target > levels[i] ? .04 : .18)))
+        if (target === 0 && levels[i] < .0001) levels[i] = 0
+        if (target > 0 || levels[i] > 0) moving = true
         const height = 1 + levels[i] * 33
-        node.setAttribute('height', height.toFixed(2)); node.setAttribute('y', (36 - height).toFixed(2))
+        const h = height.toFixed(2), y = (36 - height).toFixed(2)
+        if (node.getAttribute('height') !== h) node.setAttribute('height', h)
+        if (node.getAttribute('y') !== y) node.setAttribute('y', y)
       })
-      raf = requestAnimationFrame(frame)
+      // Settle to the baseline once, then poll cheaply for fresh audio like the scene canvas.
+      if (!demo && !moving) timer = window.setTimeout(() => { if (!stopped) raf = requestAnimationFrame(frame) }, 100)
+      else raf = requestAnimationFrame(frame)
     }
     raf = requestAnimationFrame(frame)
     return () => { stopped = true; cancelAnimationFrame(raf); clearTimeout(timer); observer.disconnect() }

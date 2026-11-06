@@ -11,6 +11,14 @@ npm run desktop
 
 `npm run dev` 在 `http://127.0.0.1:1420` 启动浏览器模拟预览，配置存入 localStorage；原生配置与之分离。`scripts/desktop.mjs` 仅为子进程设置 Rust / MSVC / SDK 环境。
 
+推送前在本机运行全量检查：
+
+```powershell
+npm run check:full
+```
+
+该命令按 GitHub Checks 勾选 `full` 时的顺序执行：`npm ci`、版本一致性、发布脚本测试、前端构建、Chrome 准备、全部浏览器回归、Rustfmt、完整 Rust 测试和启用 `custom-protocol` 的原生构建。使用与 Checks 相同的 `CI=true` 超时和单任务 Cargo 构建；首次失败即停止，修复后重新运行。运行前关闭本项目正在使用 `node_modules` 的开发服务，避免 Windows 下依赖重装时文件占用。检查只验证本机平台，不生成安装包、不推送、不发布；Windows 本机不能代替 macOS 构建和实机验收。GitHub 自动发布继续使用现有精简流程，本机全量检查不会给线上增加自动步骤。
+
 ```powershell
 npm run version:check
 npm run test:release
@@ -48,6 +56,8 @@ node scripts/desktop.mjs --cargo test --manifest-path src-tauri/Cargo.toml --loc
 
 灯效共享 `musicDriver`、`musicEnvelope` 与 `SceneMotion`，不另造音频能量或节拍。真实分析数据超过 350ms 未更新时按静音处理；渐隐后停止重复绘制，隐藏、暂停或离开场景时释放相应资源。减少动态效果时关闭空间传播，同时保留静态音乐响应。
 
+歌词暂停后停止帧循环；相同播放时间和外观不重复绘制，暂停中的跳转、外观与尺寸变更仍立即更新。隐藏的预览暂停歌词绘制，恢复时读取当前播放位置；嵌入桌面的窗口不依赖 `document.hidden` 判断可见性。音量表静音收敛后停止重复写入 SVG 属性，按 100ms 间隔检查新音频。
+
 `three/view.ts` 定义每区域独立视角，`three/camera.ts` 供预览和桌面共用。拖动按帧合并后通过区域 patch、保存队列和原生 `update_settings` 持久化，再广播到桌面。失效的区域 ID 不能回退为主区域写入。
 
 「全屏展示当前灯效」只作用于选中区域，应用整屏范围、默认视角、场景尺度、沉浸背景和不透明度。普通切换经典灯效保留区域布局。歌词、音乐卡片的位置独立于灯效区域，歌词的完整行为见 [歌词说明](LYRICS.md)。
@@ -66,6 +76,8 @@ Mac 歌曲信息通过播放器的公开脚本接口读取。播放器没有脚�
 | 区域、视角、保存与遮罩 | `tests/regions-masks.spec.ts`、`tests/scene-view.spec.ts`、`tests/settings.spec.ts` |
 | 场景、分析、资源释放 | `tests/music-engine-contract.spec.ts`、`tests/scene-lifecycle.spec.ts`、对应场景测试 |
 | 歌词与音源 | `tests/lyrics.spec.ts`、`tests/audio-sources.spec.ts`、Rust `lyrics::tests` |
+| 静音、暂停与窗口恢复 | `tests/idle-rendering.spec.ts`、`tests/desktop-recovery.spec.ts` |
+| 拾光绳打开、排序与状态恢复 | `tests/rail-recovery.spec.ts`、`tests/rail-order.spec.ts`、`tests/rail-input.spec.ts`、`tests/rail-transfer.spec.ts` |
 | 打包与版本 | `npm run test:release`、`npm run version:check`、原生构建 |
 
 Windows 实机脚本位于 `scripts/native-*-smoke.mjs`。以进程环境变量 `WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS=--remote-debugging-port=9223` 启动待测客户端；脚本可能临时调整配置，运行前阅读恢复逻辑，不要同时编辑设置。报告写入忽略的 `artifacts/`。

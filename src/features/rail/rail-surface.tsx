@@ -85,7 +85,8 @@ export function RailSurface({
     }).catch(() => {});
     const cancel = (event: Event) => {
       if (!(event.target as Element)?.closest?.(".rail-cord-add")) window.clearTimeout(cordClickTimer.current);
-      if (!holder.current?.contains(event.target as Node)) recentActivation.current = null;
+      // A blur event targets Window, which cannot be passed to Node.contains().
+      if (!(event.target instanceof Node) || !holder.current?.contains(event.target)) recentActivation.current = null;
     };
     document.addEventListener("pointerdown", cancel, true);
     window.addEventListener("blur", cancel);
@@ -131,6 +132,7 @@ export function RailSurface({
     until: number;
   } | null>(null);
   const popupTrigger = useRef<HTMLElement | null>(null);
+  const opening = useRef(new Set<string>());
   const closePopup = () => {
     const focus = railFocusRequest(),
       trigger = popupTrigger.current;
@@ -344,6 +346,9 @@ export function RailSurface({
     } else if (controller.missing.includes(item.id)) {
       show("menu", item);
     } else {
+      // Shell activation may be slow; repeated Enter/clicks share the pending launch.
+      if (opening.current.has(item.id)) return;
+      opening.current.add(item.id);
       void perform(async () => {
         try {
           await openRailItem(item.id);
@@ -351,6 +356,8 @@ export function RailSurface({
         } catch (error) {
           void controller.refresh();
           throw error;
+        } finally {
+          opening.current.delete(item.id);
         }
       });
     }

@@ -26,6 +26,7 @@ const visiblePixels = (page: Page) => page.locator('canvas').evaluate((canvas: H
     const read = () => {
       gl.drawArrays = draw
       clearTimeout(timer)
+      if (gl.getParameter(gl.FRAMEBUFFER_BINDING) !== null) { resolve(0); return }
       const data = new Uint8Array(canvas.width * canvas.height * 4)
       gl.readPixels(0, 0, canvas.width, canvas.height, gl.RGBA, gl.UNSIGNED_BYTE, data)
       let count = 0
@@ -35,7 +36,12 @@ const visiblePixels = (page: Page) => page.locator('canvas').evaluate((canvas: H
     // Read on an actual draw: a discarded default framebuffer can otherwise
     // produce false zeroes when rAF runs faster than the selected frame budget.
     const timer = setTimeout(read, 150)
-    gl.drawArrays = function (...args) { draw.apply(this, args); read() }
+    gl.drawArrays = function (...args) {
+      draw.apply(this, args)
+      // Bloom draws to intermediate floating-point targets first. Sample only
+      // the final composite after it reaches the canvas's default framebuffer.
+      if (gl.getParameter(gl.FRAMEBUFFER_BINDING) === null) read()
+    }
   })
 })
 

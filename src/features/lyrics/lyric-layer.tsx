@@ -49,7 +49,7 @@ export function LyricLayer({ settings, document, info, demo = false, active = tr
     role={movable ? 'group' : undefined} tabIndex={movable ? 0 : undefined} aria-label={movable ? '歌词位置，拖动或方向键移动' : undefined}
     onFocus={movable ? onSelect : undefined} onPointerDown={event => placement.begin(event)} onPointerMove={placement.moving} onPointerUp={event => placement.end(event)} onPointerCancel={event => placement.end(event, true)} onLostPointerCapture={event => placement.end(event, true)} onKeyDown={placement.keyboard}>
     {canShow && !safe.crowded ? <>
-      <KineticLyrics lines={lines} index={index} time={time} readTime={()=>((simulated?(Date.now()-demoStart)%demoDuration:playbackPosition(info,Date.now())??0)+settings.offsetMs)} fontSize={displayFontSize} regionWidth={placement.bounds.width} mode={settings.motion} reduced={reduced} backgroundOpacity={settings.backgroundOpacity} palette={palette} readability={settings.readability} />
+      <KineticLyrics lines={lines} index={index} time={time} readTime={()=>((simulated?(Date.now()-demoStart)%demoDuration:playbackPosition(info,Date.now())??0)+settings.offsetMs)} playing={simulated||info.playing} desktop={desktop} fontSize={displayFontSize} regionWidth={placement.bounds.width} mode={settings.motion} reduced={reduced} backgroundOpacity={settings.backgroundOpacity} palette={palette} readability={settings.readability} />
       <span className="sr-only" aria-label="当前歌词">{line ? lyricDisplayText(line.text) : '前奏'}</span>
       {simulated && <span className="lyric-demo-label">模拟歌词</span>}
     </> : !safe.crowded && <p className="lyric-empty">{valid && synced === null ? '播放器未提供有效播放进度，暂不能同步歌词' : document.message}</p>}
