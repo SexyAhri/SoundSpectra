@@ -4,7 +4,7 @@ import { basename, join } from 'node:path'
 import { pathToFileURL } from 'node:url'
 import { verifyUpdateSignature } from './update-manifest.mjs'
 
-export async function publishRelease({ repository, releaseId, version, token, assets, repairMissing = false, fetcher = fetch }) {
+export async function publishRelease({ repository, releaseId, version, token, assets, sourceCommit, repairMissing = false, fetcher = fetch }) {
   if (!/^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/.test(repository) || !/^\d+$/.test(String(releaseId)) || !token) throw Error('发布参数不完整')
   const api = `https://api.github.com/repos/${repository}`
   const headers = { Authorization: `Bearer ${token}`, Accept: 'application/vnd.github+json', 'X-GitHub-Api-Version': '2022-11-28' }
@@ -13,8 +13,18 @@ export async function publishRelease({ repository, releaseId, version, token, as
     if (!response.ok) throw Error(`GitHub ${options.method || 'GET'} failed (${response.status}): ${await response.text()}`)
     return response.status === 204 ? null : response.json()
   }
-  const release = await request(`${api}/releases/${releaseId}`)
-  if (release.tag_name !== `v${version}`) throw Error('Release ID 与项目版本不一致')
+  let release = await request(`${api}/releases/${releaseId}`)
+  const expectedTag = `v${version}`
+  // GitHub can give a draft an untagged-* placeholder before its tag exists.
+  // Repair only the exact versioned draft from this build's source commit.
+  if (release.draft && release.tag_name?.startsWith('untagged-') &&
+      release.name === `SoundSpectra ${expectedTag}` && sourceCommit && release.target_commitish === sourceCommit) {
+    release = await request(`${api}/releases/${releaseId}`, {
+      method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ tag_name: expectedTag, draft: true }),
+    })
+  }
+  if (release.tag_name !== expectedTag) throw Error(`Release ID 与项目版本不一致：Release ${releaseId} 标签为 ${release.tag_name}，预期 ${expectedTag}`)
   if (!release.draft && !repairMissing) throw Error('已发布的版本不能覆盖；请递增版本号')
   const existing = await request(`${api}/releases/${releaseId}/assets?per_page=100`)
   // Upload the manifest last. Never resolve a draft by tag: several drafts may
@@ -59,5 +69,5 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
     if (!file || signature !== entry.signature) throw Error(`更新文件与清单不一致：${platform}`)
     verifyUpdateSignature(file.bytes, signature, publicKey)
   }
-  console.log(await publishRelease({ repository, releaseId: process.env.RELEASE_ID, version, token: process.env.GH_TOKEN || process.env.GITHUB_TOKEN, assets, repairMissing: process.argv.includes('--repair-missing') }))
+  console.log(await publishRelease({ repository, releaseId: process.env.RELEASE_ID, version, sourceCommit: process.env.GITHUB_SHA, token: process.env.GH_TOKEN || process.env.GITHUB_TOKEN, assets, repairMissing: process.argv.includes('--repair-missing') }))
 }

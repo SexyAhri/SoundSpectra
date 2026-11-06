@@ -32,3 +32,30 @@ test('a missing remote attachment blocks publication', async () => {
   }), /附件验收失败/)
   assert.equal(published, false)
 })
+
+test('the exact versioned draft from the build commit can replace an untagged placeholder', async () => {
+  const patches = []
+  let release = { id: 123, name: 'SoundSpectra v1.0.3', tag_name: 'untagged-example', draft: true, target_commitish: 'build-sha' }
+  await publishRelease({ repository: 'SexyAhri/SoundSpectra', releaseId: 123, version: '1.0.3', sourceCommit: 'build-sha', token: 'fixture', assets: [],
+    fetcher: async (url, options) => {
+      if (options.method === 'PATCH') {
+        const patch = JSON.parse(options.body)
+        patches.push(patch)
+        release = { ...release, ...patch }
+      }
+      return Response.json(url.includes('/assets?') ? [] : release)
+    },
+  })
+  assert.deepEqual(patches, [{ tag_name: 'v1.0.3', draft: true }, { draft: false }])
+})
+
+test('a placeholder draft from another version or source commit cannot be relabeled', async () => {
+  for (const fields of [{ name: 'SoundSpectra v1.0.2', target_commitish: 'build-sha' }, { name: 'SoundSpectra v1.0.3', target_commitish: 'other-sha' }]) {
+    await assert.rejects(publishRelease({ repository: 'SexyAhri/SoundSpectra', releaseId: 123, version: '1.0.3', sourceCommit: 'build-sha', token: 'fixture', assets: [],
+      fetcher: async (_url, options) => {
+        assert.equal(options.method, undefined)
+        return Response.json({ id: 123, tag_name: 'untagged-example', draft: true, ...fields })
+      },
+    }), /预期 v1.0.3/)
+  }
+})
