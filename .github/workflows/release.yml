@@ -101,18 +101,15 @@ jobs:
           cache: npm
       - uses: dtolnay/rust-toolchain@stable
         with:
-          components: rustfmt
           targets: ${{ matrix.rust_targets }}
       - uses: Swatinem/rust-cache@v2
         with:
           workspaces: src-tauri
           key: ${{ matrix.name }}
       - run: npm ci
-      - run: npm run test:release
-      - run: npm run build
-      - run: cargo fmt --manifest-path src-tauri/Cargo.toml -- --check
-      - run: cargo test --manifest-path src-tauri/Cargo.toml --locked --lib
       - run: npm run release:prepare
+      # Tauri's beforeBuildCommand builds the frontend once. Regression checks
+      # live in the manually triggered Checks workflow, outside packaging.
       - name: Build signed installers
         run: npm run desktop:build -- --target ${{ matrix.target }} --config src-tauri/tauri.release.conf.json -- --locked
       - uses: actions/upload-artifact@v4

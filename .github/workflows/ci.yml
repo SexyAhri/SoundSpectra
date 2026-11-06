@@ -7,8 +7,6 @@ on:
         description: 'Run the full browser regression suite'
         type: boolean
         default: false
-  push:
-    branches-ignore: [main, master]
 permissions:
   contents: read
 concurrency:

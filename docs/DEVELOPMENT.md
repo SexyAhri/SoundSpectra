@@ -20,7 +20,7 @@ node scripts/desktop.mjs --cargo fmt --manifest-path src-tauri/Cargo.toml -- --c
 node scripts/desktop.mjs --cargo test --manifest-path src-tauri/Cargo.toml --locked
 ```
 
-`npm run test:smoke` 手动运行应用、工作区和歌词回归；`npm test` 手动运行完整前端回归集。云端浏览器测试仅在手动运行 Checks 并勾选 `full` 时执行，默认 CI 和自动发布均不运行浏览器测试。本地和手动 Windows CI 均使用稳定版 Chrome。前端测试采用软件 WebGL，不代表真实显卡性能；CI 对软件光栅化设置较长等待上限，断言与本地一致。安装包与签名配置见 [发布指南](RELEASING.md)。
+`npm run test:smoke` 手动运行应用、工作区和歌词回归；`npm test` 手动运行完整前端回归集。Checks 仅由手动操作或显式工作流调用触发，不随分支推送自动执行；勾选 `full` 时追加浏览器回归。自动发布仅执行构建与发布必需步骤，不运行 Rust 格式、单元测试、发布脚本测试或浏览器回归，前端由 Tauri 构建钩子执行一次构建。本地和手动 Windows CI 均使用稳定版 Chrome。前端测试采用软件 WebGL，不代表真实显卡性能；CI 对软件光栅化设置较长等待上限，断言与本地一致。安装包与签名配置见 [发布指南](RELEASING.md)。
 
 ## 模块边界
 

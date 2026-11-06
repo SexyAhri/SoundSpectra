@@ -88,7 +88,7 @@ npm run test:smoke      # 手动运行应用、工作区和歌词浏览器回归
 npm run desktop:build   # 当前平台安装包
 ```
 
-Windows 包输出到 `src-tauri/target/release/bundle/nsis/`，Mac 包位于 `bundle/dmg/`。推送 main 后由 GitHub Actions 校验版本、编译、原生测试与签名，并同时构建两端，两端成功后发布新版本。所有浏览器回归均改为手动运行，不阻塞发布。构建与测试见 [开发说明](docs/DEVELOPMENT.md)，签名配置和自动更新见 [发布指南](docs/RELEASING.md)。
+Windows 包输出到 `src-tauri/target/release/bundle/nsis/`，Mac 包位于 `bundle/dmg/`。推送 main 后由 GitHub Actions 校验版本与签名配置，同时构建两端安装包，校验产物后发布新版本。自动发布不运行格式检查和测试，完整 Checks 仅手动触发。构建与测试见 [开发说明](docs/DEVELOPMENT.md)，签名配置和自动更新见 [发布指南](docs/RELEASING.md)。
 
 ## 仓库导航
 
