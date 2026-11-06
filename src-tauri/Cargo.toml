@@ -1,6 +1,6 @@
 [package]
 name = "soundspectra"
-version = "1.0.2"
+version = "1.0.3"
 description = "Music-reactive desktop scenes with per-application audio capture"
 license = "GPL-3.0-only"
 authors = ["SexyAhri"]
