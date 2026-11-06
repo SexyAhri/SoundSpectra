@@ -10,3 +10,5 @@
 .choice-option[data-state="checked"] { color: var(--primary); }
 .choice-option small { display: block; color: var(--muted-foreground); font-size: 10px; margin-top: 5px; }
 .choice-scroll { display: flex; justify-content: center; padding: 3px; background: var(--popover); }
+.choice-swatches { display: inline-flex; gap: 2px; margin-right: 7px; vertical-align: middle; }
+.choice-swatches i { display: block; width: 9px; height: 14px; border-radius: 2px; box-shadow: inset 0 0 0 1px #80808033; }

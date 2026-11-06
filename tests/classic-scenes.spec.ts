@@ -4,10 +4,10 @@ import { classicMusicEffects, isClassicEffect, isThreeEffect } from '../src/feat
 import { importScene, layout, sceneDocument } from '../src/features/preview/scene-library'
 
 const parameters = {
-  rhythm_balls: ['ballCount', 7], rhythm_rain: ['rainCount', 16], rhythm_fluid: ['fluidWidth', 1.6],
-  rhythm_skin: ['dragonWidth', 1.7], spectrum_bars: ['spectrumTracks', 36], ripple: ['rippleWidth', 1.6],
-  pulse_ring: ['pulseRange', 1.4], volume_rain: ['meteorDensity', 90], dream_stars: ['starCount', 180],
-  vortex: ['vortexArms', 5], water_ripple: ['waterDrops', 6], rhythm_bars: ['spectrumAmplitude', 1.4],
+  rhythm_balls: ['jellyCount', 7], rhythm_rain: ['rainCount', 16],
+  rhythm_skin: ['dragonWidth', 1.7], ripple: ['rippleWidth', 1.6],
+  volume_rain: ['meteorDensity', 90], dream_stars: ['starDensity', 4000],
+  vortex: ['vortexArms', 5],
 } as const
 
 async function probePage(page: Page) {
@@ -17,8 +17,8 @@ async function probePage(page: Page) {
   await page.goto('/classic-render-probe')
 }
 
-test('all twelve existing effect IDs and their settings round-trip through the old schema', () => {
-  expect(classicMusicEffects).toHaveLength(12)
+test('all seven effect IDs and their settings round-trip through the old schema', () => {
+  expect(classicMusicEffects).toHaveLength(7)
   for (const { value: effect } of classicMusicEffects) {
     const [key, value] = parameters[effect as keyof typeof parameters]
     const old = JSON.parse(JSON.stringify({ ...defaults, effect, music: { ...defaults.music, [key]: value },
@@ -47,16 +47,13 @@ for (const { value: effect, label } of classicMusicEffects) test(`${effect}: vis
     if (!localStorage.getItem('soundspectra.settings.v1')) localStorage.setItem('soundspectra.settings.v1', JSON.stringify(settings))
   }, old)
   await page.goto('/')
-  if (['rhythm_fluid', 'water_ripple', 'rhythm_bars'].includes(effect)) {
-    await expect(page.getByRole('button', { name: label, exact: true })).toHaveCount(0)
-  } else {
-    await expect(page.getByRole('button', { name: label, exact: true })).toHaveAttribute('aria-pressed', 'true')
-  }
+  await expect(page.getByRole('button', { name: label, exact: true })).toHaveAttribute('aria-pressed', 'true')
   const canvas = page.locator('.three-scene-surface canvas').first()
   await expect(canvas).toHaveAttribute('data-renderer', 'three')
   await expect(canvas).toHaveAttribute('data-scene', effect)
   await expect(canvas).toHaveAttribute('data-geometry', 'spatial')
   await page.getByRole('tab', { name: '位置', exact: true }).click()
+  await page.getByText('精细视角', { exact: true }).click()
   await page.getByRole('slider', { name: '左右旋转', exact: true }).focus()
   await page.keyboard.press('ArrowRight')
   await expect(page.getByText('已保存到此浏览器', { exact: true })).toBeVisible()
@@ -79,7 +76,9 @@ for (const { value: effect, label } of classicMusicEffects) test(`${effect}: vis
     let disposed = false
     try {
       world.resize(settings,1)
-      for (let frame=0;frame<45;frame++) { motion.step(audio,1/30,settings.music,false); world.draw(motion,settings,false) }
+      for (let frame=0;frame<45;frame++) {
+        motion.step(audio,1/30,settings.music,false); world.draw(motion,settings,false)
+      }
       // Reuse the actual last analysis frame, including its nonzero dt. Camera or
       // appearance redraws must not consume that same audio interval a second time.
       let objects = 0

@@ -8,6 +8,7 @@
 .is-draggable:hover .lyric-resize, .is-draggable:focus-within .lyric-resize, .is-draggable:hover .lyric-drag-hint, .is-draggable:focus-visible .lyric-drag-hint { opacity: 1; }
 .lyric-demo-label { position: absolute; right: 8px; top: 4px; font-size: 8px; color: #acb8c4; opacity: .65; pointer-events: none; }
 .lyric-empty { color: var(--muted-foreground); font-size: 11px; padding: 8px; border: 1px dashed var(--border); background: var(--background); border-radius: 6px; text-align: center; }
+.lyric-space-hint { padding: 8px; font-size: 11px; color: var(--foreground); background: var(--background); border: 1px dashed var(--border); border-radius: 5px; }
 .lyric-controls { border-bottom: 1px solid var(--border); }
 .lyric-controls .card-enable { margin-bottom: 16px; }
 .lyric-style-options { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 6px; margin-bottom: 10px; }
@@ -18,5 +19,4 @@
 .composition-option-depth .composition-mark { transform: rotate(-5deg); word-spacing: 6px; }
 .composition-option-stage .composition-mark { font-size: 16px; line-height: .9; transform: rotate(-8deg); text-align: right; }
 .composition-option-stardust .composition-mark { border-bottom: 1px solid var(--border); border-radius: 0 0 50% 50%; width: 68%; letter-spacing: .3em; transform: rotate(7deg); color: var(--success); }
-.lyric-stage-expand { width: 100%; margin-bottom: 18px; font-size: 11px; }
 .lyric-status { color: var(--muted-foreground); font-size: 11px; line-height: 1.6; margin: 12px 0; overflow-wrap: anywhere; }

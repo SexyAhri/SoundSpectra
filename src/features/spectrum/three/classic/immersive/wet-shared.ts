@@ -1,5 +1,5 @@
 import * as T from 'three'
-import { commonUniforms, randomStream, type FlowUniforms } from '../flow/shared'
+import { commonUniforms, randomStream, applyFlowPalette, type FlowUniforms } from '../flow/shared'
 import type { SpectrumSettings } from '../../../model'
 
 export const wetUniforms = () => ({...commonUniforms(),uWind:{value:0},uReduced:{value:0},
@@ -15,9 +15,7 @@ float depthFade(vec3 p){return (1.-smoothstep(175.,220.,-p.z))*(1.-smoothstep(85
 vec3 depthTint(vec3 p){return mix(uColor,uAccent,smoothstep(8.,195.,-p.z)*.75);}
 `
 export function wetPalette(uniforms: FlowUniforms,config:SpectrumSettings){
-  const palette=config.music.fieldPalette
-  uniforms.uColor.value.set(palette==='ember'?'#f2b26c':palette==='lake'?'#5bdfda':'#56bcf1')
-  uniforms.uAccent.value.set(palette==='ember'?'#c15b85':palette==='lake'?'#4765c5':'#915acb')
+  applyFlowPalette(uniforms,config)
 }
 export function seededGeometry(count:number,seed:number,instanced=false,segments=1){
   const random=randomStream(seed),seeds=new Float32Array(count*4)

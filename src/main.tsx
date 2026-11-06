@@ -16,7 +16,7 @@ import "./features/settings/workspace-layout.css";
 const overlay =
   new URLSearchParams(window.location.search).get("window") === "overlay";
 const rail =
-  new URLSearchParams(window.location.search).get("window") === "rail";
+  ["rail", "rail-popup"].includes(new URLSearchParams(window.location.search).get("window") ?? "");
 if (overlay || rail) document.documentElement.classList.add("overlay-root");
 ReactDOM.createRoot(document.getElementById("root")!).render(
   <React.StrictMode>

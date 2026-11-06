@@ -18,8 +18,8 @@ void main(){
   vAlpha=(.35+aSeed.z*.6)*depthFade(p)*smoothstep(0.,3.,-mv.z)*smoothstep(-5.,-3.,p.y)*step(hash(aSeed.w*127.),uCount);
 }`
 const rainFragment=`varying vec2 vUv;varying vec3 vColor;varying float vAlpha;
-void main(){float width=exp(-pow((vUv.x-.5)*5.,2.));float tail=pow(1.-vUv.y,.65);
-float a=width*tail*vAlpha;gl_FragColor=vec4(vColor*a*(1.+pow(1.-vUv.y,9.)*.5),a);}`
+void main(){float width=exp(-pow((vUv.x-.5)*5.,2.));float tail=pow(clamp(1.-vUv.y,0.,1.),.65);
+float a=width*tail*clamp(vAlpha,0.,1.);gl_FragColor=vec4(vColor*a*(1.+pow(clamp(1.-vUv.y,0.,1.),9.)*.5),a);}`
 const towersVertex=`${wetField}
 attribute vec4 aSeed;varying vec2 vUv;varying vec3 vColor;varying float vAlpha;
 void main(){
@@ -29,9 +29,10 @@ void main(){
   vColor=mix(uColor,uAccent,step(.72,aSeed.w));vAlpha=.35+aSeed.y*.35+uMiddle*.2;
 }`
 const towerFragment=`varying vec2 vUv;varying vec3 vColor;varying float vAlpha;
-void main(){float a=exp(-pow((vUv.x-.5)*3.,2.))*pow(1.-vUv.y,.35)*vAlpha;
+void main(){float a=exp(-pow((vUv.x-.5)*3.,2.))*pow(clamp(1.-vUv.y,0.,1.),.35)*clamp(vAlpha,0.,1.);
 gl_FragColor=vec4(vColor*a,a);}`
 const groundFragment=`${wetField}
+uniform float uImmersive;
 varying vec3 vP;varying vec2 vUv;
 void main(){
   float n=noise(vP.xz*.33+vec2(uPhase*.03,0.)),fine=noise(vP.xz*2.3);
@@ -41,13 +42,18 @@ void main(){
   float seed=hash(tile.x+tile.y*73.),age=fract(seed+uPhase*.3);
   float radius=length(local-vec2(sin(seed*32.),cos(seed*21.))*.22);
   float ring=exp(-pow((radius-age*.53)*65.,2.))*pow(1.-age,2.)*step(seed,uCount);
-  vec3 color=mix(vec3(.004,.012,.025),uColor*.055,n*.5)+depthTint(vP)*(reflection*fine+ring*.22);
-  gl_FragColor=vec4(color,depthFade(vP)*.93);
+  float sheen=reflection*fine+ring*.22;
+  vec3 color=mix(vec3(.004,.012,.025),uColor*.055,n*.5)+depthTint(vP)*sheen;
+  // Keep wet reflections on the desktop without laying an opaque dark floor
+  // over the wallpaper. The complete avenue remains in immersive mode.
+  color=mix(depthTint(vP)*(.45+sheen*.6),color,uImmersive);
+  float coverage=mix(clamp(sheen*2.4,0.,.65),.93,uImmersive);
+  gl_FragColor=vec4(color,depthFade(vP)*coverage);
 }`
 
 /** A rain-filled avenue of distant light with a wet surface extending beneath the viewer. */
 export function createNeonRain(detail:number):FlowEffect{
-  const group=new T.Group(),uniforms=wetUniforms(),drive=flowDriver(uniforms)
+  const group=new T.Group(),uniforms={...wetUniforms(),uImmersive:{value:0}},drive=flowDriver(uniforms)
   wetSky(group,uniforms)
   wetMesh(group,wetGround(),wetMaterial(uniforms,plainVertex,groundFragment,false))
   wetMesh(group,seededGeometry(54,684,true),wetMaterial(uniforms,towersVertex,towerFragment))
@@ -57,6 +63,6 @@ export function createNeonRain(detail:number):FlowEffect{
     const m=config.music;drive(motion,config,reduced,(.16+m.rainSpeedMultiplier*.16)*(.55+m.speed*.2))
     wetPalette(uniforms,config);uniforms.uWidth.value=m.rainRadiusMultiplier
     uniforms.uCount.value=m.rainCount/20;uniforms.uWind.value=m.rainDirection==='down'?0:m.rainDirection==='left'?.8:-.8
-    uniforms.uReduced.value=Number(reduced)
+    uniforms.uReduced.value=Number(reduced);uniforms.uImmersive.value=Number(config.sceneMode==='immersive')
   }}
 }

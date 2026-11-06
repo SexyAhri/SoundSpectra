@@ -49,8 +49,8 @@ test('preview and transport stay visible while each inspector scrolls independen
     await page.setViewportSize({ width, height })
     for (const name of ['灯效', '歌词', '音乐卡片', '壁纸']) {
       await page.getByRole('button', { name, exact: true }).click()
-      if (name === '歌词') { await page.getByText('位置与同步', { exact: true }).click(); await page.getByRole('button', { name: '恢复歌词位置与同步' }).scrollIntoViewIfNeeded() }
-      if (name === '音乐卡片') await page.getByRole('button', { name: '恢复卡片位置' }).scrollIntoViewIfNeeded()
+      if (name === '歌词') { await page.getByText('位置与同步', { exact: true }).click(); await page.getByRole('button', { name: '恢复歌词位置' }).scrollIntoViewIfNeeded() }
+      if (name === '音乐卡片') { await page.getByText('精确位置', { exact: true }).click(); await page.getByRole('button', { name: '恢复卡片位置' }).scrollIntoViewIfNeeded() }
       const geometry = await page.evaluate(() => {
         const main = document.querySelector('.main-pane')!, footer = document.querySelector('.workspace-footer')!.getBoundingClientRect()
         const preview = document.querySelector('.desktop-preview')!.getBoundingClientRect()

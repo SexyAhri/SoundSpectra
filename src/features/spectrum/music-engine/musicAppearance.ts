@@ -1,7 +1,9 @@
 import type { MusicEffectAppearance } from './types';
+import { luminousDefaults, normalizeLuminous } from './luminous-appearance';
 
 /** 三维音乐场景的共享默认值，保留已保存参数的范围与格式。 */
 export const MUSIC_EFFECT_DEFAULTS = Object.freeze({
+  ...luminousDefaults,
   ambientDensity: 1,
   ambientSpread: 1,
   fieldScale: 1.35,
@@ -11,35 +13,23 @@ export const MUSIC_EFFECT_DEFAULTS = Object.freeze({
   fieldDrops: 4,
   fieldPalette: 'iris' as const,
   fieldRippleMode: 'rain' as const,
-  intensityWindowMs: 1000,
-  fluidBrightnessThreshold: 8,
-  ballSpeedMultiplier: 5,
-  rainSpeedMultiplier: 3,
-  fluidSpeedMultiplier: 1,
-  skinFlowSpeedMultiplier: 4,
-  sensitivity: 2,
+  ballSpeedMultiplier: 1.5,
+  rainSpeedMultiplier: 1.2,
+  skinFlowSpeedMultiplier: 1.3,
+  sensitivity: 1,
   response: 'balanced' as const,
-  ballRadiusMultiplier: 2,
+  ballRadiusMultiplier: 1,
   ballCount: 5,
-  ballTrail: 0.35,
-  rainRadiusMultiplier: 2,
+  ballTrail: 0.15,
+  rainRadiusMultiplier: 1,
   rainCount: 10,
   rainDirection: 'left' as const,
-  fluidCount: 2,
-  fluidWidth: 1,
-  sourceFluidFadeSpeed: 30,
   dragonWidth: 1,
   dragonTrail: 4,
   dragonBurst: 1,
-  spectrumTracks: 28,
-  spectrumAmplitude: 1,
-  spectrumNoteDensity: 1,
   rippleWidth: 1,
   rippleTwist: 1,
   rippleLights: 2,
-  pulseRange: 1,
-  pulseImpact: 1,
-  pulseParticles: 8,
   meteorDensity: 72,
   meteorTrail: 1,
   meteorAngle: 25,
@@ -49,9 +39,6 @@ export const MUSIC_EFFECT_DEFAULTS = Object.freeze({
   vortexArms: 4,
   vortexRange: 1,
   vortexWidth: 1,
-  waterDrops: 4,
-  waterRange: 1,
-  waterEchoes: 3,
 });
 
 export function normalizeMusicAppearance(
@@ -65,6 +52,7 @@ export function normalizeMusicAppearance(
       : MUSIC_EFFECT_DEFAULTS[key];
   };
   return {
+    ...normalizeLuminous(value),
     ambientDensity: number('ambientDensity', .5, 2),
     ambientSpread: number('ambientSpread', .6, 1.8),
     fieldScale: number('fieldScale', .8, 2),
@@ -74,11 +62,8 @@ export function normalizeMusicAppearance(
     fieldDrops: Math.round(number('fieldDrops', 1, 8)),
     fieldPalette: value.fieldPalette === 'ember' || value.fieldPalette === 'lake' ? value.fieldPalette : 'iris',
     fieldRippleMode: value.fieldRippleMode === 'center' ? 'center' : 'rain',
-    intensityWindowMs: number('intensityWindowMs', 100, 3000),
-    fluidBrightnessThreshold: number('fluidBrightnessThreshold', 0, 20),
     ballSpeedMultiplier: number('ballSpeedMultiplier', 0.1, 5),
     rainSpeedMultiplier: number('rainSpeedMultiplier', 0.1, 5),
-    fluidSpeedMultiplier: number('fluidSpeedMultiplier', 0.1, 5),
     skinFlowSpeedMultiplier: number('skinFlowSpeedMultiplier', 0.1, 10),
     sensitivity: number('sensitivity', 0.5, 2),
     response:
@@ -92,21 +77,12 @@ export function normalizeMusicAppearance(
       value.rainDirection === 'down' || value.rainDirection === 'right'
         ? value.rainDirection
         : 'left',
-    fluidCount: Math.round(number('fluidCount', 1, 3)),
-    fluidWidth: number('fluidWidth', 0.5, 2),
-    sourceFluidFadeSpeed: number('sourceFluidFadeSpeed', .5, 50),
     dragonWidth: number('dragonWidth', 0.5, 2),
     dragonTrail: Math.round(number('dragonTrail', 0, 8)),
     dragonBurst: number('dragonBurst', 0, 2),
-    spectrumTracks: Math.round(number('spectrumTracks', 12, 40)),
-    spectrumAmplitude: number('spectrumAmplitude', 0.5, 1.5),
-    spectrumNoteDensity: Math.round(number('spectrumNoteDensity', 0, 3)),
     rippleWidth: number('rippleWidth', 0.5, 2),
     rippleTwist: number('rippleTwist', -1.5, 1.5),
     rippleLights: Math.round(number('rippleLights', 1, 4)),
-    pulseRange: number('pulseRange', 0.5, 1.5),
-    pulseImpact: number('pulseImpact', 0, 2),
-    pulseParticles: Math.round(number('pulseParticles', 4, 16) / 2) * 2,
     meteorDensity: Math.round(number('meteorDensity', 24, 96)),
     meteorTrail: number('meteorTrail', 0.5, 2),
     meteorAngle: Math.round(number('meteorAngle', -45, 45)),
@@ -116,9 +92,6 @@ export function normalizeMusicAppearance(
     vortexArms: Math.round(number('vortexArms', 2, 5)),
     vortexRange: number('vortexRange', 0.5, 1.3),
     vortexWidth: number('vortexWidth', 0.5, 2),
-    waterDrops: Math.round(number('waterDrops', 2, 6)),
-    waterRange: number('waterRange', 0.5, 1.5),
-    waterEchoes: Math.round(number('waterEchoes', 1, 4)),
   };
 }
 

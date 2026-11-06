@@ -1,8 +1,10 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
   addRailPaths,
+  detachRailItem,
   loadRail,
   mutateRail,
+  pasteRailImage,
   pickRailPaths,
   subscribeRail,
 } from "./client";
@@ -18,43 +20,56 @@ export function useRail() {
     [pending, setPending] = useState(0),
     [error, setError] = useState<string | null>(null);
   const queue = useRef(Promise.resolve()),
-    alive = useRef(true);
+    alive = useRef(true),
+    revision = useRef(0),
+    refreshRequest = useRef(0);
   const accept = useCallback((value: RailSnapshot) => {
     if (alive.current) {
+      revision.current++;
       setSnapshot(value);
       setLoaded(true);
     }
   }, []);
   const refresh = useCallback(async () => {
+    const request = ++refreshRequest.current;
+    const startedAt = revision.current;
+    const current = () => alive.current && request === refreshRequest.current
+      && startedAt === revision.current;
     try {
       const value = await loadRail();
+      if (!current()) return;
       accept(value);
       if (alive.current) setError(null);
     } catch (error) {
-      if (alive.current) setError(String(error));
+      if (current()) setError(String(error));
     }
   }, [accept]);
   useEffect(() => {
     alive.current = true;
-    void refresh();
     let disposed = false,
       stop: (() => void) | undefined;
-    void subscribeRail(accept)
+    // Subscribe before reading so a change between startup and the first
+    // snapshot cannot be missed or replaced by an older request.
+    void subscribeRail(value => { if (!disposed) accept(value) })
       .then((unsubscribe) => {
         if (disposed) unsubscribe();
         else stop = unsubscribe;
       })
       .catch((error) => {
         if (!disposed) setError(String(error));
-      });
+      })
+      .finally(() => { if (!disposed) void refresh() });
     return () => {
       alive.current = false;
+      revision.current++;
+      refreshRequest.current++;
       disposed = true;
       stop?.();
     };
   }, [accept, refresh]);
   const run = useCallback(
     (operation: () => Promise<RailSnapshot>) => {
+      revision.current++;
       setPending((value) => value + 1);
       const task = queue.current
         .then(operation)
@@ -72,7 +87,10 @@ export function useRail() {
         .finally(() => {
           if (alive.current) setPending((value) => value - 1);
         });
-      queue.current = task.then(() => {}, () => {});
+      queue.current = task.then(
+        () => {},
+        () => {},
+      );
       return task;
     },
     [accept],
@@ -86,6 +104,11 @@ export function useRail() {
       run(() => addRailPaths(groupId, paths, replaceId)),
     [run],
   );
+  const pasteImage = useCallback(
+    (groupId: string) => run(() => pasteRailImage(groupId)),
+    [run],
+  );
+  const detach = useCallback((id: string) => run(() => detachRailItem(id)), [run]);
   const pick = useCallback(
     async (groupId: string, folder: boolean, replaceId?: string) => {
       try {
@@ -107,6 +130,8 @@ export function useRail() {
     error,
     change,
     add,
+    pasteImage,
+    detach,
     pick,
     refresh,
     flush,

@@ -58,7 +58,7 @@ void main() {
   float core=exp(-edge*edge*65.);
   float arc=.5+.5*sin(vUv.x*6.2831853*2.+vLane*2.-uPhase*.35);
   float nodes=pow(max(0.,cos(vUv.x*6.2831853*12.+vLane)),24.);
-  float alpha=(core*.5+exp(-edge*edge*5.)*.08)*(.35+pow(arc,3.)*.3+vEnergy*.4+nodes*.06)*vFade;
+  float alpha=(core*.7+exp(-edge*edge*5.)*.12)*(.5+pow(arc,3.)*.3+vEnergy*.25+nodes*.06)*vFade;
   vec3 color=mix(uMid,uWarm,vTint);
   color=mix(color,uHigh,core*(.2+vEnergy*.3));
   gl_FragColor=vec4(color*alpha*uBrightness*(1.+vEnergy*.4),alpha);
@@ -92,7 +92,7 @@ varying float vTint;
 void main() {
   float edge=abs(vUv.y-.5)*2.;
   float flow=.5+.5*sin(vUv.x*18.-uPhase*.45+vLane*3.14159265);
-  float alpha=(exp(-edge*edge*50.)*.34+exp(-edge*edge*4.)*.06)*vFade*(.6+flow*.15+vEnergy*.25);
+  float alpha=(exp(-edge*edge*50.)*.5+exp(-edge*edge*4.)*.09)*vFade*(.75+flow*.15+vEnergy*.2);
   vec3 color=mix(uMid,uWarm,vTint);
   gl_FragColor=vec4(color*alpha*uBrightness,alpha);
 }`

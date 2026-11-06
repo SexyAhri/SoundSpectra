@@ -6,7 +6,7 @@ import { useSettings } from "./use-settings";
 import { native } from "../spectrum/bridge";
 import { DesktopPreview } from "../preview/desktop-preview";
 import { regionPatch, settingsForRegion } from "../spectrum/regions";
-import type { SpectrumSettings } from "../spectrum/model";
+import type { SpectrumSettings, SettingsUpdate } from "../spectrum/model";
 import { useSpectrum } from "../spectrum/use-spectrum";
 import { ApplicationToolbar } from "../application/application-toolbar";
 import packageInfo from "../../../package.json";
@@ -19,6 +19,7 @@ import {
 import { WorkspaceFooter } from "./workspace-footer";
 import { useRail } from "../rail/use-rail";
 import { useRailDrop } from "../rail/use-rail-drop";
+import { useRailPaste } from "../rail/use-rail-paste";
 
 export function SettingsWorkspace() {
   const {
@@ -28,12 +29,16 @@ export function SettingsWorkspace() {
     busy,
     saveState,
     error,
-    update: updateScene,
+    update: persistScene,
     edit,
     recover,
     flush,
     commitScene,
   } = useSettings();
+  const updateScene: SettingsUpdate = change => persistScene(current => {
+    const patch = typeof change === 'function' ? change(current) : change;
+    return 'color' in patch && !('followCover' in patch) ? { ...patch, followCover: false } : patch;
+  });
   const [selectedRegion, selectRegion] = useState("primary");
   const selected =
     selectedRegion === "primary" ||
@@ -42,7 +47,7 @@ export function SettingsWorkspace() {
       : "primary";
   const settings = settingsForRegion(sceneSettings, selected);
   const update = (patch: Partial<SpectrumSettings>) =>
-    updateScene((current) => regionPatch(current, selected, patch));
+    updateScene((current) => regionPatch(current, selected, 'color' in patch && !('followCover' in patch) ? { ...patch, followCover: false } : patch));
   const [arrangeRequest, requestArrange] = useState(0);
   const [demo, setDemo] = useState(!native);
   const [applicationOpen, setApplicationOpen] = useState(false);
@@ -50,12 +55,19 @@ export function SettingsWorkspace() {
   const rail = useRail();
   const [selectedRail, selectRail] = useState<string | null>("apps");
   const [selectedRailItem, selectRailItem] = useState<string | null>(null);
+  const [railSelectionRevision, setRailSelectionRevision] = useState(0);
   const onSelectRail = (groupId: string, itemId?: string) => {
     selectRail(groupId);
     selectRailItem(itemId ?? null);
+    if (itemId) setRailSelectionRevision(value => value + 1);
     navigation.selectPanel("rail");
   };
-  useRailDrop(rail, selectedRail, navigation.panel === "rail");
+  const railDropError = useRailDrop(rail, selectedRail, navigation.panel === "rail" && !applicationOpen);
+  useRailPaste(
+    rail,
+    selectedRail,
+    navigation.panel === "rail" && !applicationOpen,
+  );
   const { bands, receivedAt, analysis, error: spectrumError } = useSpectrum();
   const running = status.state === "listening";
   const nowPlaying = useNowPlaying(!applicationOpen);
@@ -137,9 +149,9 @@ export function SettingsWorkspace() {
         />
         <div className="workspace-body">
           <main className="main-pane" id="spectrum-workspace">
-            {(error || spectrumError || status.desktopError) && (
+            {(error || spectrumError || status.desktopError || navigation.panel === "rail" && railDropError) && (
               <div className="error-banner" role="alert">
-                <span>{error || spectrumError || status.desktopError}</span>
+                <span>{error || spectrumError || status.desktopError || railDropError}</span>
                 {!loaded && (
                   <Button
                     variant="outline"
@@ -162,6 +174,7 @@ export function SettingsWorkspace() {
               </div>
             )}
             <DesktopPreview
+              onShow={() => setApplicationOpen(false)}
               settings={sceneSettings}
               nowPlaying={nowPlaying}
               lyricDocument={lyricDocument}
@@ -198,6 +211,7 @@ export function SettingsWorkspace() {
             rail={rail}
             selectedRail={selectedRail}
             selectedRailItem={selectedRailItem}
+            railSelectionRevision={railSelectionRevision}
             onSelectRail={onSelectRail}
             panel={navigation.panel}
             tab={navigation.tab}
@@ -209,6 +223,7 @@ export function SettingsWorkspace() {
           />
         </div>
         <WorkspaceFooter
+          rail={navigation.panel === "rail" ? rail : undefined}
           settings={sceneSettings}
           status={status}
           loaded={loaded}

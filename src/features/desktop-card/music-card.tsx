@@ -16,7 +16,7 @@ export function MusicCard({ info, settings, color, bands, receivedAt, demo = fal
   const subtitle = info.artist || (info.title ? info.source : info.source ? '播放器未提供歌曲信息' : demo ? '在客户端中显示当前歌曲' : '打开音乐客户端，开始播放')
   const progress = info.duration > 0 ? Math.min(1, Math.max(0, info.position / info.duration)) : 0
   const afternoon = settings.variant === 'afternoon'
-  return <article className={`music-card music-card-${settings.variant} ${info.playing && !demo ? 'is-playing' : ''}`} aria-label="桌面音乐信息卡" style={{ '--card-accent': afternoon ? '#849576' : color } as CSSProperties}>
+  return <article className={`music-card music-card-${settings.variant} ${info.playing && !demo ? 'is-playing' : ''}`} aria-label="桌面音乐信息卡" style={{ '--card-accent': color } as CSSProperties}>
     <div className="music-card-shell">
       <div className="music-card-art" aria-hidden="true"><div className="vinyl-disc"><div className="vinyl-label">{cover ? <img src={cover} alt="" onError={() => setFailedCover(cover)} /> : <Disc3 />}</div></div>{cover && <img className="music-card-cover" src={cover} alt="" onError={() => setFailedCover(cover)} />}</div>
       <div className="music-card-content">

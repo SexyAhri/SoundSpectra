@@ -18,7 +18,7 @@ void main(){
  vDepth=clamp(-mv.z/170.,0.,1.);vAlpha=smoothstep(0.,10.,rise)*(1.-smoothstep(95.,110.,rise));
 }`
 const fragment=`${uniformSource} varying float vDepth,vAlpha;
-void main(){vec3 tint=mix(uColor,vec3(.78,.89,.87),vDepth*.55);gl_FragColor=vec4(tint,vAlpha*(.95-vDepth*.25));}`
+void main(){vec3 tint=mix(uColor*.42,uAccent*.55,vDepth*.3);gl_FragColor=vec4(tint,vAlpha*(.98-vDepth*.18));}`
 
 /** Dandelion-like canopies drift through daylight; audio controls lift and feather opening. */
 export function createSunlitSeeds(detail:number):FlowEffect{
@@ -46,7 +46,8 @@ export function createSunlitSeeds(detail:number):FlowEffect{
    const m=config.music;drive(motion,config,reduced,.5+m.speed*.18)
    uniforms.uTrail.value=(.65+m.meteorTrail*.45)*(1+motion.middle*.16)
    uniforms.uTwist.value=Math.tan(m.meteorAngle*Math.PI/180)*.35
-   uniforms.uColor.value.set(m.fieldPalette==='ember'?'#8e4d29':m.fieldPalette==='lake'?'#366b65':'#80623b')
+   uniforms.uSkyHigh.value.copy(uniforms.uAccent.value)
+   uniforms.uSkyLow.value.copy(uniforms.uHighlight.value)
    geometry.instanceCount=Math.min(capacity,Math.round(capacity*m.meteorDensity/96))
  }}
 }

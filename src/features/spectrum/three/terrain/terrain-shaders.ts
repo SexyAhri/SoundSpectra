@@ -44,7 +44,7 @@ void main() {
   vec3 normal = normalize(cross(dFdx(vWorld), dFdy(vWorld)));
   float heat = clamp(vField.a + (vGrain - .5) * .06, 0., 1.);
   vec3 color = mix(uLow, uMid, smoothstep(.01, .3, heat));
-  color = mix(color, uWarm, smoothstep(.25, .68, heat));
+  color = mix(color, uWarm, smoothstep(.18, .58, heat));
   color = mix(color, uHigh, pow(smoothstep(.75, 1., heat), 1.6) * .9);
   float top = max(0., normal.y);
   float shade = .23 + top * .77 + max(0., normal.x) * .22 + max(0., normal.z) * .12;

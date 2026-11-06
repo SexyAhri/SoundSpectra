@@ -1,0 +1,103 @@
+import { expect, test, type Page } from '@playwright/test'
+
+// Delay IPC reads and deliver real subscriptions to exercise the controller's
+// ordering. All files and OS dialogs stay behind the mocked native boundary.
+async function fixture(page: Page) {
+  await page.addInitScript(() => Object.assign(window, { isTauri: true }))
+  await page.route('**/src/main.tsx*', route => route.fulfill({ contentType: 'text/javascript', body: `
+    import React from '/node_modules/.vite/deps/react.js';
+    import ReactDOM from '/node_modules/.vite/deps/react-dom_client.js';
+    import { useRail } from '/src/features/rail/use-rail.ts';
+    import { RailSurface } from '/src/features/rail/rail-surface.tsx';
+    import '/src/index.css';
+    import '/src/features/rail/rail.css';
+    window.reads = []; window.commands = []; window.callbacks = new Map(); window.eventListeners = {};
+    const initial = { settings: { version: 1, enabled: true, groups: [{ id: 'apps', name: '保留布局', x: .12, y: .23, width: .72, collapsed: false, items: [
+      { id: 'reference', name: '我的工作文档', kind: 'file', path: 'C:/old.txt', crop: 'cover' }
+    ] }] }, missing: [], supported: true, desktopError: null };
+    window.serverSnapshot = structuredClone(initial);
+    window.emitSnapshot = (name, missing = []) => {
+      window.serverSnapshot.settings.groups[0].name = name;
+      window.serverSnapshot.missing = missing;
+      window.eventListeners['rail-changed']({ payload: structuredClone(window.serverSnapshot) });
+    };
+    window.__TAURI_EVENT_PLUGIN_INTERNALS__ = { unregisterListener: () => {} };
+    window.__TAURI_INTERNALS__ = { invoke: async (command, args) => {
+      window.commands.push({ command, args });
+      if (command === 'plugin:event|listen') { window.eventListeners[args.event] = window.callbacks.get(args.handler); return args.handler; }
+      if (command === 'plugin:event|unlisten') { delete window.eventListeners[args.event]; return; }
+      if (command === 'rail_get') return new Promise((resolve, reject) => {
+        const captured = structuredClone(window.serverSnapshot);
+        window.reads.push({ finish: () => resolve(captured), fail: () => reject('过期的读取错误') });
+      });
+      if (command === 'rail_media') return null;
+      if (command === 'rail_pick') return ['C:/new.txt'];
+      if (command === 'rail_add_paths') {
+        const item = window.serverSnapshot.settings.groups[0].items.find(item => item.id === args.replaceId);
+        item.path = args.paths[0];
+        window.serverSnapshot.missing = [];
+        window.emitSnapshot(window.serverSnapshot.settings.groups[0].name);
+        return structuredClone(window.serverSnapshot);
+      }
+      if (command === 'rail_change') {
+        if (args.change.type === 'remove') window.serverSnapshot.settings.groups[0].items = [];
+        window.emitSnapshot(window.serverSnapshot.settings.groups[0].name, window.serverSnapshot.settings.groups[0].items.length ? window.serverSnapshot.missing : []);
+        return structuredClone(window.serverSnapshot);
+      }
+      return null;
+    }, transformCallback: callback => { const id = window.callbacks.size + 1; window.callbacks.set(id, callback); return id; } };
+    function Fixture() {
+      const controller = useRail();
+      window.controller = controller;
+      return React.createElement('main', { style: { width: 880, padding: 24 } },
+        React.createElement('output', { 'data-testid': 'group-name' }, controller.loaded ? controller.settings.groups[0].name : 'loading'),
+        React.createElement('button', { onClick: controller.refresh }, '刷新状态'),
+        controller.error && React.createElement('p', { role: 'alert' }, controller.error),
+        controller.loaded && React.createElement(RailSurface, { group: controller.settings.groups[0], controller }));
+    }
+    ReactDOM.createRoot(document.getElementById('root')).render(React.createElement(Fixture));
+  ` }))
+  await page.goto('/?rail-recovery-fixture')
+  await expect.poll(() => page.evaluate(() => (window as any).reads.length)).toBe(1)
+}
+
+test('startup subscribes before reading and a late snapshot cannot roll back a live change', async ({ page }) => {
+  await fixture(page)
+  const order = await page.evaluate(() => (window as any).commands.map((entry: any) => entry.command))
+  expect(order.indexOf('plugin:event|listen')).toBeLessThan(order.indexOf('rail_get'))
+  await page.evaluate(() => (window as any).emitSnapshot('更新后的布局'))
+  await expect(page.getByTestId('group-name')).toHaveText('更新后的布局')
+  await page.evaluate(() => (window as any).reads[0].finish())
+  await expect(page.getByTestId('group-name')).toHaveText('更新后的布局')
+  await page.getByRole('button', { name: '刷新状态' }).click()
+  await page.evaluate(() => (window as any).emitSnapshot('再次更新'))
+  await page.evaluate(() => (window as any).reads[1].fail())
+  await expect(page.getByTestId('group-name')).toHaveText('再次更新')
+  await expect(page.getByRole('alert')).toHaveCount(0)
+})
+
+test('missing targets offer relinking, preserve identity and layout, recover, and can be unmounted', async ({ page }) => {
+  await fixture(page)
+  await page.evaluate(() => (window as any).reads[0].finish())
+  const before = await page.evaluate(() => structuredClone((window as any).controller.settings))
+  await page.evaluate(() => (window as any).emitSnapshot('保留布局', ['reference']))
+  const card = page.getByRole('button', { name: '我的工作文档，文件', exact: true })
+  await expect(card).toContainText('需重新关联')
+  await card.click()
+  const menu = page.getByRole('region', { name: '我的工作文档', exact: true })
+  await expect(menu.getByRole('status')).toContainText('目标已移动或删除')
+  await expect(menu.getByRole('button', { name: '打开', exact: true })).toHaveCount(0)
+  await menu.getByRole('button', { name: '重新关联', exact: true }).click()
+  await expect(card).not.toContainText('需重新关联')
+  await expect(menu.getByRole('button', { name: '打开', exact: true })).toBeVisible()
+  const after = await page.evaluate(() => structuredClone((window as any).controller.settings))
+  expect(after.groups[0]).toEqual({ ...before.groups[0], items: [{ ...before.groups[0].items[0], path: 'C:/new.txt' }] })
+  const commands = await page.evaluate(() => (window as any).commands)
+  expect(commands.find((entry: any) => entry.command === 'rail_add_paths').args).toEqual({ groupId: 'apps', paths: ['C:/new.txt'], replaceId: 'reference' })
+  await page.getByRole('button', { name: '关闭挂件面板' }).click()
+  await page.evaluate(() => (window as any).emitSnapshot('保留布局', ['reference']))
+  await card.click()
+  await menu.getByRole('button', { name: '取消挂载', exact: true }).click()
+  await expect(card).toHaveCount(0)
+  await expect(menu).toHaveCount(0)
+})

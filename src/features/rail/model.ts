@@ -6,6 +6,7 @@ export interface RailItem {
   kind: RailKind;
   crop: "cover" | "contain";
   text?: string;
+  desktopManaged?: boolean;
 }
 export interface RailGroup {
   id: string;
@@ -41,7 +42,13 @@ export type RailChange =
   | { type: "addGroup" }
   | { type: "removeGroup"; id: string }
   | { type: "addNote"; groupId: string; text: string }
-  | { type: "item"; id: string; name?: string; crop?: "cover" | "contain"; text?: string }
+  | {
+      type: "item";
+      id: string;
+      name?: string;
+      crop?: "cover" | "contain";
+      text?: string;
+    }
   | { type: "move"; id: string; groupId: string; index: number }
   | { type: "remove"; id: string };
 export const railDefaults: RailSettings = {
@@ -50,10 +57,10 @@ export const railDefaults: RailSettings = {
   groups: [
     {
       id: "apps",
-      name: "我的晾衣绳",
-      x: 0.07,
+      name: "我的拾光绳",
+      x: 0.01,
       y: 0.18,
-      width: 0.86,
+      width: 0.98,
       collapsed: false,
       items: [],
     },
@@ -80,18 +87,18 @@ export function changeRail(
   if (change.type === "enable") next.enabled = change.enabled;
   if (change.type === "group") {
     const group = next.groups.find((g) => g.id === change.id);
-    if (!group) throw Error("找不到这组挂架");
+    if (!group) throw Error("找不到这组拾光绳");
     const { type: _, id: __, ...patch } = change;
     Object.assign(group, patch);
     group.x = Math.max(0, Math.min(group.x, 1 - group.width));
     if (!group.name.trim() || group.name.length > 40)
-      throw Error("挂架名称需为 1～40 个字符");
+      throw Error("拾光绳名称需为 1～40 个字符");
   }
   if (change.type === "addGroup") {
-    if (next.groups.length >= 4) throw Error("最多放置四组挂架");
+    if (next.groups.length >= 4) throw Error("最多放置四组拾光绳");
     next.groups.push({
       id: crypto.randomUUID(),
-      name: "新挂架",
+      name: "新拾光绳",
       x: 0.54,
       y: 0.54,
       width: 0.38,
@@ -116,23 +123,36 @@ export function changeRail(
     }
     if (change.crop) item.crop = change.crop;
     if (change.text !== undefined) {
-      if (item.kind !== 'note' || !change.text.trim() || change.text.length > 2000) throw Error('便签需为 1～2000 个字符');
+      if (
+        item.kind !== "note" ||
+        !change.text.trim() ||
+        change.text.length > 2000
+      )
+        throw Error("便签需为 1～2000 个字符");
       item.text = change.text.trim();
     }
   }
-  if (change.type === 'addNote') {
-    const group = next.groups.find(g => g.id === change.groupId);
-    if (!group) throw Error('找不到这组挂架');
-    if (group.items.length >= 48) throw Error('这一组已经放满了');
-    if (!change.text.trim() || change.text.length > 2000) throw Error('便签需为 1～2000 个字符');
-    group.items.push({ id: crypto.randomUUID(), name: change.text.trim().split('\n')[0].slice(0, 18), path: '', kind: 'note', crop: 'cover', text: change.text.trim() });
+  if (change.type === "addNote") {
+    const group = next.groups.find((g) => g.id === change.groupId);
+    if (!group) throw Error("找不到这组拾光绳");
+    if (group.items.length >= 48) throw Error("这一组已经放满了");
+    if (!change.text.trim() || change.text.length > 2000)
+      throw Error("便签需为 1～2000 个字符");
+    group.items.push({
+      id: crypto.randomUUID(),
+      name: change.text.trim().split("\n")[0].slice(0, 18),
+      path: "",
+      kind: "note",
+      crop: "cover",
+      text: change.text.trim(),
+    });
   }
   if (change.type === "move") {
     const target = next.groups.find((g) => g.id === change.groupId);
     const item = next.groups
       .flatMap((g) => g.items)
       .find((i) => i.id === change.id);
-    if (!item || !target) throw Error("找不到挂件或目标挂架");
+    if (!item || !target) throw Error("找不到挂件或目标拾光绳");
     if (
       target.items.length >= 48 &&
       !target.items.some((i) => i.id === item.id)

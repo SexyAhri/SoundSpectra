@@ -15,6 +15,8 @@ import {
   setEditing,
   subscribeGeometry,
 } from "../spectrum/bridge";
+import { applyDesktopScene } from '../preview/scene-client';
+import type { SceneLayout } from '../preview/scene-library';
 
 export function useSettings() {
   const [settings, setSettings] = useState<SpectrumSettings>(
@@ -168,7 +170,7 @@ export function useSettings() {
     queue.current = task.catch(() => {});
     await task;
   };
-  const commitScene = async (patch: Partial<SpectrumSettings>) => {
+  const commitScene = async (patch: Partial<SceneLayout>) => {
     if (!loaded || committing.current) throw new Error("设置正在处理，请稍后重试。");
     committing.current = true;
     setBusy(true);
@@ -176,7 +178,7 @@ export function useSettings() {
     // A flush must never write the previous scene while this save is in flight.
     const task = queue.current.then(async () => {
       setSaveState("saving");
-      const saved = await saveSettings({ ...latest.current, ...patch });
+      const saved = await applyDesktopScene(patch, latest.current);
       revision.current++;
       latest.current = saved;
       setSettings(saved);

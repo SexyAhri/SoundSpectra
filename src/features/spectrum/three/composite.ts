@@ -16,11 +16,15 @@ uniform int uMaskCount;
 void main() {
   vec2 uv = gl_FragCoord.xy / uResolution;
   vec4 terrain = texture2D(uImage, uv);
+  // HDR additive light may accumulate alpha above one. It is coverage, not
+  // negative transmittance; bound it before compositing the environment.
+  terrain.a = clamp(terrain.a, 0., 1.);
   vec2 sky = (uv - vec2(.5, .49)) * vec2(1.1, 1.6);
   float halo = exp(-dot(sky, sky) * 11.);
   vec3 backdrop = mix(uLow * .08, uLow * .24, uv.y) + uWarm * halo * .055;
-  float pool = (1. - smoothstep(.46, .88, length((uv - vec2(.5, .32)) * vec2(1.1, 1.3)))) * .97;
-  float backdropAlpha = mix(pool, .985, uImmersive);
+  // Desktop mode contributes only scene geometry and light. A dark environment
+  // belongs to immersive mode; a radial backdrop obscures light wallpapers.
+  float backdropAlpha = .985 * uImmersive;
   float alpha = terrain.a + backdropAlpha * (1. - terrain.a);
   vec3 color = (terrain.rgb + backdrop * backdropAlpha * (1. - terrain.a)) / max(alpha, .0001);
   float border = smoothstep(0., .025, uv.x) * smoothstep(0., .025, 1. - uv.x)

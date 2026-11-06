@@ -19,26 +19,26 @@ test('live audio driver consumes true RMS without deriving volume from frequency
 })
 
 test('classic and ambient 3D scenes persist with independent region parameters and scene export', () => {
-  expect(classicMusicEffects).toHaveLength(12)
+  expect(classicMusicEffects).toHaveLength(7)
   for (const effect of musicEffects) {
-    const settings = normalizeSettings({ ...defaults, effect: effect.value, music: { fluidCount: 3, ballSpeedMultiplier: 1.7 } })
+    const settings = normalizeSettings({ ...defaults, effect: effect.value, music: { rainCount: 20, ballSpeedMultiplier: 1.7 } })
     const saved = importScene(sceneDocument({ name: effect.label, scene: layout(settings) }))
     expect(saved.scene.effect).toBe(effect.value)
     expect(saved.scene.music.ballSpeedMultiplier).toBe(1.7)
   }
-  const normalized = normalizeMusicSettings({ fluidCount: 99, intensityWindowMs: 1, ballSpeedMultiplier: NaN })
-  expect(normalized).toMatchObject({ fluidCount: 3, intensityWindowMs: 100, ballSpeedMultiplier: 5 })
-  const settings = normalizeSettings({ regions: [{ ...defaults, id: 'second', name: '第二层', music: { fluidCount: 3 } }] })
-  const patch = regionPatch(settings, 'second', { music: { ...settings.music, fluidCount: 1 } })
+  const normalized = normalizeMusicSettings({ rainCount: 99, jellyCount: 1, ballSpeedMultiplier: NaN })
+  expect(normalized).toMatchObject({ rainCount: 20, jellyCount: 3, ballSpeedMultiplier: 1.5 })
+  const settings = normalizeSettings({ regions: [{ ...defaults, id: 'second', name: '第二层', music: { rainCount: 20 } }] })
+  const patch = regionPatch(settings, 'second', { music: { ...settings.music, rainCount: 5 } })
   const next = { ...settings, ...patch }
-  expect(settingsForRegion(next, 'second').music.fluidCount).toBe(1)
-  expect(next.music.fluidCount).toBe(2)
+  expect(settingsForRegion(next, 'second').music.rainCount).toBe(5)
+  expect(next.music.rainCount).toBe(10)
   expect(normalizeSettings({ effect: 'ribbon' }).effect).toBe('ripple')
   const legacy = JSON.parse(JSON.stringify(layout(defaults)))
   legacy.effect = 'ribbon'; delete legacy.music
   const migrated = importScene(JSON.stringify({ format: 'SoundSpectra.scene', version: 1, name: '旧收藏', scene: legacy }))
   expect(migrated.scene.effect).toBe('ripple')
-  expect(migrated.scene.music.ballSpeedMultiplier).toBe(5)
+  expect(migrated.scene.music.ballSpeedMultiplier).toBe(1.5)
   legacy.effect = 'unknown'
   expect(() => importScene(JSON.stringify({ format: 'SoundSpectra.scene', version: 1, name: '无效', scene: legacy }))).toThrow('场景参数无效')
   for (const effect of ['constructor', 'toString', '__proto__']) {
@@ -55,8 +55,8 @@ test('automatic scene intensity adjusts the spatial effect controls', () => {
     const soft = composeSuggestion(suggestion, 10), strong = composeSuggestion(suggestion, 90)
     expect(strong.music.sensitivity).toBeGreaterThan(soft.music.sensitivity)
     expect(strong.music.speed).toBeGreaterThan(soft.music.speed)
-    expect(strong.music.ballSpeedMultiplier).toBeGreaterThan(soft.music.ballSpeedMultiplier)
-    expect(strong.music.fluidSpeedMultiplier).toBeGreaterThan(soft.music.fluidSpeedMultiplier)
+    expect(strong.music.driftSpeed).toBeGreaterThan(soft.music.driftSpeed)
+    expect(strong.music.skinFlowSpeedMultiplier).toBeGreaterThan(soft.music.skinFlowSpeedMultiplier)
     expect(musicEffects.some(effect => effect.value === strong.effect)).toBe(true)
   }
 })

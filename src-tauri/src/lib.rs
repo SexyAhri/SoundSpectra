@@ -26,6 +26,7 @@ mod now_playing;
 #[path = "platform/macos/now_playing.rs"]
 mod now_playing;
 mod rail;
+mod scenes;
 mod settings;
 mod system_tray;
 #[cfg(windows)]
@@ -150,6 +151,30 @@ fn update_settings(
     settings: Settings,
 ) -> Result<Settings, String> {
     let _operation = state.operation.lock().map_err(|e| e.to_string())?;
+    commit_settings(&app, &state, settings)
+}
+
+#[tauri::command]
+fn apply_scene(
+    window: tauri::WebviewWindow,
+    app: AppHandle,
+    state: State<'_, Arc<AppState>>,
+    scene: serde_json::Value,
+) -> Result<Settings, String> {
+    if window.label() != "settings" {
+        return Err("请从设置窗口应用桌面方案".into());
+    }
+    let _operation = state.operation.lock().map_err(|e| e.to_string())?;
+    let current = state.settings.lock().map_err(|e| e.to_string())?.clone();
+    let next = scenes::merge(&current, scene)?;
+    commit_settings(&app, &state, next)
+}
+
+fn commit_settings(
+    app: &AppHandle,
+    state: &Arc<AppState>,
+    settings: Settings,
+) -> Result<Settings, String> {
     settings.validate()?;
     let old = state.settings.lock().map_err(|e| e.to_string())?.clone();
     let editing = state.status.lock().map_err(|e| e.to_string())?.editing;
@@ -299,6 +324,10 @@ fn start_desktop_recovery(app: AppHandle, state: Arc<AppState>) {
 }
 
 pub fn run() {
+    #[cfg(windows)]
+    if rail::attribute_helper::entry() {
+        return;
+    }
     let app = tauri::Builder::default()
         .plugin(tauri_plugin_single_instance::init(|app, _, _| {
             show_settings(app)
@@ -331,16 +360,29 @@ pub fn run() {
             rail::rail_get,
             rail::rail_change,
             rail::rail_add_paths,
+            rail::transfer::rail_paste_image,
+            rail::transfer::rail_drag_out,
+            rail::detach::rail_detach,
+            rail::transfer::rail_double_click_interval,
             rail::rail_pick,
             rail::rail_desktop_entries,
             rail::rail_open,
+            rail::folder::rail_folder_contents,
+            rail::folder::rail_folder_open,
             rail::rail_media,
-            rail::rail_popup,
+            rail::popup_window::rail_popup,
+            rail::popup_window::rail_popup_get,
+            rail::popup_window::rail_popup_resize,
+            rail::popup_window::rail_popup_hide,
+            rail::popup_window::rail_popup_select,
             rail::rail_hit_regions,
             get_settings,
             debug_desktop_state,
+            rail::debug_rail_drop_state,
             get_status,
             update_settings,
+            apply_scene,
+            system_tray::sync_scene_shortcuts,
             set_editing,
             reset_settings
         ])
@@ -407,8 +449,18 @@ pub fn run() {
             Ok(())
         })
         .on_window_event(|window, event| {
+            #[cfg(not(windows))]
+            if window.label().starts_with("rail-")
+                && matches!(event, tauri::WindowEvent::Focused(false))
+            {
+                let _ = window.emit_to(window.label(), "rail-dismiss-popup", ());
+            }
             if let tauri::WindowEvent::CloseRequested { api, .. } = event {
                 api.prevent_close();
+                if window.label().starts_with("rail-popup-") {
+                    let _ = window.emit_to(window.label(), "rail-dismiss-popup", ());
+                    return;
+                }
                 if window.label() == "settings"
                     && !application::read_preferences(window.app_handle())
                         .unwrap_or_default()

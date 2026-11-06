@@ -1,16 +1,17 @@
+import { defaultLyricPalette, type LyricPalette } from './lyric-palette'
 import { isLyricBreakMark, lyricDisplayText, type LyricLine } from './model'
 
 export type CompositionMode = 'depth' | 'stardust' | 'stage'
 export interface TimedGlyph { text: string; start: number; end: number; hidden?: boolean }
-interface PlacedGlyph extends TimedGlyph { x: number; y: number; size: number; angle: number; row: number; width: number }
+interface PlacedGlyph extends TimedGlyph { x: number; y: number; size: number; angle: number; row: number; width: number; arcAngle?:number }
 interface Composition { glyphs: PlacedGlyph[]; font: number; rows: number }
 export interface CompositionFrame {
   lines: LyricLine[]; index: number; time: number; width: number; height: number;
   fontSize: number; regionWidth: number; mode: CompositionMode; reduced: boolean;
-  backgroundOpacity: number;
+  backgroundOpacity: number; palette?:LyricPalette;readability?:'soft'|'contrast';
 }
 
-const face = '"Georgia", "Noto Serif CJK SC", "SimSun", serif'
+const face = '"Microsoft YaHei UI", "Segoe UI", "Noto Sans CJK SC", sans-serif'
 const clamp = (n: number) => Math.max(0, Math.min(1, n))
 const smooth = (n: number) => { const t = clamp(n); return t * t * (3 - 2 * t) }
 const easeOut = (n: number) => 1 - (1 - clamp(n)) ** 3
@@ -57,7 +58,7 @@ function phrases(glyphs: TimedGlyph[], count: number): TimedGlyph[][] {
 
 function textWidth(context: CanvasRenderingContext2D, glyphs: TimedGlyph[], size: number) {
   context.font = font(size)
-  return glyphs.reduce((sum, glyph) => sum + (glyph.hidden ? size * .18 : context.measureText(glyph.text).width + size * .025), 0)
+  return glyphs.reduce((sum, glyph) => sum + (glyph.hidden ? size * .18 : context.measureText(glyph.text).width), 0)
 }
 
 function compose(context: CanvasRenderingContext2D, line: LyricLine, frame: CompositionFrame): Composition {
@@ -73,11 +74,11 @@ function compose(context: CanvasRenderingContext2D, line: LyricLine, frame: Comp
     const total = textWidth(context, letters, base); let cursor = 0
     context.font = font(base)
     for (const glyph of letters) {
-      const width = glyph.hidden ? base * .18 : context.measureText(glyph.text).width + base * .025
+      const width = glyph.hidden ? base * .18 : context.measureText(glyph.text).width
       const t = (cursor + width / 2) / Math.max(1, total), angle = (t - .5) * 1.5
       placed.push({ ...glyph, x: w * (.5 + Math.sin(angle) / Math.sin(.75) * .40),
         y: h * (.42 + (1 - Math.cos(angle)) / (1 - Math.cos(.75)) * .22),
-        angle: angle * .42, size: base, row: 0, width }); cursor += width
+        angle: angle * .42, arcAngle:angle, size: base, row: 0, width }); cursor += width
     }
     return { glyphs: placed, font: base, rows: 1 }
   }
@@ -94,8 +95,8 @@ function compose(context: CanvasRenderingContext2D, line: LyricLine, frame: Comp
     let x = left
     context.font = font(size)
     for (const glyph of group) {
-      const width = glyph.hidden ? size * .18 : context.measureText(glyph.text).width + size * .025
-      const angle = mode === 'stage' ? [-.09, .025, -.035][row] : 0
+      const width = glyph.hidden ? size * .18 : context.measureText(glyph.text).width
+      const angle = 0
       placed.push({ ...glyph, x: x + width / 2, y: y + (x - left + width / 2 - rowWidth / 2) * Math.tan(angle), size, width, row, angle }); x += width
     }
   })
@@ -103,124 +104,102 @@ function compose(context: CanvasRenderingContext2D, line: LyricLine, frame: Comp
 }
 
 export class KineticComposition {
-  private key = ''
-  private current: Composition = { glyphs: [], font: 0, rows: 0 }
-
+  private cache = new Map<string,Composition>()
+  private glow: HTMLCanvasElement | null = null
+  private composition(context:CanvasRenderingContext2D,line:LyricLine,frame:CompositionFrame){
+    const key=`${frame.mode}|${frame.width}|${frame.height}|${frame.fontSize}|${frame.regionWidth}|${line.start}|${line.end}|${line.text}|${line.words.map(w=>`${w.text}:${w.start}:${w.end}`).join(',')}`
+    let composition=this.cache.get(key)
+    if(!composition){composition=compose(context,line,frame);this.cache.set(key,composition);if(this.cache.size>4)this.cache.delete(this.cache.keys().next().value!)}
+    return composition
+  }
   draw(context: CanvasRenderingContext2D, frame: CompositionFrame) {
-    const { width: w, height: h, lines, index, time, mode, reduced } = frame
-    context.clearRect(0, 0, w, h)
-    this.background(context, w, h, frame.backgroundOpacity)
-    const line = lines[index]
-    if (!line) { this.waiting(context, frame); return }
-    const key = `${mode}|${w}|${h}|${frame.fontSize}|${frame.regionWidth}|${line.start}|${line.end}|${line.text}|${line.words.map(word => `${word.start}:${word.end}`).join(',')}`
-    if (this.key !== key) { this.current = compose(context, line, frame); this.key = key }
-    const progress = clamp((time - line.start) / Math.max(1, line.end - line.start))
-    const age = time - line.start, entry = reduced ? 1 : easeOut(age / 850)
-    const nextStart = lines[index + 1]?.start ?? line.end + 7000
-    const release = reduced ? 1 : 1 - smooth((time - Math.max(line.end, nextStart - 550)) / 550) * .45
-
-    this.contextLines(context, frame, progress)
-    if (!reduced && index > 0 && age >= 0 && age < 600) {
-      const outgoing = compose(context, lines[index - 1], frame), exit = smooth(age / 600)
-      context.save(); context.translate(-w * (.04 + exit * .07), -h * (.08 + exit * .15)); context.scale(.92 - exit * .08, .92 - exit * .08)
-      context.globalAlpha = (1 - exit) * .52; context.fillStyle = '#d3c7ac'; context.textAlign = 'center'; context.textBaseline = 'middle'
-      for (const glyph of outgoing.glyphs) { if (glyph.hidden) continue; context.save(); context.translate(glyph.x, glyph.y); context.rotate(glyph.angle); context.font = font(glyph.size); context.fillText(glyph.text, 0, 0); context.restore() }
+    const {width:w,height:h,lines,index,time,mode,reduced}=frame,palette=frame.palette??defaultLyricPalette
+    context.clearRect(0,0,w,h)
+    this.background(context,frame,palette)
+    const line=lines[index]
+    if(!line){context.save();context.fillStyle=palette.unsung;context.font=font(Math.min(h*.14,w*.05));context.textAlign='center';context.textBaseline='middle';context.fillText('·  ·  ·',w*.5,h*.48);context.restore();return}
+    const composition=this.composition(context,line,frame),age=time-line.start
+    const progress=clamp(age/Math.max(1,line.end-line.start))
+    this.contextLines(context,frame,progress,palette)
+    if(!reduced&&index>0&&age>=0&&age<250){
+      const outgoing=this.composition(context,lines[index-1],frame),exit=smooth(age/250)
+      context.save();context.globalAlpha=(1-exit)*.45;context.fillStyle=palette.unsung;context.textAlign='center';context.textBaseline='middle'
+      for(const glyph of outgoing.glyphs){if(glyph.hidden)continue;context.save();context.translate(glyph.x,glyph.y+glyph.size*.06*exit);context.rotate(glyph.angle);context.font=font(glyph.size);context.fillText(glyph.text,0,0);context.restore()}
       context.restore()
     }
-
-    context.save()
-    if (!reduced) {
-      const pan = (progress - .5) * (mode === 'stage' ? .018 : .045)
-      context.translate(w * (.5 + pan), h * (.5 + (1 - entry) * .07))
-      context.rotate(mode === 'stardust' ? (progress - .5) * -.07 : mode === 'depth' ? (progress - .5) * .025 : 0)
-      const zoom = .97 + entry * .03 + progress * .018
-      context.scale(zoom, zoom); context.translate(-w * .5, -h * .5)
+    const glyphs=composition.glyphs
+    let frontier=0,cursor=0
+    for(const glyph of glyphs){if(time>=glyph.start)frontier=cursor+glyph.width*clamp((time-glyph.start)/Math.max(1,glyph.end-glyph.start));cursor+=glyph.width}
+    const render=(ctx:CanvasRenderingContext2D,lightOnly:boolean)=>{
+      ctx.save()
+      if(!reduced&&mode==='depth'){
+        const zoom=.96+progress*.08;ctx.translate(w/2,h/2);ctx.scale(zoom,zoom);ctx.translate(-w/2,-h/2)
+      }
+      let offset=0
+      for(let i=0;i<glyphs.length;i++){
+        const g=glyphs[i],distance=offset;offset+=g.width;if(g.hidden)continue
+        const delay=(index>0?150:0)+i*24+(mode==='stage'?g.row*120:0)
+        const arrival=reduced?1:easeOut((age-delay)/420)
+        if(arrival<=0)continue
+        let x=g.x,y=g.y,angle=g.angle
+        if(mode==='stardust'){
+          const a=(g.arcAngle??0)+(reduced?0:(progress-.5)*.36)
+          x=w*(.5+Math.sin(a)/Math.sin(.95)*.40);y=h*(.40+(1-Math.cos(a))/(1-Math.cos(.95))*.22)
+          angle=Math.atan2(h*.22*Math.sin(a)/(1-Math.cos(.95)),w*.40*Math.cos(a)/Math.sin(.95))
+        }
+        if(!reduced)y+=(1-arrival)*g.size*.12
+        ctx.save();ctx.translate(x,y);ctx.rotate(angle)
+        ctx.beginPath();ctx.rect(-g.width*.7,-g.size*.8+g.size*1.6*(1-arrival),g.width*1.4,g.size*1.6*arrival);ctx.clip()
+        ctx.font=font(g.size,mode==='stage'&&g.row===1?600:500);ctx.textAlign='center';ctx.textBaseline='middle';ctx.globalAlpha=arrival
+        const edge=frontier-distance-g.width/2,soft=Math.max(2,g.size*.20)
+        if(!lightOnly){
+          if(frame.readability==='contrast'){ctx.strokeStyle=palette.shadow;ctx.lineWidth=Math.max(1,g.size*.045);ctx.lineJoin='round';ctx.strokeText(g.text,0,0)}
+          ctx.fillStyle=palette.unsung;ctx.fillText(g.text,0,0)
+        }
+        if(frontier>distance-soft){
+          const gradient=ctx.createLinearGradient(edge-soft,0,edge+soft,0)
+          gradient.addColorStop(0,lightOnly?palette.glow:palette.sung);gradient.addColorStop(1,'rgba(0,0,0,0)')
+          ctx.fillStyle=gradient;ctx.globalAlpha=arrival*(lightOnly?.65:1);ctx.fillText(g.text,0,0)
+        }
+        ctx.restore()
+      }
+      ctx.restore()
     }
-    if (mode === 'stardust') this.arc(context, w, h, progress)
-    for (let i = 0; i < this.current.glyphs.length; i++) {
-      const glyph = this.current.glyphs[i], lead = Math.min(1100, 450 + i * 36)
-      if (glyph.hidden) continue
-      const arriving = reduced ? 1 : easeOut((time - glyph.start + lead) / lead)
-      const sung = clamp((time - glyph.start) / Math.max(1, glyph.end - glyph.start))
-      const singing = time >= glyph.start && time < glyph.end
-      const emphasis = singing ? Math.sin(sung * Math.PI) : 0
-      context.save()
-      const rise = reduced ? 0 : (1 - arriving) * glyph.size * .58 - emphasis * glyph.size * .09
-      context.translate(glyph.x + (reduced ? 0 : (1 - arriving) * glyph.size * (i % 2 ? .22 : -.22)), glyph.y + rise)
-      context.rotate(glyph.angle + (reduced ? 0 : (1 - arriving) * (i % 2 ? -.12 : .12)))
-      const scale = reduced ? 1 : .9 + arriving * .1 + emphasis * (mode === 'stage' ? .10 : .055)
-      context.scale(scale, scale)
-      context.font = font(glyph.size, mode === 'stage' && glyph.row === 1 ? 650 : 500)
-      context.textAlign = 'center'; context.textBaseline = 'middle'
-      context.globalAlpha = (.19 + arriving * .81) * release * (.25 + entry * .75)
-      context.fillStyle = sung > 0 ? '#f4ead5' : '#a7b7be'
-      context.shadowColor = '#02060c'; context.shadowBlur = glyph.size * .10; context.shadowOffsetY = 2
-      context.fillText(glyph.text, 0, 0)
-      if (sung > 0) {
-        context.save(); context.beginPath(); context.rect(-glyph.width * .6, -glyph.size, glyph.width * 1.2 * sung, glyph.size * 2); context.clip()
-        context.fillStyle = mode === 'stardust' ? '#d5eee9' : '#e4bd7b'
-        context.shadowColor = mode === 'stardust' ? '#a3c9d4' : '#d5ae6b'; context.shadowBlur = singing ? glyph.size * .14 : 0
-        context.fillText(glyph.text, 0, 0); context.restore()
+    // One half-resolution emissive layer and two whole-layer blurs replace per-glyph shadows.
+    const glow=this.glow??=document.createElement('canvas'),gw=Math.max(1,Math.round(w/2)),gh=Math.max(1,Math.round(h/2))
+    if(glow.width!==gw||glow.height!==gh){glow.width=gw;glow.height=gh}
+    const gc=glow.getContext('2d')!
+    gc.setTransform(gw/w,0,0,gh/h,0,0);gc.clearRect(0,0,w,h);render(gc,true)
+    context.save();context.globalAlpha=.23;context.filter=`blur(${composition.font*.35}px)`;context.drawImage(glow,0,0,w,h)
+    context.globalAlpha=.10;context.filter=`blur(${composition.font*.9}px)`;context.drawImage(glow,0,0,w,h);context.restore()
+    render(context,false)
+    if(mode==='stardust'){
+      context.save();context.strokeStyle=palette.accent;context.globalAlpha=.18;context.lineWidth=.7;context.beginPath()
+      for(let i=0;i<=70;i++){const a=(i/70-.5)*1.8,x=w*(.5+Math.sin(a)/Math.sin(.95)*.43),y=h*(.63+(1-Math.cos(a))/(1-Math.cos(.95))*.16);if(i)context.lineTo(x,y);else context.moveTo(x,y)}context.stroke()
+      if(!reduced){
+        const a=(progress-.5)*1.8;context.globalAlpha=.65;context.fillStyle=palette.accent;context.beginPath();context.arc(w*(.5+Math.sin(a)/Math.sin(.95)*.43),h*(.63+(1-Math.cos(a))/(1-Math.cos(.95))*.16),1.6,0,Math.PI*2);context.fill()
       }
       context.restore()
     }
-    context.restore()
-    this.punctuation(context, frame, progress)
   }
-
-  private contextLines(context: CanvasRenderingContext2D, frame: CompositionFrame, progress: number) {
-    const { width: w, height: h, lines, index, mode, reduced } = frame
-    const previous = lyricDisplayText(lines[index - 1]?.text ?? ''), next = lyricDisplayText(lines[index + 1]?.text ?? '')
-    context.save(); context.textBaseline = 'middle'; context.fillStyle = '#d5e0df'; context.font = font(Math.min(h * .075, w * .027), 400)
-    if (mode === 'stage') {
-      if (previous && h > 100) {
-        context.save(); context.translate(w * .035, h * .77); context.rotate(-Math.PI / 2); context.globalAlpha = .18
-        context.textAlign = 'left'; context.fillText(previous, 0, 0, h * .60); context.restore()
-      }
-      if (next) { context.globalAlpha = .30; context.textAlign = 'right'; context.fillText(next, w * .91, h * .94, w * .55) }
-    } else {
-      if (previous) { context.globalAlpha = .16; context.textAlign = 'left'; context.fillText(previous, w * .10, h * (.085 - (reduced ? 0 : progress * .02)), w * .64) }
-      if (next) { context.globalAlpha = .24 + progress * .11; context.textAlign = 'right'; context.fillText(next, w * .90, h * .92, w * .64) }
-    }
-    context.restore()
+  private contextLines(ctx:CanvasRenderingContext2D,frame:CompositionFrame,progress:number,palette:LyricPalette){
+    const {width:w,height:h,lines,index,reduced}=frame
+    ctx.save();ctx.fillStyle=palette.unsung;ctx.textBaseline='middle'
+    const breathe=reduced?1:1+Math.sin(progress*Math.PI*2)*.035
+    for(const [delta,y,align]of [[-1,.10,'left'],[1,.91,'right']] as const){
+      const line=lines[index+delta];if(!line)continue
+      ctx.globalAlpha=(delta<0?.24:.34)*breathe;ctx.font=font(Math.min(h*.09,w*.028)*(delta<0?.82:.95),400);ctx.textAlign=align
+      ctx.fillText(lyricDisplayText(line.text),w*(delta<0?.1:.9),h*y,w*.76)
+    }ctx.restore()
   }
-
-  private arc(context: CanvasRenderingContext2D, w: number, h: number, progress: number) {
-    context.save(); context.lineWidth = .7; context.strokeStyle = '#b7d1d22b'; context.beginPath()
-    for (let i = 0; i <= 80; i++) { const t = i / 80, a = (t - .5) * 1.5, x = w * (.5 + Math.sin(a) / Math.sin(.75) * .43), y = h * (.63 + (1 - Math.cos(a)) / (1 - Math.cos(.75)) * .17); if (!i) context.moveTo(x, y); else context.lineTo(x, y) }
-    context.stroke()
-    const angle = (progress - .5) * 1.5, x = w * (.5 + Math.sin(angle) / Math.sin(.75) * .43), y = h * (.63 + (1 - Math.cos(angle)) / (1 - Math.cos(.75)) * .17)
-    context.fillStyle = '#cce4df'; context.beginPath(); context.arc(x, y, 2.1, 0, Math.PI * 2); context.fill(); context.restore()
-  }
-
-  private punctuation(context: CanvasRenderingContext2D, frame: CompositionFrame, progress: number) {
-    const { width: w, height: h, mode } = frame
-    context.save(); context.strokeStyle = '#d5b47a65'; context.lineWidth = .8
-    if (mode === 'stage') {
-      context.beginPath(); context.moveTo(w * .81, h * .14); context.lineTo(w * .90, h * .14); context.stroke()
-      context.globalAlpha = .5; context.font = font(h * .075); context.fillStyle = '#ddc8a6'; context.textAlign = 'right'
-      context.fillText(String(frame.index + 1).padStart(2, '0'), w * .90, h * .095)
-    } else if (mode === 'depth') {
-      context.beginPath(); context.moveTo(w * .08, h * .85); context.lineTo(w * (.08 + .08 * progress), h * .85); context.stroke()
-      context.beginPath(); context.arc(w * .915, h * .13, h * .024, -.5 * Math.PI, -.5 * Math.PI + Math.PI * 2 * progress); context.stroke()
-    }
-    context.restore()
-  }
-
-  private waiting(context: CanvasRenderingContext2D, frame: CompositionFrame) {
-    const { width: w, height: h, lines } = frame
-    context.save(); context.font = font(Math.min(h * .2, w * .06)); context.textAlign = 'center'; context.textBaseline = 'middle'
-    context.fillStyle = '#d5c7aa9c'; context.fillText('·  ·  ·', w * .5, h * .46)
-    if (lines[0]) { context.font = font(Math.min(h * .07, w * .025)); context.fillStyle = '#d5e0df60'; context.fillText(lyricDisplayText(lines[0].text), w * .5, h * .72, w * .8) }
-    context.restore()
-  }
-
-  private background(context: CanvasRenderingContext2D, width: number, height: number, opacity: number) {
-    const alpha = clamp(opacity / 100)
-    if (!alpha) return
-    context.save(); context.translate(width / 2, height / 2); context.scale(width / 2, height / 2)
-    const shade = context.createRadialGradient(0, 0, 0, 0, 0, 1)
-    shade.addColorStop(0, `rgba(5,11,21,${alpha})`); shade.addColorStop(.65, `rgba(5,11,21,${alpha * .38})`); shade.addColorStop(1, 'rgba(5,11,21,0)')
-    context.fillStyle = shade; context.fillRect(-1, -1, 2, 2); context.restore()
+  private background(ctx:CanvasRenderingContext2D,frame:CompositionFrame,palette:LyricPalette){
+    const alpha=clamp(frame.backgroundOpacity/100),{width:w,height:h}=frame
+    if(!alpha&&frame.readability!=='contrast')return
+    ctx.save();ctx.translate(w/2,h/2);ctx.scale(w/2,h/2)
+    const shade=ctx.createRadialGradient(0,0,0,0,0,1)
+    const rgb=[1,3,5].map(i=>parseInt(palette.shadow.slice(i,i+2),16)).join(',')
+    const opacity=Math.max(alpha,frame.readability==='contrast'?.16:0)
+    shade.addColorStop(0,`rgba(${rgb},${opacity})`);shade.addColorStop(.65,`rgba(${rgb},${opacity*.38})`);shade.addColorStop(1,`rgba(${rgb},0)`)
+    ctx.fillStyle=shade;ctx.fillRect(-1,-1,2,2);ctx.restore()
   }
 }

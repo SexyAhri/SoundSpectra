@@ -12,6 +12,10 @@ pub struct RailItem {
     pub crop: String,
     #[serde(default, skip_serializing_if = "String::is_empty")]
     pub text: String,
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub desktop_managed: bool,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub desktop_identity: Option<[u32; 3]>,
 }
 fn default_crop() -> String {
     "cover".into()
@@ -43,10 +47,10 @@ impl Default for RailSettings {
             enabled: false,
             groups: vec![RailGroup {
                 id: "apps".into(),
-                name: "我的晾衣绳".into(),
-                x: 0.07,
+                name: "我的拾光绳".into(),
+                x: 0.01,
                 y: 0.18,
-                width: 0.86,
+                width: 0.98,
                 collapsed: false,
                 items: vec![],
             }],
@@ -55,29 +59,40 @@ impl Default for RailSettings {
 }
 
 impl RailSettings {
+    pub fn migrate_default_name(&mut self) -> bool {
+        if let Some(group) = self
+            .groups
+            .iter_mut()
+            .find(|g| g.id == "apps" && g.name == "我的晾衣绳")
+        {
+            group.name = "我的拾光绳".into();
+            return true;
+        }
+        false
+    }
     pub fn validate(&self) -> Result<(), String> {
         if self.version != 1 {
-            return Err("挂架配置版本暂不支持，原文件未被覆盖".into());
+            return Err("拾光绳配置版本暂不支持，原文件未被覆盖".into());
         }
         if self.groups.len() > 4 {
-            return Err("最多放置四组挂架".into());
+            return Err("最多放置四组拾光绳".into());
         }
         let mut ids = HashSet::new();
         for group in &self.groups {
             if !valid_id(&group.id) || !ids.insert(group.id.clone()) {
-                return Err("挂架编号重复或无效".into());
+                return Err("拾光绳编号重复或无效".into());
             }
             if group.name.trim().is_empty() || group.name.chars().count() > 40 {
-                return Err("挂架名称需为 1～40 个字符".into());
+                return Err("拾光绳名称需为 1～40 个字符".into());
             }
             if !group.x.is_finite()
                 || !group.y.is_finite()
                 || !group.width.is_finite()
-                || !(0.20..=0.90).contains(&group.width)
+                || !(0.20..=1.0).contains(&group.width)
                 || !(0.0..=1.0 - group.width + 0.00001).contains(&group.x)
                 || !(0.0..=0.75).contains(&group.y)
             {
-                return Err("挂架位置超出屏幕范围".into());
+                return Err("拾光绳位置超出屏幕范围".into());
             }
             if group.items.len() > 48 {
                 return Err("每组最多挂载 48 个项目，常用项目优先展示".into());
@@ -94,7 +109,11 @@ impl RailSettings {
                 {
                     return Err("挂件名称或本地路径无效".into());
                 }
-                if item.kind == "note" && (item.text.trim().is_empty() || item.text.chars().count() > 2000 || !item.path.is_empty()) {
+                if item.kind == "note"
+                    && (item.text.trim().is_empty()
+                        || item.text.chars().count() > 2000
+                        || !item.path.is_empty())
+                {
                     return Err("便签需为 1～2000 个字符".into());
                 }
                 if !["app", "file", "folder", "image", "note"].contains(&item.kind.as_str())
@@ -110,7 +129,7 @@ impl RailSettings {
         self.groups
             .iter_mut()
             .find(|g| g.id == id)
-            .ok_or("找不到这组挂架".into())
+            .ok_or("找不到这组拾光绳".into())
     }
     pub fn item(&self, id: &str) -> Result<&RailItem, String> {
         self.groups
@@ -160,6 +179,20 @@ pub fn new_id() -> String {
 mod tests {
     use super::*;
     #[test]
+    fn only_the_legacy_default_group_name_is_migrated() {
+        let mut settings = RailSettings::default();
+        settings.groups[0].name = "我的晾衣绳".into();
+        assert!(settings.migrate_default_name());
+        assert_eq!(settings.groups[0].name, "我的拾光绳");
+        assert!(!settings.migrate_default_name());
+        settings.groups[0].name = "工作资料".into();
+        assert!(!settings.migrate_default_name());
+        assert_eq!(settings.groups[0].name, "工作资料");
+        settings.groups[0].id = "custom".into();
+        settings.groups[0].name = "我的晾衣绳".into();
+        assert!(!settings.migrate_default_name());
+    }
+    #[test]
     fn defaults_and_missing_targets_survive_roundtrip() {
         let mut settings = RailSettings::default();
         let path = std::env::temp_dir().join("soundspectra-missing-rail-file.txt");
@@ -170,6 +203,8 @@ mod tests {
             kind: "file".into(),
             crop: "contain".into(),
             text: String::new(),
+            desktop_managed: false,
+            desktop_identity: None,
         });
         settings.validate().unwrap();
         assert_eq!(
@@ -177,6 +212,18 @@ mod tests {
                 .unwrap(),
             settings
         );
+    }
+    #[test]
+    fn full_width_rail_stays_within_screen() {
+        let mut settings = RailSettings::default();
+        settings.groups[0].x = 0.0;
+        settings.groups[0].width = 1.0;
+        assert!(settings.validate().is_ok());
+        settings.groups[0].x = 0.01;
+        assert!(settings.validate().is_err());
+        settings.groups[0].x = 0.0;
+        settings.groups[0].width = 1.01;
+        assert!(settings.validate().is_err());
     }
     #[test]
     fn duplicate_ids_unknown_versions_and_offscreen_positions_are_rejected() {

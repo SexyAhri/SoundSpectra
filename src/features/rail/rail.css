@@ -21,9 +21,6 @@
 .rail-settings-tab-list { width: 100%; }
 .rail-settings-tab-list > button { font-size: 12px; }
 .rail-settings-tabs > [role=tabpanel] { min-width: 0; }
-.rail-add-actions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; }
-.rail-add-actions > button { min-width: 0; height: 32px; justify-content: flex-start; gap: 7px; padding: 0 9px; font-size: 11px; background: transparent; }
-.rail-add-actions > .rail-add-desktop { border-color: var(--primary); color: var(--primary); background: var(--accent); }
 .rail-path-entry { margin-top: 8px; font-size: 11px; color: var(--muted-foreground); }
 .rail-path-entry > summary { cursor: pointer; padding: 7px 0; }
 .rail-path-entry form { display: flex; gap: 6px; margin: 6px 0 10px; }
@@ -68,15 +65,13 @@
 .rail-position-presets > button { color: var(--foreground); border: 1px solid var(--border); background: transparent; border-radius: 5px; padding: 8px 2px; font-size: 11px; }
 .rail-position-presets > button:hover { background: var(--secondary); }
 .rail-controls .rail-remove-group { font-size: 11px; color: var(--muted-foreground); }
-.rail-companion { margin-top: 20px; padding-top: 16px; border-top: 1px solid var(--border); }
-.rail-companion > .rail-afternoon-action { width: 100%; margin: 0; font-size: 11px; color: var(--muted-foreground); background: transparent; }
 .rail-control-error { font-size: 11px; color: var(--destructive); border: 1px solid var(--destructive); border-radius: 5px; padding: 10px; margin: 12px 0; line-height: 1.6; overflow-wrap: anywhere; }
 .rail-control-error > button { margin-top: 6px; height: 28px; font-size: 11px; }
 
 /* Settings-specific layout; popup colors are shared with the desktop rail. */
 .rail-controls .rail-popup.rail-add-inline { max-height: none; overflow: visible; padding: 14px 0; border: 0; border-block: 1px solid var(--border); border-radius: 0; background: transparent; color: var(--foreground); box-shadow: none; }
 .rail-controls .rail-popup-heading { font-size: 12px; }
-.rail-controls .rail-add-choices { grid-template-columns: 1fr; }
+.rail-controls .rail-add-choices { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 .rail-controls .rail-desktop-picker-list { grid-template-columns: 1fr; max-height: 252px; }
 .rail-controls .rail-note-editor textarea { font-size: 12px; }
 .rail-controls button:focus-visible, .rail-controls input:focus-visible, .rail-controls select:focus-visible, .rail-controls summary:focus-visible, .rail-controls textarea:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
@@ -89,7 +84,21 @@
 .rail-item-controls { animation: rail-panel-in .16s ease-out; }
 .rail-item { touch-action: pan-y; user-select: none; }
 .rail-popup input, .rail-popup textarea { user-select: text; touch-action: auto; }
-.rail-reorder-target .rail-item { outline: 2px solid var(--primary); outline-offset: 4px; }
+.rail-hanging[data-dragging] .rail-item { opacity: .55; cursor: grabbing; }
+.rail-hanging[data-reorder-side]::after,
+.rail-overflow-entry[data-reorder-side]::after {
+  content: "";
+  position: absolute;
+  top: 10%;
+  bottom: 10%;
+  width: 3px;
+  border-radius: 2px;
+  background: var(--primary);
+  pointer-events: none;
+}
+[data-reorder-side="before"]::after { left: -5px; }
+[data-reorder-side="after"]::after { right: -5px; }
+.rail-overflow-entry { position: relative; touch-action: none; }
 @keyframes rail-panel-in { from { opacity: 0; } to { opacity: 1; } }
 .rail-control-select small { max-width: 45%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 @media (min-width: 761px) {

@@ -1,14 +1,34 @@
-mod model;
+#[cfg(windows)]
+pub(crate) mod attribute_helper;
 mod desktop;
+#[cfg(windows)]
+mod desktop_visibility;
+pub mod detach;
+pub mod folder;
+mod model;
+#[cfg(windows)]
+mod native_drop;
+#[cfg(windows)]
+mod ole_drop;
+#[cfg(windows)]
+mod popup_focus;
+pub mod popup_window;
+#[cfg(windows)]
+mod shell_refresh;
+pub mod transfer;
+#[cfg(windows)]
+mod webview_drop;
 #[cfg(windows)]
 mod windows;
 use base64::{engine::general_purpose::STANDARD, Engine};
 pub use model::{RailGroup, RailItem, RailSettings};
 use serde::{Deserialize, Serialize};
 use std::{
-    collections::HashSet,
     path::{Path, PathBuf},
-    sync::Mutex,
+    sync::{
+        atomic::{AtomicBool, Ordering},
+        Mutex,
+    },
 };
 use tauri::{AppHandle, Emitter, Manager, State, WebviewWindow};
 use tauri_plugin_opener::OpenerExt;
@@ -17,15 +37,23 @@ pub struct RailState {
     pub settings: Mutex<Result<RailSettings, String>>,
     operation: Mutex<()>,
     desktop_error: Mutex<Option<String>>,
-    popup_groups: Mutex<HashSet<String>>,
+    observed_missing: Mutex<Vec<String>>,
+    popup_windows: popup_window::PopupWindows,
+    shutting_down: AtomicBool,
 }
 impl RailState {
     pub fn new(app: &AppHandle) -> Self {
+        #[cfg(windows)]
+        let recovery_error = desktop_visibility::restore(app).err();
+        #[cfg(not(windows))]
+        let recovery_error = None;
         Self {
             settings: Mutex::new(read(app)),
             operation: Mutex::new(()),
-            desktop_error: Mutex::new(None),
-            popup_groups: Mutex::new(HashSet::new()),
+            desktop_error: Mutex::new(recovery_error),
+            observed_missing: Mutex::new(Vec::new()),
+            popup_windows: popup_window::PopupWindows::default(),
+            shutting_down: AtomicBool::new(false),
         }
     }
 }
@@ -40,17 +68,20 @@ pub struct Snapshot {
 }
 fn snapshot(settings: RailSettings, error: Option<String>) -> Snapshot {
     Snapshot {
-        missing: settings
-            .groups
-            .iter()
-            .flat_map(|g| &g.items)
-            .filter(|i| i.kind != "note" && !Path::new(&i.path).exists())
-            .map(|i| i.id.clone())
-            .collect(),
+        missing: missing_targets(&settings),
         settings,
         desktop_error: error,
         supported: cfg!(windows),
     }
+}
+fn missing_targets(settings: &RailSettings) -> Vec<String> {
+    settings
+        .groups
+        .iter()
+        .flat_map(|g| &g.items)
+        .filter(|i| i.kind != "note" && !Path::new(&i.path).exists())
+        .map(|i| i.id.clone())
+        .collect()
 }
 fn path(app: &AppHandle) -> Result<PathBuf, String> {
     Ok(app
@@ -64,15 +95,18 @@ fn read(app: &AppHandle) -> Result<RailSettings, String> {
     if !path.exists() {
         return Ok(RailSettings::default());
     }
-    let settings: RailSettings =
+    let mut settings: RailSettings =
         serde_json::from_slice(&std::fs::read(path).map_err(|e| e.to_string())?)
-            .map_err(|e| format!("挂架配置读取失败，原文件已保留：{e}"))?;
+            .map_err(|e| format!("拾光绳配置读取失败，原文件已保留：{e}"))?;
     settings.validate()?;
+    if settings.migrate_default_name() {
+        write(app, &settings)?;
+    }
     Ok(settings)
 }
 fn write(app: &AppHandle, settings: &RailSettings) -> Result<(), String> {
     let path = path(app)?;
-    std::fs::create_dir_all(path.parent().ok_or("无法定位挂架配置目录")?)
+    std::fs::create_dir_all(path.parent().ok_or("无法定位拾光绳配置目录")?)
         .map_err(|e| e.to_string())?;
     let tmp = path.with_extension("tmp");
     std::fs::write(
@@ -80,13 +114,13 @@ fn write(app: &AppHandle, settings: &RailSettings) -> Result<(), String> {
         serde_json::to_vec_pretty(settings).map_err(|e| e.to_string())?,
     )
     .map_err(|e| e.to_string())?;
-    std::fs::rename(tmp, path).map_err(|e| format!("挂架保存失败：{e}"))
+    std::fs::rename(tmp, path).map_err(|e| format!("拾光绳保存失败：{e}"))
 }
 fn allowed(window: &WebviewWindow) -> Result<(), String> {
     if window.label() == "settings" || window.label().starts_with("rail-") {
         Ok(())
     } else {
-        Err("此窗口不能操作挂架".into())
+        Err("此窗口不能操作拾光绳".into())
     }
 }
 fn broadcast(
@@ -104,6 +138,7 @@ fn broadcast(
     );
     app.emit("rail-changed", &value)
         .map_err(|e| e.to_string())?;
+    *state.observed_missing.lock().map_err(|e| e.to_string())? = value.missing.clone();
     Ok(value)
 }
 
@@ -126,7 +161,10 @@ pub enum Change {
         collapsed: Option<bool>,
     },
     AddGroup,
-    AddNote { group_id: String, text: String },
+    AddNote {
+        group_id: String,
+        text: String,
+    },
     RemoveGroup {
         id: String,
     },
@@ -149,7 +187,7 @@ fn change(settings: &mut RailSettings, change: Change) -> Result<(), String> {
     match change {
         Change::Enable { enabled } => {
             if enabled && !cfg!(windows) {
-                return Err("桌面挂轨目前支持 Windows，其他平台可编辑布局".into());
+                return Err("桌面拾光绳目前支持 Windows，其他平台可编辑布局".into());
             }
             settings.enabled = enabled;
         }
@@ -181,7 +219,7 @@ fn change(settings: &mut RailSettings, change: Change) -> Result<(), String> {
         }
         Change::AddGroup => settings.groups.push(RailGroup {
             id: model::new_id(),
-            name: "新挂架".into(),
+            name: "新拾光绳".into(),
             x: 0.54,
             y: 0.54,
             width: 0.38,
@@ -199,11 +237,22 @@ fn change(settings: &mut RailSettings, change: Change) -> Result<(), String> {
             let group = settings.group_mut(&group_id)?;
             let text = text.trim().to_string();
             group.items.push(RailItem {
-                id: model::new_id(), name: text.lines().next().unwrap_or("").chars().take(18).collect(),
-                path: String::new(), kind: "note".into(), crop: "cover".into(), text,
+                id: model::new_id(),
+                name: text.lines().next().unwrap_or("").chars().take(18).collect(),
+                path: String::new(),
+                kind: "note".into(),
+                crop: "cover".into(),
+                text,
+                desktop_managed: false,
+                desktop_identity: None,
             });
         }
-        Change::Item { id, name, crop, text } => {
+        Change::Item {
+            id,
+            name,
+            crop,
+            text,
+        } => {
             let item = settings
                 .groups
                 .iter_mut()
@@ -217,7 +266,9 @@ fn change(settings: &mut RailSettings, change: Change) -> Result<(), String> {
                 item.crop = crop;
             }
             if let Some(text) = text {
-                if item.kind != "note" { return Err("请选择便签".into()); }
+                if item.kind != "note" {
+                    return Err("请选择便签".into());
+                }
                 item.text = text.trim().into();
             }
         }
@@ -257,6 +308,9 @@ fn commit(
     edit: impl FnOnce(&mut RailSettings) -> Result<(), String>,
 ) -> Result<Snapshot, String> {
     let _operation = state.operation.lock().map_err(|e| e.to_string())?;
+    if state.shutting_down.load(Ordering::Acquire) {
+        return Err("应用正在退出".into());
+    }
     let previous = state.settings.lock().map_err(|e| e.to_string())?.clone()?;
     let mut next = previous.clone();
     edit(&mut next)?;
@@ -264,7 +318,7 @@ fn commit(
     // The file is committed before publishing a new snapshot; failure leaves live state intact.
     write(app, &next)?;
     *state.settings.lock().map_err(|e| e.to_string())? = Ok(next.clone());
-    let error = sync_on_main(app, next.clone()).err();
+    let error = sync_desktop(app, &next).err();
     *state.desktop_error.lock().map_err(|e| e.to_string())? = error;
     broadcast(app, state, next)
 }
@@ -314,6 +368,22 @@ pub async fn rail_add_paths(
             return Err(format!("目标不存在：{value}"));
         }
         let kind = model::classify(path);
+        #[cfg(windows)]
+        let desktop_managed = desktop_visibility::is_desktop_item(path);
+        #[cfg(windows)]
+        if desktop_managed {
+            desktop_visibility::check_access(path)?;
+        }
+        #[cfg(not(windows))]
+        let desktop_managed = false;
+        #[cfg(windows)]
+        let desktop_identity = if desktop_managed {
+            Some(desktop_visibility::identity(path)?)
+        } else {
+            None
+        };
+        #[cfg(not(windows))]
+        let desktop_identity = None;
         items.push(RailItem {
             id: model::new_id(),
             name: path
@@ -325,6 +395,8 @@ pub async fn rail_add_paths(
             kind: kind.into(),
             crop: "cover".into(),
             text: String::new(),
+            desktop_managed,
+            desktop_identity,
         });
     }
     commit(&app, &state, |settings| {
@@ -338,17 +410,24 @@ pub async fn rail_add_paths(
                 .flat_map(|g| &mut g.items)
                 .find(|i| i.id == id)
                 .ok_or("找不到这个挂件")?;
-            if item.kind == "note" { return Err("便签不需要关联文件".into()); }
+            if item.kind == "note" {
+                return Err("便签不需要关联文件".into());
+            }
             item.path = items[0].path.clone();
             item.kind = items[0].kind.clone();
+            item.desktop_managed = items[0].desktop_managed;
+            item.desktop_identity = items[0].desktop_identity;
         } else {
             let group = settings.group_mut(&group_id)?;
             for item in items {
-                if !group
+                if let Some(old) = group
                     .items
-                    .iter()
-                    .any(|old| old.path.eq_ignore_ascii_case(&item.path))
+                    .iter_mut()
+                    .find(|old| old.path.eq_ignore_ascii_case(&item.path))
                 {
+                    old.desktop_managed |= item.desktop_managed;
+                    old.desktop_identity = item.desktop_identity.or(old.desktop_identity);
+                } else {
                     group.items.push(item);
                 }
             }
@@ -371,9 +450,13 @@ pub async fn rail_pick(window: WebviewWindow, folder: bool) -> Result<Vec<String
     }
 }
 #[tauri::command]
-pub async fn rail_desktop_entries(window: WebviewWindow) -> Result<desktop::DesktopEntries, String> {
+pub async fn rail_desktop_entries(
+    window: WebviewWindow,
+) -> Result<desktop::DesktopEntries, String> {
     allowed(&window)?;
-    tauri::async_runtime::spawn_blocking(desktop::read).await.map_err(|error| error.to_string())?
+    tauri::async_runtime::spawn_blocking(desktop::read)
+        .await
+        .map_err(|error| error.to_string())?
 }
 fn saved_item(state: &RailState, id: &str) -> Result<RailItem, String> {
     Ok(state
@@ -386,7 +469,9 @@ fn saved_item(state: &RailState, id: &str) -> Result<RailItem, String> {
         .clone())
 }
 fn item_path(item: &RailItem) -> Result<PathBuf, String> {
-    if item.kind == "note" { return Err("便签没有关联文件".into()); }
+    if item.kind == "note" {
+        return Err("便签没有关联文件".into());
+    }
     let path = PathBuf::from(&item.path);
     if !path.exists() {
         return Err("目标已移动或删除，请重新关联".into());
@@ -465,11 +550,39 @@ fn sync_on_main(app: &AppHandle, settings: RailSettings) -> Result<(), String> {
     rx.recv_timeout(std::time::Duration::from_secs(15))
         .map_err(|e| e.to_string())?
 }
+fn sync_desktop(app: &AppHandle, settings: &RailSettings) -> Result<(), String> {
+    let result = sync_on_main(app, settings.clone());
+    #[cfg(windows)]
+    {
+        let visible = settings.enabled && result.is_ok();
+        desktop_visibility::sync(app, settings, visible)?;
+    }
+    result
+}
+pub fn restore_desktop(app: &AppHandle) -> Result<(), String> {
+    #[cfg(windows)]
+    {
+        let state = app.state::<RailState>();
+        let _operation = state.operation.lock().map_err(|e| e.to_string())?;
+        desktop_visibility::restore(app)?;
+        state.shutting_down.store(true, Ordering::Release);
+    }
+    Ok(())
+}
 fn sync_windows(app: &AppHandle, settings: &RailSettings) -> Result<(), String> {
+    #[cfg(windows)]
+    if let Some(window) = app.get_webview_window("settings") {
+        native_drop::install(&window)?;
+    }
     let state = app.state::<RailState>();
-    let mut popups = state.popup_groups.lock().map_err(|e| e.to_string())?;
-    popups.retain(|id| settings.enabled && settings.groups.iter().any(|g| &g.id == id));
+    state.popup_windows.retain(settings);
     for (label, window) in app.webview_windows() {
+        if let Some(id) = label.strip_prefix("rail-popup-") {
+            if !settings.enabled || !settings.groups.iter().any(|group| group.id == id) {
+                window.hide().map_err(|e| e.to_string())?;
+            }
+            continue;
+        }
         if label.starts_with("rail-")
             && (!settings.enabled
                 || !settings
@@ -477,7 +590,9 @@ fn sync_windows(app: &AppHandle, settings: &RailSettings) -> Result<(), String> 
                     .iter()
                     .any(|g| label == format!("rail-{}", g.id)))
         {
-            let _ = window.hide();
+            window
+                .hide()
+                .map_err(|e| format!("隐藏桌面拾光绳失败：{e}"))?;
         }
     }
     if !settings.enabled {
@@ -505,98 +620,211 @@ fn sync_windows(app: &AppHandle, settings: &RailSettings) -> Result<(), String> 
             .build()
             .map_err(|e| e.to_string())?,
         };
-        windows::attach(&window, group, popups.contains(&group.id))?;
+        windows::attach(&window, group)?;
     }
     Ok(())
 }
 #[tauri::command]
-pub async fn rail_popup(
-    window: WebviewWindow,
-    state: State<'_, RailState>,
-    open: bool,
-) -> Result<(), String> {
-    let id = window
-        .label()
-        .strip_prefix("rail-")
-        .ok_or("仅供桌面挂架使用")?.to_owned();
-    #[cfg(windows)]
-    {
-        let _ = state;
-        let (tx, rx) = std::sync::mpsc::channel();
-        let target = window.clone();
-        window.run_on_main_thread(move || {
-            let result = (|| {
-                let state = target.state::<RailState>();
-                let settings = state.settings.lock().map_err(|e| e.to_string())?.clone()?;
-                if !settings.enabled { return Ok(()); }
-                let group = settings.groups.iter().find(|g| g.id == id).ok_or("找不到挂架")?;
-                let mut popups = state.popup_groups.lock().map_err(|e| e.to_string())?;
-                let opening = open && !popups.contains(&id);
-                windows::attach(&target, group, open)?;
-                if open { popups.insert(id); } else { popups.remove(&id); }
-                // Only the explicit open action may activate this editable window.
-                if opening { target.set_focus().map_err(|e| e.to_string())?; }
-                Ok(())
-            })();
-            let _ = tx.send(result);
-        }).map_err(|e| e.to_string())?;
-        rx.recv_timeout(std::time::Duration::from_secs(15)).map_err(|e| e.to_string())?
+pub async fn debug_rail_drop_state(app: AppHandle) -> Result<Vec<serde_json::Value>, String> {
+    if !cfg!(debug_assertions) {
+        return Err("此接口仅用于开发验证".into());
     }
-    #[cfg(not(windows))]
-    {
-        let _ = (id, state, open);
-        Ok(())
-    }
+    let (tx, rx) = std::sync::mpsc::channel();
+    let handle = app.clone();
+    app.run_on_main_thread(move || {
+        #[cfg(windows)]
+        let result: Result<Vec<_>, _> = handle
+            .webview_windows()
+            .into_iter()
+            .filter(|(label, _)| label == "settings" || label.starts_with("rail-"))
+            .map(|(_, window)| {
+                let mut result = native_drop::diagnostics(&window)?;
+                if let Ok(settings) = handle.state::<RailState>().settings.lock() {
+                    if let Ok(settings) = settings.as_ref() {
+                        if let Some(group) = settings
+                            .groups
+                            .iter()
+                            .find(|group| window.label() == format!("rail-{}", group.id))
+                        {
+                            result["layoutHealthy"] = windows::attached(&window, group).into();
+                        }
+                    }
+                }
+                Ok(result)
+            })
+            .collect();
+        #[cfg(not(windows))]
+        let result: Result<Vec<serde_json::Value>, String> = {
+            let _ = handle;
+            Ok(vec![])
+        };
+        let _ = tx.send(result);
+    })
+    .map_err(|e| e.to_string())?;
+    rx.recv_timeout(std::time::Duration::from_secs(5))
+        .map_err(|e| e.to_string())?
 }
 #[derive(Deserialize)]
-pub struct HitRect { x: f64, y: f64, width: f64, height: f64 }
+pub struct HitRect {
+    x: f64,
+    y: f64,
+    width: f64,
+    height: f64,
+}
 #[tauri::command]
 pub async fn rail_hit_regions(window: WebviewWindow, regions: Vec<HitRect>) -> Result<(), String> {
-    if !window.label().starts_with("rail-") { return Err("仅供桌面挂件使用".into()); }
-    if regions.len() > 256 || regions.iter().any(|r| ![r.x, r.y, r.width, r.height].iter().all(|v| v.is_finite()) || r.width < 0.0 || r.height < 0.0) {
+    if !window.label().starts_with("rail-") {
+        return Err("仅供桌面挂件使用".into());
+    }
+    if regions.len() > 256
+        || regions.iter().any(|r| {
+            ![r.x, r.y, r.width, r.height].iter().all(|v| v.is_finite())
+                || r.width < 0.0
+                || r.height < 0.0
+        })
+    {
         return Err("挂件点击区域无效".into());
     }
     #[cfg(windows)]
     {
         let (tx, rx) = std::sync::mpsc::channel();
         let target = window.clone();
-        window.run_on_main_thread(move || { let _ = tx.send(windows::hit_regions(&target, &regions)); }).map_err(|e| e.to_string())?;
-        rx.recv_timeout(std::time::Duration::from_secs(15)).map_err(|e| e.to_string())?
+        window
+            .run_on_main_thread(move || {
+                let _ = tx.send(windows::hit_regions(&target, &regions));
+            })
+            .map_err(|e| e.to_string())?;
+        rx.recv_timeout(std::time::Duration::from_secs(15))
+            .map_err(|e| e.to_string())?
     }
     #[cfg(not(windows))]
-    { let _ = regions; Ok(()) }
+    {
+        let _ = regions;
+        Ok(())
+    }
 }
 pub fn start(app: AppHandle) {
-    std::thread::spawn(move || loop {
-        std::thread::sleep(std::time::Duration::from_secs(3));
-        let state = app.state::<RailState>();
-        let Ok(_operation) = state.operation.try_lock() else {
-            continue;
-        };
-        let Ok(settings) = state.settings.lock().map(|s| s.clone()) else {
-            continue;
-        };
-        let Ok(settings) = settings else {
-            continue;
-        };
-        // Avoid resizing an open popup on every recovery tick.
-        #[cfg(windows)]
-        let popups = state.popup_groups.lock().map(|value| value.clone()).unwrap_or_default();
-        #[cfg(windows)]
-        let healthy = !settings.enabled
-            || settings.groups.iter().all(|g| {
-                app.get_webview_window(&format!("rail-{}", g.id))
-                    .is_some_and(|w| windows::attached(&w, popups.contains(&g.id)))
-            });
-        #[cfg(not(windows))]
-        let healthy = true;
-        if healthy {
-            continue;
+    std::thread::spawn(move || {
+        let mut last_tick = std::time::SystemTime::now();
+        loop {
+            std::thread::sleep(std::time::Duration::from_secs(3));
+            // Repair once after a scheduling gap, including sleep/resume. This
+            // reuses the normal recovery path without global input or power hooks.
+            let now = std::time::SystemTime::now();
+            let resumed = now
+                .duration_since(last_tick)
+                .map_or(true, |gap| gap > std::time::Duration::from_secs(10));
+            last_tick = now;
+            let state = app.state::<RailState>();
+            if state.shutting_down.load(Ordering::Acquire) {
+                break;
+            }
+            let Ok(_operation) = state.operation.try_lock() else {
+                continue;
+            };
+            if state.shutting_down.load(Ordering::Acquire) {
+                break;
+            }
+            let Ok(settings) = state.settings.lock().map(|s| s.clone()) else {
+                continue;
+            };
+            let Ok(settings) = settings else {
+                continue;
+            };
+            #[cfg(windows)]
+            let healthy = !settings.enabled
+                || (!resumed
+                    && settings.groups.iter().all(|g| {
+                        app.get_webview_window(&format!("rail-{}", g.id))
+                            .is_some_and(|w| windows::attached(&w, g))
+                    }));
+            #[cfg(windows)]
+            {
+                let handle = app.clone();
+                let _ = app.run_on_main_thread(move || {
+                    for (label, window) in handle.webview_windows() {
+                        if label == "settings" || label.starts_with("rail-") {
+                            let _ = native_drop::install(&window);
+                        }
+                    }
+                });
+            }
+            #[cfg(not(windows))]
+            let healthy = {
+                let _ = resumed;
+                true
+            };
+            let has_error = state
+                .desktop_error
+                .lock()
+                .map(|error| error.is_some())
+                .unwrap_or(true);
+            let error = if healthy && !has_error {
+                #[cfg(windows)]
+                {
+                    desktop_visibility::sync(&app, &settings, settings.enabled).err()
+                }
+                #[cfg(not(windows))]
+                {
+                    None
+                }
+            } else {
+                sync_desktop(&app, &settings).err()
+            };
+            let changed = state
+                .desktop_error
+                .lock()
+                .map(|previous| *previous != error)
+                .unwrap_or(true);
+            if let Ok(mut current) = state.desktop_error.lock() {
+                *current = error;
+            }
+            let missing = missing_targets(&settings);
+            let targets_changed = state
+                .observed_missing
+                .lock()
+                .map(|previous| *previous != missing)
+                .unwrap_or(true);
+            if !healthy || changed || targets_changed {
+                let _ = broadcast(&app, &state, settings);
+            }
         }
-        let error = sync_on_main(&app, settings.clone()).err();
-        if let Ok(mut current) = state.desktop_error.lock() {
-            *current = error;
-        }
-        let _ = broadcast(&app, &state, settings);
     });
+}
+
+#[cfg(test)]
+mod recovery_tests {
+    use super::*;
+
+    #[test]
+    fn missing_targets_follow_move_delete_and_restore_without_losing_references() {
+        let root = std::env::temp_dir().join(model::new_id());
+        std::fs::create_dir_all(&root).unwrap();
+        let path = root.join("reference.txt");
+        let moved = root.join("moved.txt");
+        std::fs::write(&path, "keep this file").unwrap();
+        let mut settings = RailSettings::default();
+        settings.groups[0].items.push(RailItem {
+            id: "reference".into(),
+            name: "自定义显示名称".into(),
+            path: path.to_string_lossy().into_owned(),
+            kind: "file".into(),
+            crop: "cover".into(),
+            text: String::new(),
+            desktop_managed: false,
+            desktop_identity: None,
+        });
+        let original = settings.clone();
+        assert!(missing_targets(&settings).is_empty());
+        std::fs::rename(&path, &moved).unwrap();
+        let moved_snapshot = snapshot(settings.clone(), None);
+        assert_eq!(moved_snapshot.missing, ["reference"]);
+        assert_eq!(moved_snapshot.settings, original);
+        std::fs::rename(&moved, &path).unwrap();
+        assert!(snapshot(settings.clone(), None).missing.is_empty());
+        std::fs::remove_file(&path).unwrap();
+        assert_eq!(missing_targets(&settings), ["reference"]);
+        assert_eq!(settings, original);
+        std::fs::remove_dir(&root).unwrap();
+    }
 }

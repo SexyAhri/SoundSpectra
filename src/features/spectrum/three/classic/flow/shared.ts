@@ -1,9 +1,11 @@
 import * as T from 'three'
 import type { SpectrumSettings } from '../../../model'
 import type { SceneMotion } from '../../motion'
+import { resolveEffectPalette, type EffectPalette } from '../../../effect-palette'
 
 export interface FlowEffect {
   group: T.Group
+  layout?(aspect: number): void
   update(motion: SceneMotion, config: SpectrumSettings, reduced: boolean): void
 }
 
@@ -12,34 +14,48 @@ export const commonUniforms = () => ({
   uPhase: { value: 0 }, uVolume: { value: 0 }, uBass: { value: 0 }, uMiddle: { value: 0 },
   uTreble: { value: 0 }, uPulse: { value: 0 }, uTouch: { value: 0 },
   uColor: { value: new T.Color('#59d9ff') }, uAccent: { value: new T.Color('#a08cff') },
+  uHighlight: { value: new T.Color() }, uShade: { value: new T.Color() },
   uWidth: { value: 1 }, uTrail: { value: 1 }, uRange: { value: 1 }, uCount: { value: 1 },
   uTwist: { value: 1 }, uDepth: { value: 1 }, uThreshold: { value: 0 },
   uPixelRatio: { value: 1 },
+  uSlowBass:{value:0},uBassFast:{value:0},uSlowMid:{value:0},uFastHigh:{value:0},uBeatGlow:{value:0},
 })
 export type FlowUniforms = ReturnType<typeof commonUniforms>
+export function applyFlowPalette(uniforms: FlowUniforms, config: SpectrumSettings) {
+  const palette = resolveEffectPalette(config)
+  uniforms.uColor.value.set(palette.main); uniforms.uAccent.value.set(palette.accent)
+  uniforms.uHighlight.value.set(palette.high); uniforms.uShade.value.set(palette.low)
+  return palette
+}
 
 /** The frame clock only advances visible transport while actual audio is audible. */
 export function flowDriver(uniforms: FlowUniforms) {
-  let phase = 0, level = 0, color = '', palette = '', last = -1
-  return (motion: SceneMotion, config: SpectrumSettings, reduced: boolean, speed = 1, smoothing = false) => {
+  let phase = 0, level = 0, palette: EffectPalette | undefined, last = -1, beat = -1
+  return (motion: SceneMotion, config: SpectrumSettings, reduced: boolean, speed = 1) => {
     const frame = motion.frame
     // Camera changes and offscreen passes may draw the same analysis frame again.
     // Transport and smoothing belong to that frame, not to the number of draws.
-    if (!frame || frame.now < last) { phase = 0; level = 0; last = -1 }
+    if (!frame || frame.now < last) { phase = 0; level = 0; last = -1; beat=-1
+      uniforms.uSlowBass.value=uniforms.uBassFast.value=uniforms.uSlowMid.value=uniforms.uFastHigh.value=uniforms.uBeatGlow.value=0 }
     const dt = frame && frame.now !== last ? Math.max(0, Math.min(.1, frame.dt / 1000)) : 0
     if (!reduced && frame?.audible) phase += dt * (.22 + motion.volume * 1.35) * speed
-    const tau = smoothing ? Math.max(.025, config.music.intensityWindowMs / 4000) : .06
+    const tau = .06
     level += (motion.volume - level) * (1 - Math.exp(-dt / tau))
+    const damp=(value:number,target:number,attack:number,release:number)=>value+(target-value)*(1-Math.exp(-dt/(target>value?attack:release)))
+    uniforms.uSlowBass.value=damp(uniforms.uSlowBass.value,motion.bass,.10,.75)
+    uniforms.uBassFast.value=damp(uniforms.uBassFast.value,motion.bass,.06,.4)
+    uniforms.uSlowMid.value=damp(uniforms.uSlowMid.value,motion.middle,.3,.3)
+    uniforms.uFastHigh.value=damp(uniforms.uFastHigh.value,motion.treble,.03,.12)
+    uniforms.uBeatGlow.value*=Math.exp(-dt/.45)
+    if(!reduced&&frame?.audible&&frame.onset&&frame.beatIndex!==beat){beat=frame.beatIndex;uniforms.uBeatGlow.value=Math.max(uniforms.uBeatGlow.value,frame.beatStrength*motion.bass)}
+    if(reduced)uniforms.uBeatGlow.value=0
     uniforms.uPhase.value = phase; uniforms.uVolume.value = level
     uniforms.uBass.value = motion.bass; uniforms.uMiddle.value = motion.middle; uniforms.uTreble.value = motion.treble
     uniforms.uPulse.value = reduced ? 0 : Math.max(0, frame?.pulse ?? 0)
     uniforms.uTouch.value = motion.ripples.reduce((value, ripple) => ripple.source === 'pointer' ? Math.max(value, Math.exp(-ripple.lifetime * 1.3)) : value, 0)
-    if (color !== config.color) { color = config.color; uniforms.uColor.value.set(color) }
-    if (palette !== config.music.fieldPalette) {
-      palette = config.music.fieldPalette
-      uniforms.uAccent.value.set(palette === 'ember' ? '#ffc680' : palette === 'lake' ? '#65e7d3' : '#9c86ff')
-    }
-    uniforms.uThreshold.value = smoothing ? config.music.fluidBrightnessThreshold / 100 : 0
+    const nextPalette = resolveEffectPalette(config)
+    if (palette !== nextPalette) { palette = applyFlowPalette(uniforms, config) }
+    uniforms.uThreshold.value = 0
     last = frame?.now ?? -1
     return dt
   }
@@ -48,7 +64,7 @@ export function flowDriver(uniforms: FlowUniforms) {
 export const uniformSource = `
 uniform float uPhase,uVolume,uBass,uMiddle,uTreble,uPulse,uTouch;
 uniform float uWidth,uTrail,uRange,uCount,uTwist,uDepth,uThreshold,uPixelRatio;
-uniform vec3 uColor,uAccent;
+uniform vec3 uColor,uAccent,uHighlight,uShade;
 `
 
 /** UV coordinates describe a 3D tube/surface, never a texture billboard. */

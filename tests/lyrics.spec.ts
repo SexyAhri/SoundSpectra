@@ -19,7 +19,8 @@ test('lyric clock respects pause, seek, stale sessions and word timing', () => {
   const normalized = normalizeSettings({ lyrics: { enabled: true, fontSize: 999, offsetMs: -99999, bounds: { x: 1, y: 1, width: .5, height: .2 } } })
   expect(normalized.lyrics).toMatchObject({ fontSize: 72, offsetMs: -10000, bounds: { x: .5, y: .8 } })
   const host = displayBounds({ ...defaults, regionVisible: false, lyrics: { ...defaults.lyrics, enabled: true } })
-  for (const key of ['x', 'y', 'width', 'height'] as const) expect(host[key]).toBeCloseTo(defaults.lyrics.bounds[key], 8)
+  // Lyrics may move around desktop rails without resizing the native host.
+  expect(host).toEqual({ x: 0, y: 0, width: 1, height: 1 })
 })
 
 test('lyrics preview animates independently, persists controls and never fabricates live lyrics', async ({ page }) => {

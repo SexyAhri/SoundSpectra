@@ -10,6 +10,7 @@ import { native } from '../spectrum/bridge'
 import type { ApplicationInfo, Preferences } from './client'
 import type { useUpdater } from './use-updater'
 import packageInfo from '../../../package.json'
+import { ApplicationStarPrompt } from './application-star-prompt'
 
 interface Props {
   open: boolean; onOpenChange: (open: boolean) => void
@@ -54,16 +55,18 @@ export function ApplicationSettingsDialog({ open, onOpenChange, tab, onTabChange
             <SettingToggle label="关闭时收起到托盘" description="关闭设置窗口后，桌面挂件继续运行。" checked={preferences.closeToTray} disabled={!loaded || pending} onChange={closeToTray => onPreference({ closeToTray })} />
           </section>
           <section className="application-section" aria-label="配置与诊断"><h2>配置与诊断</h2>
-            <div className="application-maintenance-row"><FolderArchive size={18} aria-hidden="true" /><div><h3>备份配置</h3><p>保存当前配置，方便日后恢复。</p></div><Button variant="outline" size="sm" disabled={!native || pending || updateBusy} onClick={onBackup}>备份配置</Button></div>
-            <div className="application-maintenance-row"><FileDown size={18} aria-hidden="true" /><div><h3>导出诊断</h3><p>排查运行问题，不包含音频内容。</p></div><Button variant="outline" size="sm" disabled={!native || pending} onClick={onDiagnostics}>导出诊断</Button></div>
+            <div className="application-maintenance-row"><FolderArchive size={18} aria-hidden="true" /><div><h3>备份配置</h3><p>保存当前配置，方便日后恢复。</p></div><Button variant="outline" size="sm" aria-label="备份配置" disabled={!native || pending || updateBusy} onClick={onBackup}>备份</Button></div>
+            <div className="application-maintenance-row"><FileDown size={18} aria-hidden="true" /><div><h3>运行诊断</h3><p>排查运行问题，不包含音频内容。</p></div><Button variant="outline" size="sm" aria-label="导出诊断" disabled={!native || pending} onClick={onDiagnostics}>导出</Button></div>
           </section>
         </TabsContent>
         <TabsContent value="updates" className="application-dialog-body">
           <section className="application-section application-update-section" aria-label="软件更新">
-            <div className="application-update-summary"><div className="application-update-copy"><span className="application-version-label">当前版本 {info?.version ?? '读取中'}</span><h2>{updateTitle}</h2><p role="status">{updateMessage}</p></div>
-              {state.phase === 'available' ? <Button disabled={pending} onClick={() => void updater.download()}><ArrowDownToLine size={14} />{state.error ? '重试下载' : '下载更新'}</Button>
-                : state.phase === 'ready' ? <Button disabled={pending} onClick={() => void updater.install()}>安装并重启</Button>
-                : <Button disabled={!native || !loaded || !info?.updaterConfigured || updateBusy || pending} onClick={() => void updater.checkNow()}>{updateBusy ? <LoaderCircle className="spinning" size={14} /> : <ArrowDownToLine size={14} />}{state.phase === 'downloading' ? '正在下载' : state.phase === 'installing' ? '正在安装' : state.phase === 'checking' ? '正在检查' : '检查更新'}</Button>}
+            <div className="application-update-summary"><div className="application-update-copy"><h2>{updateTitle}</h2><p role="status">{updateMessage}</p></div>
+              <div className="application-update-actions">
+                <Button variant={updateAvailable ? 'outline' : 'default'} disabled={!native || !loaded || !info?.updaterConfigured || updateBusy || pending} onClick={() => void updater.checkNow()}>{state.phase === 'checking' && <LoaderCircle className="spinning" size={14} />}{state.phase === 'checking' ? '正在检查' : '检查更新'}</Button>
+                {state.phase === 'available' && <Button disabled={pending} onClick={() => void updater.download()}><ArrowDownToLine size={14} />{state.errorSource === 'download' ? '重试下载' : '下载更新'}</Button>}
+                {state.phase === 'ready' && <Button disabled={pending} onClick={() => void updater.install()}>安装并重启</Button>}
+              </div>
             </div>
             {state.phase === 'downloading' && <div className="download-progress"><progress aria-label="更新下载进度" max={state.total || undefined} value={state.total ? Math.min(state.received, state.total) : undefined} /><span>{(state.received / 1024 / 1024).toFixed(1)} MB{state.total ? ` / ${(state.total / 1024 / 1024).toFixed(1)} MB` : ''}</span></div>}
             {state.error && <p className="application-error" role="alert">{state.error}</p>}
@@ -80,10 +83,10 @@ export function ApplicationSettingsDialog({ open, onOpenChange, tab, onTabChange
           <section className="application-section application-about" aria-label="软件版权">
             <span className="application-about-icon" aria-hidden="true"><AudioLines size={30} /></span>
             <h2>SoundSpectra</h2><p>桌面音乐可视化与动态歌词</p>
-            <span className="application-about-version">版本 {info?.version ?? '读取中'}{info?.development ? ' · 开发版' : ''}</span>
             <div className="application-about-license"><p>© 2026 {packageInfo.author}</p><p>{packageInfo.license} · 第三方许可随安装包附带。</p></div>
             <Button variant="outline" disabled={!info?.repository || pending} onClick={onRepository}><ExternalLink size={14} />GitHub 代码仓库</Button>
           </section>
+          <ApplicationStarPrompt pending={pending} onRepository={onRepository} />
         </TabsContent>
       </Tabs>
       {(error || notice) && <div className="application-dialog-feedback">
@@ -93,7 +96,6 @@ export function ApplicationSettingsDialog({ open, onOpenChange, tab, onTabChange
       <footer className="application-dialog-footer">
         <div className="application-footer-status"><span role="status">{pending ? <><LoaderCircle size={12} className="spinning" />正在处理…</> : !loaded ? '设置未加载' : <><Check size={12} />设置自动保存</>}</span>{backgroundUpdate && <button className="application-text-link" onClick={() => onTabChange('updates')}>{updateBusy && <LoaderCircle size={11} className="spinning" />}{state.error ? '更新遇到问题' : updateTitle}<span aria-hidden="true"> →</span></button>}</div>
         {native && <Button variant="ghost" size="sm" disabled={pending || state.phase === 'installing'} onClick={onQuit}>退出应用</Button>}
-        <Dialog.Close asChild><Button variant="outline" size="sm">完成</Button></Dialog.Close>
       </footer>
     </ModalContent>
   </Dialog.Root>

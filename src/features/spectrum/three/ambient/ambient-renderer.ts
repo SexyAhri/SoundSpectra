@@ -8,22 +8,8 @@ import { petalVertex, petalFragment, dustVertex, dustFragment, trailFragment, co
 import { SceneCamera } from '../camera'
 import { auroraVertex, auroraFragment } from './aurora-shaders'
 import { flightSheetGeometry, orbitVertex, orbitFragment, ribbonVertex, ribbonFragment, flightStarFragment } from './star-flight'
+import { resolveEffectPalette } from '../../effect-palette'
 
-const palettes = {
-  iris: ['#12192f', '#799fd1', '#c4a4e0', '#f4debd'],
-  ember: ['#261925', '#a585ba', '#e4a578', '#f7dfb1'],
-  lake: ['#0c2330', '#789bd9', '#73d9be', '#bce8ea'],
-} as const
-const flightPalettes = {
-  iris: ['#10152e', '#719ac6', '#ae8aba', '#ebd8b9'],
-  ember: ['#211026', '#a48dbb', '#cfa77d', '#eedfc6'],
-  lake: ['#081e2c', '#719bc5', '#83bfbc', '#d6e8e3'],
-} as const
-const auroraPalettes = {
-  iris: ['#0b1720', '#4c91aa', '#6dd4a3', '#a28fb8'],
-  ember: ['#1d1420', '#a07ea4', '#d2b18c', '#bca6ca'],
-  lake: ['#0b1722', '#4d91bd', '#63c6be', '#93b8d5'],
-} as const
 
 /** Actual mesh petals, layered 3D curtains and depth-projected star travel. */
 export class AmbientSceneRenderer {
@@ -112,7 +98,7 @@ export class AmbientSceneRenderer {
         const cores = new T.Points(geometry, this.material(coreVertex, dustFragment, true)); cores.frustumCulled = false; this.root.add(cores)
       }
     }
-    const count = Math.max(120, Math.round((flight ? 1500 : aurora ? 450 : 650) * detail))
+    const count = Math.max(48, Math.round((flight ? 1500 : aurora ? 240 : 90) * detail))
     const stars = new T.Points(dustGeometry(count), this.material(dustVertex, flight ? flightStarFragment : dustFragment, true))
     stars.frustumCulled = false; this.root.add(stars)
     if (flight) {
@@ -142,8 +128,9 @@ export class AmbientSceneRenderer {
   draw(motion: SceneMotion, config: SpectrumSettings, reduced: boolean) {
     const stamp = `${config.effect}:${config.quality}:${config.music.ambientDensity}:${this.regionCount}`
     if (stamp !== this.stamp) { this.build(config); this.stamp = stamp }
-    const u = this.uniforms, palette = (config.effect === 'star_flight' ? flightPalettes : config.effect === 'aurora_flow' ? auroraPalettes : palettes)[config.music.fieldPalette]
-    u.uLow.value.set(palette[0]); u.uMid.value.set(palette[1]); u.uWarm.value.set(palette[2]); u.uHigh.value.set(palette[3])
+    const u = this.uniforms, palette = resolveEffectPalette(config), aurora = config.effect === 'aurora_flow'
+    u.uLow.value.set(palette.low); u.uMid.value.set(aurora ? palette.accent : palette.main)
+    u.uWarm.value.set(aurora ? palette.main : palette.accent); u.uHigh.value.set(palette.high)
     u.uAuroraPhase.value = motion.auroraPhase; u.uPhase.value = motion.phase; u.uVolume.value = motion.volume
     u.uBands.value.set(motion.bass, motion.middle, motion.treble)
     if (motion.frame) u.uSpectrum.value.set(motion.frame.spectrum); else u.uSpectrum.value.fill(0)

@@ -1,5 +1,4 @@
 import {
-  CircleHelp,
   Move,
   Palette,
   SlidersHorizontal,
@@ -12,11 +11,6 @@ import {
 import { RailControls } from "../rail/rail-controls";
 import type { RailController } from "../rail/use-rail";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
 import type { SpectrumSettings, SettingsUpdate } from "../spectrum/model";
 import { RegionPanel } from "./region-panel";
 import { EffectPanel } from "./effect-panel";
@@ -44,6 +38,7 @@ interface Props {
   rail: RailController;
   selectedRail: string | null;
   selectedRailItem: string | null;
+  railSelectionRevision: number;
   onSelectRail: (groupId: string, itemId?: string) => void;
 }
 
@@ -63,6 +58,7 @@ export function SceneInspector({
   rail,
   selectedRail,
   selectedRailItem,
+  railSelectionRevision,
   onSelectRail,
 }: Props) {
   const heading = {
@@ -70,7 +66,7 @@ export function SceneInspector({
     lyrics: "歌词动效",
     card: "音乐卡片",
     wallpaper: "壁纸与景深",
-    rail: "桌面挂架",
+    rail: "桌面拾光绳",
   }[panel];
   const Icon = {
     scene: SlidersHorizontal,
@@ -84,18 +80,6 @@ export function SceneInspector({
       <div className="inspector-heading">
         <Icon size={16} />
         <h2>{heading}</h2>
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <button aria-label="设置说明" className="help-button">
-              <CircleHelp size={15} />
-            </button>
-          </TooltipTrigger>
-          <TooltipContent>
-            {panel === "scene"
-              ? "只调整当前选中的灯效区域"
-              : "独立的桌面图层，实时生效并自动保存"}
-          </TooltipContent>
-        </Tooltip>
       </div>
       {panel === "scene" ? (
         <>
@@ -128,6 +112,7 @@ export function SceneInspector({
             <div className="inspector-scroll" key={tab}>
               <TabsContent value="effect">
                 <EffectPanel
+                  scope={selected}
                   settings={settings}
                   update={update}
                   disabled={disabled}
@@ -158,8 +143,8 @@ export function SceneInspector({
               controller={rail}
               selectedGroup={selectedRail}
               selectedItem={selectedRailItem}
+              selectionRevision={railSelectionRevision}
               onSelect={onSelectRail}
-              onApplyAfternoon={() => updateScene(current => ({ desktopCard: { ...current.desktopCard, enabled: true, variant: 'afternoon', bounds: { x: .06, y: .66, width: .29, height: .19 } } }))}
             />
           )}
           {panel === "lyrics" && (

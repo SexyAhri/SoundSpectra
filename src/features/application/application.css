@@ -10,7 +10,7 @@
 .window-controls button:hover { color: var(--foreground); background: var(--secondary); }
 .window-controls .window-close:hover { background: var(--destructive); color: var(--destructive-foreground); }
 .has-update { color: var(--primary); }
-.update-dot { position: absolute; right: 3px; top: 3px; width: 5px; height: 5px; background: var(--primary); border-radius: 50%; }
+.update-dot { position: absolute; right: 3px; top: 3px; width: 6px; height: 6px; background: var(--destructive); border-radius: 50%; }
 .spinning { animation: toolbar-spin 1s linear infinite; }
 @keyframes toolbar-spin { to { transform: rotate(360deg); } }
 .application-dialog { position: fixed; z-index: 81; left: 50%; top: 50%; transform: translate(-50%, -50%); width: min(660px, calc(100vw - 32px)); height: min(620px, calc(100dvh - 48px)); display: flex; flex-direction: column; min-height: 0; border: 1px solid var(--border); border-radius: 12px; background: var(--background); color: var(--foreground); box-shadow: 0 24px 80px var(--shadow-strong); font-size: 13px; overflow: hidden; }
@@ -38,10 +38,10 @@
 .application-maintenance-row > button { flex-shrink: 0; font-size: 11px; }
 .application-update-summary { display: flex; justify-content: space-between; align-items: center; gap: 24px; padding: 1px 0 5px; }
 .application-update-copy { min-width: 0; }
-.application-version-label { display: block; color: var(--muted-foreground); font-size: 11px; margin-bottom: 10px; }
 .application-update-copy h2 { font-size: 17px; line-height: 1.4; margin-bottom: 8px; overflow-wrap: anywhere; }
 .application-update-copy p { font-size: 11px; }
-.application-update-summary > button { flex-shrink: 0; font-size: 12px; }
+.application-update-actions { flex-shrink: 0; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.application-update-actions > button { font-size: 12px; }
 .application-text-link { display: inline-flex; align-items: center; gap: 5px; padding: 0; border: 0; background: transparent; color: var(--muted-foreground); font-size: 11px; text-align: left; line-height: 1.6; }
 .application-text-link:hover { color: var(--foreground); }
 .application-text-link:disabled { opacity: .5; }
@@ -50,9 +50,14 @@
 .application-about-icon { display: grid; place-items: center; width: 68px; height: 68px; margin-bottom: 17px; border: 1px solid var(--border); border-radius: 16px; color: var(--primary); background: var(--card); }
 .application-about h2 { font-size: 20px; margin-bottom: 6px; }
 .application-about > p { font-size: 12px; }
-.application-about-version { display: block; color: var(--muted-foreground); font-size: 11px; margin-top: 11px; }
 .application-about-license { margin: 25px 0 18px; }
 .application-about-license p { font-size: 11px; }
+.application-star-prompt { display: flex; align-items: center; gap: 12px; margin: 0 0 22px; padding: 14px; border: 1px solid var(--border); border-radius: 8px; background: var(--accent); }
+.application-star-icon { flex-shrink: 0; color: #e9a52d; }
+.application-star-prompt p { flex: 1; min-width: 0; margin: 0; font-size: 12px; line-height: 1.7; }
+.application-star-prompt > button { flex-shrink: 0; font-size: 12px; }
+.application-star-prompt .github-mark { width: 14px; height: 14px; }
+.application-star-prompt .application-star-dismiss { width: 24px; height: 24px; padding: 0; }
 .application-dialog-footer { display: flex; align-items: center; gap: 10px; border-top: 1px solid var(--border); padding: 14px 24px; flex-shrink: 0; }
 .application-footer-status { flex: 1; min-width: 0; display: flex; flex-direction: column; align-items: flex-start; gap: 3px; }
 .application-footer-status > span { display: inline-flex; align-items: center; gap: 5px; font-size: 11px; color: var(--muted-foreground); }
@@ -93,4 +98,8 @@
   .application-update-copy h2 { font-size: 16px; }
   .application-maintenance-row { gap: 10px; }
   .application-maintenance-row > svg { display: none; }
+  .application-star-prompt { display: grid; grid-template-columns: 20px minmax(0, 1fr) 24px; gap: 10px; padding: 12px; }
+  .application-star-prompt > p { grid-column: 2; }
+  .application-star-prompt > button:not(.application-star-dismiss) { grid-column: 2; justify-self: start; }
+  .application-star-prompt .application-star-dismiss { grid-column: 3; grid-row: 1; align-self: start; }
 }

@@ -1,6 +1,5 @@
 .inspector { width: 380px; flex-shrink: 0; min-height: 0; display: flex; flex-direction: column; overflow: hidden; background: var(--card); border-left: 1px solid var(--border); }
 .inspector-heading { display: flex; align-items: center; gap: 9px; padding: 22px 24px 14px; flex-shrink: 0; color: var(--foreground); }
-.help-button { margin-left: auto; display: grid; place-items: center; color: var(--muted-foreground); border: 0; background: transparent; padding: 6px; }
 .region-panel { padding: 2px 24px 20px; flex-shrink: 0; }
 .region-panel-heading { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin-bottom: 10px; color: var(--muted-foreground); font-size: 12px; }
 .region-panel-heading small { margin-left: 7px; font-size: 10px; font-variant-numeric: tabular-nums; }
@@ -21,15 +20,10 @@
 .scene-choice[aria-pressed="true"], .effect-options button[aria-pressed="true"] { color: var(--primary); border-color: var(--border-strong); background: var(--accent); }
 .scene-choice[aria-pressed="true"] { margin-bottom: 12px; }
 .scene-controls { margin-bottom: 26px; }
-.scene-view-turns { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; margin: 12px 0 18px; }
 .scene-view-presets { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; margin: 12px 0; }
 .scene-view-presets button { min-width: 0; padding: 6px; font-size: 11px; }
-.motion-directions { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; margin: 8px 0 14px; }
-.motion-directions button { min-width: 0; padding: 6px; font-size: 11px; }
-.motion-directions button[aria-pressed="true"] { border-color: var(--primary); color: var(--primary); }
-.scene-view-turns button { min-width: 0; padding: 5px; font-size: 11px; }
-.scene-view-axes { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px 18px; }
-.scene-view-axes .parameter { margin: 0; min-width: 0; }
+.scene-view-axes { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px 18px; margin-bottom: 18px; }
+.studio-shell .scene-view-axes .parameter { margin: 0; min-width: 0; }
 .scene-view-hint { margin: 14px 0 4px; color: var(--muted-foreground); font-size: 11px; line-height: 1.6; }
 .three-scene-surface canvas:focus-visible { outline: 2px solid var(--primary); outline-offset: -3px; }
 .scene-mode-options { display: grid; grid-template-columns: 1fr 1fr; padding: 3px; background: var(--muted); border-radius: 7px; gap: 3px; }

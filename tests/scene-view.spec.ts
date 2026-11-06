@@ -3,20 +3,19 @@ import { defaults, normalizeSettings } from '../src/features/spectrum/model'
 import { defaultSceneView, normalizeSceneView, rotateSceneView } from '../src/features/spectrum/three/view'
 import { regionPatch } from '../src/features/spectrum/regions'
 import { importScene, layout, sceneDocument } from '../src/features/preview/scene-library'
-import { selectChoice } from './helpers/choices'
 
 const saved = (page: import('@playwright/test').Page) => page.evaluate(() => JSON.parse(localStorage.getItem('soundspectra.settings.v1')!))
 
-test('small view steps, presets and drift directions persist independently', async ({ page }) => {
+test('precise view sliders, presets and drift directions persist independently', async ({ page }) => {
   test.setTimeout(60000)
   await page.goto('/')
   await page.getByRole('button', { name: '雪花飘舞', exact: true }).click()
   await page.getByRole('tab', { name: '位置', exact: true }).click()
+  await page.getByText('精细视角', { exact: true }).click()
   await page.getByRole('button', { name: '恢复三维视角', exact: true }).click()
-  await page.getByRole('button', { name: '向右转', exact: true }).click()
-  await expect.poll(async () => (await saved(page)).view.yaw).toBe(5)
-  await selectChoice(page, '每次转动', '1')
-  await page.getByRole('button', { name: '向上转', exact: true }).click()
+  await page.getByRole('slider', { name: '左右旋转', exact: true }).press('ArrowRight')
+  await expect.poll(async () => (await saved(page)).view.yaw).toBe(1)
+  await page.getByRole('slider', { name: '上下旋转', exact: true }).press('ArrowLeft')
   await expect.poll(async () => (await saved(page)).view.pitch).toBe(-1)
   await page.getByRole('button', { name: '俯视角度', exact: true }).click()
   await expect.poll(async () => (await saved(page)).view.pitch).toBe(-35)
@@ -32,20 +31,20 @@ test('small view steps, presets and drift directions persist independently', asy
   await canvas.press('Home')
   await expect.poll(async () => (await saved(page)).view).toEqual(defaultSceneView)
   await page.getByRole('tab', { name: '外观', exact: true }).click()
-  await page.getByRole('button', { name: '向左飘', exact: true }).click()
+  await page.getByRole('slider', { name: '飘雪风向', exact: true }).press('Home')
   await expect.poll(async () => (await saved(page)).music.rippleTwist).toBe(-1.5)
   await page.reload()
   await page.getByRole('tab', { name: '外观', exact: true }).click()
-  await expect(page.getByRole('button', { name: '向左飘', exact: true })).toHaveAttribute('aria-pressed', 'true')
+  await expect(page.getByRole('slider', { name: '飘雪风向', exact: true })).toHaveAttribute('aria-valuenow', '-1.5')
   await expect.poll(async () => (await saved(page)).view).toEqual(defaultSceneView)
   await page.screenshot({ path: 'artifacts/snow-direction-controls.png' })
   await page.getByRole('tab', { name: '动效', exact: true }).click()
   await page.getByRole('button', { name: '晴空浮游', exact: true }).click()
   await page.getByRole('tab', { name: '外观', exact: true }).click()
-  await page.getByRole('button', { name: '向右飘', exact: true }).click()
-  await expect.poll(async () => (await saved(page)).music.meteorAngle).toBe(35)
-  await page.getByRole('button', { name: '垂直飘动', exact: true }).click()
-  await expect.poll(async () => (await saved(page)).music.meteorAngle).toBe(0)
+  await page.getByRole('slider', { name: '风向倾角', exact: true }).press('End')
+  await expect.poll(async () => (await saved(page)).music.meteorAngle).toBe(45)
+  await page.getByRole('button', { name: '恢复当前灯效参数', exact: true }).click()
+  await expect.poll(async () => (await saved(page)).music.meteorAngle).toBe(defaults.music.meteorAngle)
 })
 
 test('view state is independent per region, survives export and keeps old scenes compatible', () => {
@@ -90,13 +89,14 @@ test('preview drag saves while held, supports controlled rotation, pan, roll, do
   await page.reload()
   await expect.poll(async () => JSON.parse((await canvas.getAttribute('data-view'))!)).toEqual(expected)
   await page.getByRole('tab',{name:'位置',exact:true}).click()
+  await page.getByText('精细视角', { exact: true }).click()
   await expect(page.getByRole('slider',{name:'左右旋转',exact:true})).toHaveAttribute('aria-valuemin','-180')
   await expect(page.getByRole('slider',{name:'上下旋转',exact:true})).toHaveAttribute('aria-valuemax','180')
   await page.screenshot({path:'artifacts/scene-view-controls.png',fullPage:true})
   await page.getByRole('button',{name:'恢复三维视角',exact:true}).click()
   await expect.poll(async () => (await saved(page)).view).toEqual(defaultSceneView)
   await page.setViewportSize({width:390,height:844})
-  await expect(page.getByRole('button',{name:'向右转',exact:true})).toBeVisible()
+  await expect(page.getByRole('slider',{name:'左右旋转',exact:true})).toBeVisible()
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
 })
 

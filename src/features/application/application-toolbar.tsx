@@ -30,9 +30,8 @@ export function ApplicationToolbar({ beforeClose, open, onOpenChange: setOpen }:
   const busy = useRef(false)
   const updater = useUpdater(Boolean(info?.updaterConfigured && loaded), preferences.autoCheckUpdates, preferences.autoInstallUpdates, beforeClose)
   const updateBusy = ['checking', 'downloading', 'installing'].includes(updater.state.phase)
-  const updateAvailable = ['available', 'ready'].includes(updater.state.phase)
+  const updateAvailable = Boolean(updater.state.version)
   const installing = useRef(false); installing.current = updater.state.phase === 'installing'
-  const [dismissed, setDismissed] = useState<string | null>(null)
   useEffect(() => {
     if (!native) return
     let disposed = false
@@ -47,11 +46,6 @@ export function ApplicationToolbar({ beforeClose, open, onOpenChange: setOpen }:
       .catch(reason => { if (!disposed) setError(describeError(reason)) })
     return () => { disposed = true; stop?.() }
   }, [setOpen])
-  useEffect(() => {
-    if (!dismissed) return
-    const timer = setTimeout(() => setDismissed(null), 4 * 60 * 60 * 1000)
-    return () => clearTimeout(timer)
-  }, [dismissed])
   useEffect(() => {
     let disposed = false
     let unlisten: (() => void) | undefined
@@ -93,9 +87,9 @@ export function ApplicationToolbar({ beforeClose, open, onOpenChange: setOpen }:
   return <>
     <div className="application-actions">
       <IconButton title="GitHub 代码仓库" aria-label="GitHub 代码仓库" disabled={pending} onClick={() => void perform(() => openRepository(info?.repository || undefined))}><span aria-hidden="true" className="github-mark" style={{ maskImage: `url("${githubMark}")`, WebkitMaskImage: `url("${githubMark}")` }} /></IconButton>
-      {preferences.showUpdateButton && <IconButton className={updateAvailable ? 'has-update' : undefined} title="检查更新" aria-label="检查更新" onClick={showUpdates}>
+      {preferences.showUpdateButton && <IconButton className={updateAvailable ? 'has-update' : undefined} title={updateAvailable ? `发现新版本 ${updater.state.version}` : '检查更新'} aria-label="检查更新" aria-description={updateAvailable ? `发现新版本 ${updater.state.version}` : undefined} onClick={showUpdates}>
         {updateBusy ? <LoaderCircle size={15} className="spinning" /> : <ArrowDownToLine size={15} />}
-        {updateAvailable && <span className="update-dot" />}
+        {updateAvailable && <span className="update-dot" aria-hidden="true" />}
       </IconButton>}
       <IconButton className="mobile-settings" title="应用设置与更新" aria-label="应用设置与更新" onClick={() => setOpen(true)}><Settings2 size={15} /></IconButton>
       {native && <div className="window-controls">
@@ -104,10 +98,9 @@ export function ApplicationToolbar({ beforeClose, open, onOpenChange: setOpen }:
         <button aria-label="关闭窗口" title={preferences.closeToTray ? '收起到托盘' : '退出 SoundSpectra'} className="window-close" disabled={pending || updater.state.phase === 'installing'} onClick={() => void close()}><X size={17} /></button>
       </div>}
     </div>
-    {(updateAvailable || ['downloading', 'installing'].includes(updater.state.phase)) && dismissed !== updater.state.version && !open && <div className="update-notification" role="status">
-      <span>{updater.state.phase === 'downloading' ? '正在下载更新' : updater.state.phase === 'installing' ? '正在安装，即将重启' : '发现新版本'} {updater.state.version}</span>
-      <button onClick={showUpdates}>{updateBusy ? '查看进度' : '查看更新'}</button>
-      {!updateBusy && <button onClick={() => setDismissed(updater.state.version ?? null)}>稍后提醒</button>}
+    {['downloading', 'installing'].includes(updater.state.phase) && !open && <div className="update-notification" role="status">
+      <span>{updater.state.phase === 'downloading' ? '正在下载更新' : '正在安装，即将重启'} {updater.state.version}</span>
+      <button onClick={showUpdates}>查看进度</button>
     </div>}
     <ApplicationSettingsDialog open={open} onOpenChange={setOpen} tab={tab} onTabChange={setTab} info={info} preferences={preferences} loaded={loaded} pending={pending} starting={starting} autostartKnown={autostartKnown} error={error} notice={notice} updater={updater}
       onPreference={patch => void change(patch)}

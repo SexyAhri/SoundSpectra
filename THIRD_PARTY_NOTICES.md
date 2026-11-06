@@ -8,6 +8,12 @@ Frontend runtime license texts from the installed, locked npm packages are colle
 
 The GitHub mark in `src/assets/github-mark.svg` is from GitHub's Primer Octicons (`icons/mark-github-16.svg`), Copyright (c) 2026 GitHub Inc., MIT. The complete notice is in `licenses/github-octicons-MIT.txt`.
 
+Windows clipboard image import uses `arboard` 3.7.0 (MIT OR Apache-2.0), Copyright (c) 2022 The Arboard contributors. Its MIT notice is in `licenses/arboard-MIT.txt`.
+
+TTML parsing uses `roxmltree` 0.20.0 (MIT OR Apache-2.0), Copyright (c) 2018 Yevhenii Reizner. Its MIT notice is in `licenses/roxmltree-MIT.txt`.
+
+Online lyrics are retrieved at runtime from the AMLL TTML public HTTP API (https://api.amll.dev; documentation: https://amll.dev/reference/http-api/overview). Song IDs, original TTML and contributor usernames are retained in the local cache. No third-party song lyrics are bundled. Availability in a public lyric database does not transfer ownership of the lyrics or grant SoundSpectra rights to the underlying recordings.
+
 QQ local lyric decoding uses `lyrics-crypto` 0.5.1 (Apache-2.0), from ChouChiu/Lyrics-Helper. The QMC1 envelope key and transformation in `src-tauri/src/lyrics.rs` are adapted from Jixun Wu's `qmc-decode`, https://github.com/jixunmoe/qmc-decode (MIT):
 
 Copyright (c) 2019 Jixun Wu

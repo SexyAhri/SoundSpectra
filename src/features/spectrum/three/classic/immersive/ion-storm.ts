@@ -41,13 +41,11 @@ void main(){
   float vapor=cloud(q+vec2(distortion*2.7,distortion*.8));
   float cloudBody=smoothstep(.25,.75,vapor);
   float filaments=pow(max(0.,1.-abs(vapor-.5)*8.),5.);
-  vec3 blue=mix(uColor,vec3(.045,.25,.72),.65);
-  vec3 violet=mix(uAccent,vec3(.51,.17,.56),.65);
-  vec3 tint=mix(blue,violet,.35+.3*sin(vUv.x*5.+vLane*1.7));
-  float hot=pow(1.-vUv.x,2.5);
-  tint=mix(tint,vec3(.9,.39,.12),hot*.6);
+  vec3 tint=mix(uColor,uAccent,.12+.16*sin(vUv.x*5.+vLane*1.7));
+  float hot=pow(clamp(1.-vUv.x,0.,1.),2.5);
+  tint=mix(tint,uAccent,hot*.55);
   vec3 color=tint*(.025+cloudBody*.32+filaments*.045+vLight*.1);
-  gl_FragColor=vec4(color,vAlpha*body*(.25+cloudBody*.6));
+  gl_FragColor=vec4(color,clamp(vAlpha,0.,1.)*body*(.25+cloudBody*.6));
 }`
 
 const sparksVertex = `${uniformSource}
@@ -70,7 +68,7 @@ const sparksFragment = `${uniformSource}
 varying float vAlpha;
 void main(){
   float r=length(gl_PointCoord-.5)*2.;
-  gl_FragColor=vec4(mix(uColor,vec3(.7,.7,.9),.45),exp(-r*r*4.)*vAlpha);
+  gl_FragColor=vec4(mix(uColor,uHighlight,.35),exp(-r*r*4.)*vAlpha);
 }`
 
 const lightningVertex = `${uniformSource}
@@ -82,7 +80,7 @@ void main(){
 }`
 const lightningFragment = `${uniformSource}
 varying float vPower;
-void main(){gl_FragColor=vec4(mix(uColor,vec3(.9,.65,.4),.5),vPower*.42);}`
+void main(){gl_FragColor=vec4(mix(uColor,uHighlight,.5),vPower*.22);}`
 
 /** A tilted stellar weather system surrounds the viewer with sweeping cloud arms. */
 export function createIonStorm(detail: number): FlowEffect {

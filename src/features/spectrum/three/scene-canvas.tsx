@@ -58,7 +58,7 @@ export function ThreeSceneCanvas({ settings, analysis, demo, desktop = false, ac
       if (!drag) return
       if (drag.distance < 8 && drag.mode === 'rotate' && current.current.interactive) {
         const point = world?.hit(event.clientX, event.clientY)
-        if (point) { motion.touch(point.x, point.z, current.current.settings.effect==='water_ripple'?256:undefined); dirty = true }
+        if (point) { motion.touch(point.x, point.z); dirty = true }
       }
       flushView(); drag = null; if (canvas.hasPointerCapture(event.pointerId)) canvas.releasePointerCapture(event.pointerId)
     }

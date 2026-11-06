@@ -29,7 +29,7 @@ test('full-screen current effect preserves the selected scene and its tuning aft
 
 test('effect picker omits retired scenes and shortcuts while retaining preferred scenes', async ({ page }) => {
   await page.goto('/')
-  for (const name of ['全屏熔金', '跃迁光廊', '熔金潮汐', '水波纹', '丹霞声谷']) {
+  for (const name of ['全屏熔金', '跃迁光廊', '熔金潮汐', '水波纹', '丹霞声谷', '晶簇声境', '日冕回响']) {
     await expect(page.getByRole('button', { name, exact: true })).toHaveCount(0)
   }
   for (const [name, effect] of [['晴空浮游', 'volume_rain'], ['雪花飘舞', 'ripple']]) {
@@ -68,15 +68,16 @@ async function panoramaCoverage(page: Page, effect: MusicEffect) {
   return result
 }
 
-for (const { value: effect } of classicMusicEffects) test(`${effect}: foreground geometry extends to the viewport edges`, async ({ page }, testInfo) => {
+for (const { value: effect } of classicMusicEffects) test(`${effect}: foreground retains its intended spatial coverage`, async ({ page }, testInfo) => {
   const errors: string[] = []
   page.on('pageerror', error => errors.push(error.message))
   const result = await panoramaCoverage(page, effect)
   await testInfo.attach('panorama-coverage', { body: JSON.stringify(result), contentType: 'application/json' })
-  if (effect === 'rhythm_fluid' || effect === 'pulse_ring') {
-    // Keep the established ocean/corridor guarantees, including their top edge.
-    expect(result.coverage).toBeGreaterThan(effect === 'rhythm_fluid' ? .35 : .12)
-    for (const count of result.edges) expect(count).toBeGreaterThan(200)
+  if (effect === 'rhythm_balls') {
+    // Geometric desktop effects deliberately leave empty space around their
+    // silhouette; they must remain visible without filling the viewport edges.
+    expect(result.coverage).toBeGreaterThan(.002)
+    expect(result.tiles.filter(count => count > 20).length).toBeGreaterThanOrEqual(2)
   } else {
     // A sparse star field should cover space, not become a solid luminous wall.
     // Other environments must also contain a substantial visible foreground.

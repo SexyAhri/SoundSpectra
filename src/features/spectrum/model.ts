@@ -4,9 +4,11 @@ export const BAND_COUNT = 96;
 export const effectIds = musicEffects.map(effect => effect.value);
 export type SpectrumEffect = MusicEffect;
 const replacedEffects: Record<string, SpectrumEffect> = {
-  bars: 'rhythm_bars', ribbon: 'ripple', stars: 'dream_stars', night: 'dream_stars',
-  ring: 'pulse_ring', rain: 'volume_rain', orbit: 'vortex', flock: 'rhythm_balls',
-  bloom: 'water_ripple', valley: 'water_ripple',
+  bars: 'sound_field', ribbon: 'ripple', stars: 'dream_stars', night: 'dream_stars',
+  ring: 'vortex', rain: 'volume_rain', orbit: 'vortex', flock: 'rhythm_balls',
+  bloom: 'ripple', valley: 'ripple',
+  spectrum_bars: 'sound_field', rhythm_bars: 'sound_field', pulse_ring: 'vortex',
+  rhythm_fluid: 'rhythm_skin', water_ripple: 'ripple',
 };
 export const migrateEffectId = (value: unknown): unknown => typeof value === 'string' && Object.hasOwn(replacedEffects, value) ? replacedEffects[value] : value;
 export type RenderQuality = "eco" | "balanced" | "smooth" | "unlimited";
@@ -21,8 +23,8 @@ export const defaultAtmosphere: AtmosphereSettings = { direction: 15, wind: 40, 
 export type RegionStyle = Pick<SpectrumSettings, 'effect' | 'sceneMode' | 'color' | 'opacity' | 'sensitivity' | 'decay' | 'reflection' | 'glow' | 'bounds' | 'atmosphere' | 'music' | 'view'>
 export interface SpectrumRegion extends RegionStyle { id: string; name: string; visible: boolean }
 export interface SceneMask { id: string; bounds: SceneBounds; feather: number }
-export interface LyricSettings { enabled: boolean; folder: string; fontSize: number; backgroundOpacity: number; offsetMs: number; motion: 'depth' | 'stardust' | 'stage'; bounds: SceneBounds }
-export const defaultLyrics: LyricSettings = { enabled: false, folder: '', fontSize: 64, backgroundOpacity: 30, offsetMs: 0, motion: 'depth', bounds: { x: .06, y: .20, width: .88, height: .56 } }
+export interface LyricSettings { readability: 'soft' | 'contrast'; enabled: boolean; folder: string; fontSize: number; backgroundOpacity: number; offsetMs: number; motion: 'depth' | 'stardust' | 'stage'; bounds: SceneBounds }
+export const defaultLyrics: LyricSettings = { readability: 'soft', enabled: false, folder: '', fontSize: 64, backgroundOpacity: 30, offsetMs: 0, motion: 'depth', bounds: { x: .06, y: .20, width: .88, height: .56 } }
 export const MAX_REGIONS = 4, MAX_MASKS = 8
 
 export interface SpectrumSettings {
@@ -34,6 +36,8 @@ export interface SpectrumSettings {
   sceneMode: SceneMode;
   view: SceneView;
   color: string;
+  followCover: boolean;
+  layerOrder: string[];
   opacity: number;
   sensitivity: number;
   decay: number;
@@ -71,6 +75,8 @@ export const defaults: SpectrumSettings = {
   sceneMode: "daily",
   view: { ...defaultSceneView },
   color: "#d4c3ff",
+  followCover: false,
+  layerOrder: [],
   opacity: 85,
   sensitivity: 100,
   decay: 65,
@@ -109,6 +115,8 @@ export function normalizeSettings(value: unknown): SpectrumSettings {
       typeof source.color === "string" && /^#[0-9a-f]{6}$/i.test(source.color)
         ? source.color
         : defaults.color,
+    followCover: source.followCover === true,
+    layerOrder: normalizeLayerOrder(source.layerOrder),
     opacity: clamp(source.opacity, defaults.opacity, 10, 100),
     sensitivity: clamp(source.sensitivity, defaults.sensitivity, 25, 200),
     decay: clamp(source.decay, defaults.decay, 0, 100),
@@ -131,12 +139,17 @@ export function normalizeSettings(value: unknown): SpectrumSettings {
   };
 }
 
+export function normalizeLayerOrder(value: unknown): string[] {
+  return [...new Set((Array.isArray(value) ? value : []).filter((id): id is string =>
+    typeof id === 'string' && /^(lyrics|card|effect:[a-zA-Z0-9_-]{1,64})$/.test(id)))].slice(0, MAX_REGIONS + 2)
+}
+
 export function normalizeLyrics(value: unknown): LyricSettings {
   const source = value && typeof value === 'object' ? value as Partial<LyricSettings> : {}
   const b = source.bounds ?? defaultLyrics.bounds
   const width = clamp(b.width, .88, .25, 1), height = clamp(b.height, .56, .1, .75)
   return { enabled: source.enabled === true, folder: typeof source.folder === 'string' ? source.folder.trim().slice(0, 1024) : defaultLyrics.folder,
-    backgroundOpacity: clamp(source.backgroundOpacity, 30, 0, 100),
+    backgroundOpacity: clamp(source.backgroundOpacity, 30, 0, 100), readability: source.readability==='contrast'?'contrast':'soft',
     fontSize: clamp((source as { motion?: string }).motion === 'float' && source.fontSize === 36 ? 64 : source.fontSize, 64, 18, 72), offsetMs: clamp(source.offsetMs, 0, -10000, 10000), motion: source.motion === 'stardust' || source.motion === 'stage' ? source.motion : 'depth',
     bounds: { x: clamp(b.x, .06, 0, 1 - width), y: clamp(b.y, .20, 0, 1 - height), width, height } }
 }

@@ -1,129 +1,87 @@
-import { useRef, useState, type PointerEvent } from "react";
-import { RailSurface } from "./rail-surface";
-import type { RailGroup } from "./model";
-import type { RailController } from "./use-rail";
-export function RailLayer({
-  controller,
-  selected,
-  editing,
-  interactive = true,
-  onSelect,
-}: {
-  controller: RailController;
-  selected: string | null;
-  editing: boolean;
-  interactive?: boolean;
-  onSelect: (groupId: string, itemId?: string) => void;
+import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type PointerEvent } from 'react'
+import { RailSurface } from './rail-surface'
+import type { RailGroup } from './model'
+import type { RailController } from './use-rail'
+
+type Placement = Pick<RailGroup, 'x' | 'y' | 'width'>
+export function RailLayer({ controller, selected, editing, arranging = false, interactive = true, onSelect, desktopWidth }: {
+  controller: RailController; selected: string | null; editing: boolean; arranging?: boolean; interactive?: boolean;
+  onSelect: (groupId: string, itemId?: string) => void; desktopWidth?: number;
 }) {
-  const holder = useRef<HTMLDivElement>(null),
-    [draft, setDraft] = useState<{ id: string; x: number; y: number } | null>(
-      null,
-    );
-  const gesture = useRef<{
-    id: string;
-    pointer: number;
-    x: number;
-    y: number;
-    startX: number;
-    startY: number;
-    width: number;
-    height: number;
-    groupWidth: number;
-    nextX: number;
-    nextY: number;
-  } | null>(null);
-  const begin = (event: PointerEvent<HTMLButtonElement>, group: RailGroup) => {
-    if (!editing || !interactive || event.button !== 0) return;
-    event.preventDefault();
-    event.stopPropagation();
-    onSelect(group.id);
-    const bounds = holder.current!.getBoundingClientRect();
-    gesture.current = {
-      id: group.id,
-      pointer: event.pointerId,
-      x: event.clientX,
-      y: event.clientY,
-      startX: group.x,
-      startY: group.y,
-      width: bounds.width,
-      height: bounds.height,
-      groupWidth: group.width,
-      nextX: group.x,
-      nextY: group.y,
-    };
-    event.currentTarget.setPointerCapture(event.pointerId);
-  };
-  const finish = (event: PointerEvent<HTMLDivElement>, cancel = false) => {
-    const current = gesture.current;
-    if (!current || current.pointer !== event.pointerId) return;
-    gesture.current = null;
-    setDraft(null);
-    if (!cancel)
-      void controller
-        .change({
-          type: "group",
-          id: current.id,
-          x: current.nextX,
-          y: current.nextY,
-        })
-        .catch(() => {});
-  };
-  if (!controller.loaded || (!controller.settings.enabled && !editing)) return null;
-  return (
-    <div
-      ref={holder}
-      className={`rail-layer${editing ? " rail-layer-editing" : ""}`}
-      inert={!interactive}
-      aria-label="桌面晾衣绳预览"
-      onPointerMove={(event) => {
-        const current = gesture.current;
-        if (!current || current.pointer !== event.pointerId) return;
-        current.nextX = Math.max(
-          0,
-          Math.min(
-            1 - current.groupWidth,
-            current.startX + (event.clientX - current.x) / current.width,
-          ),
-        );
-        current.nextY = Math.max(
-          0,
-          Math.min(
-            0.75,
-            current.startY + (event.clientY - current.y) / current.height,
-          ),
-        );
-        setDraft({ id: current.id, x: current.nextX, y: current.nextY });
-      }}
-      onPointerUp={(event) => finish(event)}
-      onPointerCancel={(event) => finish(event, true)}
-      onLostPointerCapture={(event) => finish(event, true)}
-      onKeyDown={(event) => {
-        if (event.key === "Escape") {
-          gesture.current = null;
-          setDraft(null);
-        }
-      }}
-    >
-      {controller.settings.groups.map((group) => (
-        <div
-          key={group.id}
-          className={`rail-placement${selected === group.id ? " rail-placement-selected" : ""}`}
-          style={{
-            left: `${(draft?.id === group.id ? draft.x : group.x) * 100}%`,
-            top: `${(draft?.id === group.id ? draft.y : group.y) * 100}%`,
-            width: `${group.width * 100}%`,
-          }}
-        >
-          <RailSurface
-            group={group}
-            controller={controller}
-            selected={selected}
-            onSelect={onSelect}
-            onDragGroup={begin}
-            editing={editing}
-          />
-        </div>
-      ))}
-    </div>
-  );
+  const holder = useRef<HTMLDivElement>(null)
+  const [draft, setDraft] = useState<(Placement & { id: string }) | null>(null)
+  const [previewWidth, setPreviewWidth] = useState(0)
+  const gesture = useRef<{ id: string; pointer: number; x: number; y: number; width: number; height: number;
+    start: Placement; next: Placement; resize: boolean; target: HTMLElement } | null>(null)
+  const canEdit = (editing || arranging) && interactive && controller.pending === 0
+  const cancel = () => {
+    const current = gesture.current; gesture.current = null; setDraft(null)
+    if (current?.target.hasPointerCapture(current.pointer)) current.target.releasePointerCapture(current.pointer)
+  }
+  useLayoutEffect(() => {
+    if (!holder.current) return
+    setPreviewWidth(holder.current.clientWidth)
+    const observer = new ResizeObserver(() => setPreviewWidth(holder.current?.clientWidth ?? 0))
+    observer.observe(holder.current)
+    return () => observer.disconnect()
+  }, [controller.loaded, controller.settings.enabled, editing, arranging])
+  useEffect(() => { if (!canEdit) cancel() }, [canEdit])
+  const scale = desktopWidth ? previewWidth / desktopWidth : 1
+  const begin = (event: PointerEvent<HTMLButtonElement>, group: RailGroup, resize = false) => {
+    if (!canEdit || event.button !== 0 || gesture.current) return
+    event.preventDefault(); event.stopPropagation(); onSelect(group.id)
+    event.currentTarget.closest<HTMLElement>('.rail-placement')?.focus({ preventScroll: true })
+    const rect = holder.current!.getBoundingClientRect()
+    const start = { x: group.x, y: group.y, width: group.width }
+    gesture.current = { id: group.id, pointer: event.pointerId, x: event.clientX, y: event.clientY,
+      width: rect.width, height: rect.height, start, next: start, resize, target: event.currentTarget }
+    event.currentTarget.setPointerCapture(event.pointerId)
+  }
+  const finish = (event: PointerEvent<HTMLDivElement>, cancelled = false) => {
+    const current = gesture.current
+    if (!current || current.pointer !== event.pointerId) return
+    event.stopPropagation(); cancel()
+    if (!cancelled && JSON.stringify(current.start) !== JSON.stringify(current.next))
+      void controller.change({ type: 'group', id: current.id, ...current.next }).catch(() => {})
+  }
+  if (!controller.loaded || (!controller.settings.enabled && !editing)) return null
+  return <div ref={holder} className={`rail-layer${editing ? ' rail-layer-editing' : ''}`} inert={!interactive} aria-label="桌面拾光绳预览"
+    onPointerMove={event => {
+      const current = gesture.current
+      if (!current || current.pointer !== event.pointerId) return
+      event.preventDefault(); event.stopPropagation()
+      const dx = (event.clientX - current.x) / current.width, dy = (event.clientY - current.y) / current.height
+      current.next = current.resize ? { ...current.start, width: Math.max(.2, Math.min(1 - current.start.x, current.start.width + dx)) }
+        : { ...current.start, x: Math.max(0, Math.min(1 - current.start.width, current.start.x + dx)), y: Math.max(0, Math.min(.75, current.start.y + dy)) }
+      setDraft({ id: current.id, ...current.next })
+    }} onPointerUp={event => finish(event)} onPointerCancel={event => finish(event, true)} onLostPointerCapture={event => finish(event, true)}
+    onKeyDown={event => { if (event.key === 'Escape' && gesture.current) { event.preventDefault(); event.stopPropagation(); cancel() } }}>
+    {controller.settings.groups.map(group => {
+      const placement = draft?.id === group.id ? draft : group
+      return <div key={group.id} className={`rail-placement${selected === group.id ? ' rail-placement-selected' : ''}${arranging ? ' rail-placement-arranging' : ''}`}
+        data-preview-object={arranging ? `rail:${group.id}` : undefined} data-selected={arranging && selected === group.id || undefined}
+        role={arranging ? 'group' : undefined} tabIndex={arranging ? 0 : undefined} aria-label={arranging ? `${group.name}位置，拖动或方向键移动` : undefined}
+        onFocus={event => { if (arranging && event.target === event.currentTarget) onSelect(group.id) }}
+        onKeyDown={event => {
+          if (!arranging || !canEdit || gesture.current || !event.key.startsWith('Arrow')) return
+          event.preventDefault(); event.stopPropagation()
+          const step = event.shiftKey ? .02 : .002
+          const resize = (event.target as HTMLElement).classList.contains('rail-placement-resize')
+          const dx = event.key === 'ArrowLeft' ? -step : event.key === 'ArrowRight' ? step : 0
+          const dy = event.key === 'ArrowUp' ? -step : event.key === 'ArrowDown' ? step : 0
+          void controller.change({ type: 'group', id: group.id, ...(resize
+            ? { width: Math.max(.2, Math.min(1 - group.x, group.width + dx)) }
+            : { x: Math.max(0, Math.min(1 - group.width, group.x + dx)), y: Math.max(0, Math.min(.75, group.y + dy)) }) }).catch(() => {})
+        }} style={{ left: `${placement.x * 100}%`, top: `${placement.y * 100}%`,
+          width: desktopWidth ? desktopWidth * placement.width : `${placement.width * 100}%`,
+          transform: `scale(${scale})`, transformOrigin: 'top left', '--rail-preview-inverse': scale > 0 ? 1 / scale : 1 } as CSSProperties}>
+        <RailSurface layoutWidth={desktopWidth ? desktopWidth * placement.width : undefined} group={group} controller={controller} selected={selected} onSelect={onSelect} onDragGroup={begin} editing={editing && !arranging} />
+        {arranging && <>
+          <button className="rail-placement-move" aria-label={`移动${group.name}`} tabIndex={-1} disabled={!canEdit} onPointerDown={event => begin(event, group)} />
+          <span className="rail-placement-label" aria-hidden="true">{group.name} · 拖动移动</span>
+          <button className="rail-placement-resize" aria-label={`调整${group.name}宽度`} title="拖动调整宽度；左右方向键微调" disabled={!canEdit} onPointerDown={event => begin(event, group, true)} />
+        </>}
+      </div>
+    })}
+  </div>
 }

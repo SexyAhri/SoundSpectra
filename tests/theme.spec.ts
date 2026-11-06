@@ -101,7 +101,7 @@ for (const theme of ['light', 'dark'] as const) {
     page.on('pageerror', error => errors.push(error.message))
     await setup(page, theme)
     await page.screenshot({ path: `artifacts/theme-${theme}-workspace.png` })
-    for (const name of ['歌词', '音乐卡片', '壁纸', '挂架']) {
+    for (const name of ['歌词', '音乐卡片', '壁纸', '拾光绳']) {
       await page.getByRole('button', { name, exact: true }).click()
       if (name === '歌词') await page.getByRole('switch', { name: '显示桌面歌词' }).check()
       expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
@@ -116,9 +116,9 @@ for (const theme of ['light', 'dark'] as const) {
     await page.setViewportSize({ width: 390, height: 620 })
     await page.screenshot({ path: `artifacts/theme-${theme}-mobile.png` })
     const dialog = page.getByRole('dialog')
-    await expect(dialog.getByRole('button', { name: '完成', exact: true })).toBeInViewport()
+    await expect(dialog.getByRole('button', { name: '收起应用设置', exact: true })).toBeInViewport()
     expect(await dialog.evaluate(node => node.scrollWidth <= node.clientWidth)).toBe(true)
-    await dialog.getByRole('button', { name: '完成', exact: true }).click()
+    await dialog.getByRole('button', { name: '收起应用设置', exact: true }).click()
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
     expect(errors).toEqual([])
   })

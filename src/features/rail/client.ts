@@ -19,7 +19,15 @@ export async function loadRail(): Promise<RailSnapshot> {
   const stored = localStorage.getItem(key);
   const settings = stored ? JSON.parse(stored) : structuredClone(railDefaults);
   if (settings.version !== 1 || !Array.isArray(settings.groups))
-    throw Error("挂架配置无法读取，原配置已保留");
+    throw Error("拾光绳配置无法读取，原配置已保留");
+  let renamed = false;
+  for (const group of settings.groups) {
+    if (group.id === "apps" && group.name === "我的晾衣绳") {
+      group.name = "我的拾光绳";
+      renamed = true;
+    }
+  }
+  if (renamed) localStorage.setItem(key, JSON.stringify(settings));
   return browserSnapshot(settings);
 }
 function saveBrowser(settings: RailSettings) {
@@ -30,8 +38,28 @@ function saveBrowser(settings: RailSettings) {
 export async function mutateRail(change: RailChange): Promise<RailSnapshot> {
   if (native) return invoke("rail_change", { change });
   if (change.type === "enable" && change.enabled)
-    throw Error("请在 Windows 桌面客户端中启用常驻挂轨");
+    throw Error("请在 Windows 桌面客户端中启用常驻拾光绳");
   return saveBrowser(changeRail((await loadRail()).settings, change));
+}
+export async function pasteRailImage(groupId: string): Promise<RailSnapshot> {
+  if (!native) throw Error("粘贴图片需要 Windows 桌面客户端。");
+  return invoke("rail_paste_image", { groupId });
+}
+export async function detachRailItem(id: string): Promise<RailSnapshot> {
+  if (!native) throw Error("恢复到桌面需要 Windows 桌面客户端。");
+  return invoke("rail_detach", { id });
+}
+let outgoingDrag = false;
+export const isRailDraggingOut = () => outgoingDrag;
+export async function dragRailItem(id: string): Promise<boolean> {
+  if (!native) throw Error("拖出文件需要 Windows 桌面客户端。");
+  if (outgoingDrag) return false;
+  outgoingDrag = true;
+  try {
+    return await invoke("rail_drag_out", { id });
+  } finally {
+    outgoingDrag = false;
+  }
 }
 export async function addRailPaths(
   groupId: string,
@@ -46,7 +74,7 @@ export async function addRailPaths(
     });
   const settings = (await loadRail()).settings;
   const group = settings.groups.find((g) => g.id === groupId);
-  if (!group) throw Error("找不到这组挂架");
+  if (!group) throw Error("找不到这组拾光绳");
   const items = paths.map((path) => {
     if (!/^(?:[a-z]:[\\/]|\/|\\\\)/i.test(path))
       throw Error("请输入本地绝对路径");
@@ -86,23 +114,54 @@ export async function pickRailPaths(folder: boolean): Promise<string[]> {
     throw Error("浏览器无法选择本地软件路径，请使用路径输入或桌面客户端");
   return invoke("rail_pick", { folder });
 }
-export async function openRailItem(
-  id: string,
-  reveal = false,
-): Promise<void> {
+export async function openRailItem(id: string, reveal = false): Promise<void> {
   if (!native) throw Error("打开本地项目需要桌面客户端；浏览器只保存布局预览");
   return invoke("rail_open", { id, reveal });
 }
 export async function railMedia(item: RailItem): Promise<string | null> {
-  if (item.kind === 'note') return null;
+  if (item.kind === "note") return null;
   if (!native) return null;
   return invoke("rail_media", { id: item.id });
 }
-export interface DesktopEntry { path: string; name: string; kind: RailItem['kind']; icon: string | null }
-export interface DesktopEntries { entries: DesktopEntry[]; truncated: boolean; issues: string[] }
+export interface DesktopEntry {
+  path: string;
+  name: string;
+  kind: RailItem["kind"];
+  icon: string | null;
+}
+export interface FolderEntry {
+  name: string;
+  relativePath: string;
+  directory: boolean;
+}
+export interface FolderContents {
+  entries: FolderEntry[];
+  truncated: boolean;
+  unreadable: number;
+}
+export async function readFolderContents(
+  id: string,
+  relative: string,
+): Promise<FolderContents> {
+  if (!native) throw Error("请在桌面客户端中展开本地文件夹。");
+  return invoke("rail_folder_contents", { id, relative });
+}
+export async function openFolderEntry(
+  id: string,
+  relative: string,
+  reveal = false,
+): Promise<void> {
+  if (!native) throw Error("打开本地项目需要桌面客户端。");
+  return invoke("rail_folder_open", { id, relative, reveal });
+}
+export interface DesktopEntries {
+  entries: DesktopEntry[];
+  truncated: boolean;
+  issues: string[];
+}
 export async function readDesktopEntries(): Promise<DesktopEntries> {
-  if (!native) throw Error('请在桌面客户端中读取桌面图标。');
-  return invoke('rail_desktop_entries');
+  if (!native) throw Error("请在桌面客户端中读取桌面图标。");
+  return invoke("rail_desktop_entries");
 }
 export async function subscribeRail(callback: (value: RailSnapshot) => void) {
   if (native)

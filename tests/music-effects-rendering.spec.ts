@@ -38,7 +38,7 @@ const pixels = async (page: Page) => {
   })
 }
 
-for (const effect of classicMusicEffects.filter(effect => !['rhythm_fluid', 'water_ripple', 'rhythm_bars'].includes(effect.value))) {
+for (const effect of classicMusicEffects) {
   test(`${effect.value}: spatial effect renders, moves, persists and fades to transparent`, async ({ page }, testInfo) => {
     test.setTimeout(45000)
     const errors: string[] = []
@@ -82,7 +82,7 @@ test('repeated spatial effect switches release prior Three contexts; effect para
   const liveContexts = () => page.evaluate(() => (window as unknown as { __spatialContexts: WebGL2RenderingContext[] }).__spatialContexts.filter(context => !context.isContextLost()).length)
   let previous = await rememberContext()
   for (let i = 0; i < 3; i++) {
-    for (const [id, label] of [['volume_rain', '晴空浮游'], ['rhythm_balls', '弹球']]) {
+    for (const [id, label] of [['volume_rain', '晴空浮游'], ['rhythm_balls', '浮光水母']]) {
       await page.getByRole('button', { name: label, exact: true }).click()
       await expect(canvas).toHaveAttribute('data-scene', id)
       await expect.poll(() => page.evaluate(index => (window as unknown as { __spatialContexts: WebGL2RenderingContext[] }).__spatialContexts[index].isContextLost(), previous)).toBe(true)
@@ -96,13 +96,13 @@ test('repeated spatial effect switches release prior Three contexts; effect para
   await expect(page.getByRole('alert')).toHaveCount(0)
   expect(errors).toEqual([])
   await page.getByRole('tab', { name: '外观', exact: true }).click()
-  const speed = page.getByRole('slider', { name: '弹球速度', exact: true })
+  const speed = page.getByRole('slider', { name: '漂游速度', exact: true })
   await speed.focus(); await speed.press('Home'); await speed.press('ArrowRight')
   await expect(speed).toHaveAttribute('aria-valuenow', '0.2')
   await expect(page.getByText('已保存到此浏览器')).toBeVisible()
   await page.reload()
   await page.getByRole('tab', { name: '外观', exact: true }).click()
-  await expect(page.getByRole('slider', { name: '弹球速度', exact: true })).toHaveAttribute('aria-valuenow', '0.2')
+  await expect(page.getByRole('slider', { name: '漂游速度', exact: true })).toHaveAttribute('aria-valuenow', '0.2')
 })
 
 test('spatial effects respect global masks and live silence', async ({ page }) => {
@@ -129,7 +129,7 @@ test('spatial effects respect global masks and live silence', async ({ page }) =
 test('all performance presets render spatial scenes', async ({ page }) => {
   test.setTimeout(60000)
   await page.goto('/')
-  await page.getByRole('button', { name: '梦幻星空', exact: true }).click()
+  await page.getByRole('button', { name: '银河', exact: true }).click()
   for (const quality of ['eco', 'balanced', 'smooth', 'unlimited']) {
     await selectChoice(page, '渲染性能', quality)
     await expect.poll(async () => (await pixels(page)).visible).toBeGreaterThan(30)
@@ -137,7 +137,7 @@ test('all performance presets render spatial scenes', async ({ page }) => {
   expect((await pixels(page)).error).toBe(0)
 })
 
-for (const label of ['梦幻星空', '弹球', '频谱柱']) test(`${label}: reduced-motion settles under constant input and still fades at silence`, async ({ page }) => {
+for (const label of ['银河', '浮光水母']) test(`${label}: reduced-motion settles under constant input and still fades at silence`, async ({ page }) => {
   test.setTimeout(45000)
   await page.emulateMedia({ reducedMotion: 'reduce' })
   await page.goto('/')

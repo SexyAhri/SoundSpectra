@@ -4,32 +4,38 @@ use std::path::Path;
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub enum SpectrumEffect {
-    #[serde(rename = "spectrum_bars")]
-    SpectrumBars,
-    #[serde(rename = "ripple", alias = "ribbon")]
+    #[serde(
+        rename = "ripple",
+        alias = "ribbon",
+        alias = "water_ripple",
+        alias = "bloom",
+        alias = "valley"
+    )]
     Ripple,
-    #[serde(rename = "pulse_ring", alias = "ring")]
-    PulseRing,
     #[serde(rename = "volume_rain", alias = "rain")]
     VolumeRain,
     #[serde(rename = "dream_stars", alias = "stars", alias = "night")]
     DreamStars,
-    #[serde(rename = "vortex", alias = "orbit")]
+    #[serde(
+        rename = "vortex",
+        alias = "orbit",
+        alias = "pulse_ring",
+        alias = "ring"
+    )]
     Vortex,
-    #[serde(rename = "water_ripple", alias = "bloom", alias = "valley")]
-    WaterRipple,
-    #[serde(rename = "rhythm_bars", alias = "bars")]
-    RhythmBars,
     #[serde(rename = "rhythm_balls", alias = "flock")]
     #[default]
     RhythmBalls,
     #[serde(rename = "rhythm_rain")]
     RhythmRain,
-    #[serde(rename = "rhythm_fluid")]
-    RhythmFluid,
-    #[serde(rename = "rhythm_skin")]
+    #[serde(rename = "rhythm_skin", alias = "rhythm_fluid")]
     RhythmSkin,
-    #[serde(rename = "sound_field")]
+    #[serde(
+        rename = "sound_field",
+        alias = "spectrum_bars",
+        alias = "rhythm_bars",
+        alias = "bars"
+    )]
     SoundField,
     #[serde(rename = "petal_bloom")]
     PetalBloom,
@@ -165,6 +171,22 @@ impl Default for DesktopCard {
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", default)]
 pub struct MusicSettings {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub jelly_count: Option<f32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub jelly_size: Option<f32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub tentacle_length: Option<f32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub drift_speed: Option<f32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub star_density: Option<f32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub nebula_scale: Option<f32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub dust_opacity: Option<f32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub spin_speed: Option<f32>,
     pub ambient_density: f32,
     pub ambient_spread: f32,
     pub field_scale: f32,
@@ -174,11 +196,8 @@ pub struct MusicSettings {
     pub field_drops: f32,
     pub field_palette: String,
     pub field_ripple_mode: String,
-    pub intensity_window_ms: f32,
-    pub fluid_brightness_threshold: f32,
     pub ball_speed_multiplier: f32,
     pub rain_speed_multiplier: f32,
-    pub fluid_speed_multiplier: f32,
     pub skin_flow_speed_multiplier: f32,
     pub sensitivity: f32,
     pub response: String,
@@ -188,20 +207,12 @@ pub struct MusicSettings {
     pub rain_radius_multiplier: f32,
     pub rain_count: f32,
     pub rain_direction: String,
-    pub fluid_count: f32,
-    pub fluid_width: f32,
     pub dragon_width: f32,
     pub dragon_trail: f32,
     pub dragon_burst: f32,
-    pub spectrum_tracks: f32,
-    pub spectrum_amplitude: f32,
-    pub spectrum_note_density: f32,
     pub ripple_width: f32,
     pub ripple_twist: f32,
     pub ripple_lights: f32,
-    pub pulse_range: f32,
-    pub pulse_impact: f32,
-    pub pulse_particles: f32,
     pub meteor_density: f32,
     pub meteor_trail: f32,
     pub meteor_angle: f32,
@@ -211,15 +222,19 @@ pub struct MusicSettings {
     pub vortex_arms: f32,
     pub vortex_range: f32,
     pub vortex_width: f32,
-    pub water_drops: f32,
-    pub water_range: f32,
-    pub water_echoes: f32,
-    pub source_fluid_fade_speed: f32,
     pub speed: f32,
 }
 impl Default for MusicSettings {
     fn default() -> Self {
         Self {
+            jelly_count: None,
+            jelly_size: None,
+            tentacle_length: None,
+            drift_speed: None,
+            star_density: None,
+            nebula_scale: None,
+            dust_opacity: None,
+            spin_speed: None,
             ambient_density: 1.0,
             ambient_spread: 1.0,
             field_scale: 1.35,
@@ -229,34 +244,23 @@ impl Default for MusicSettings {
             field_drops: 4.0,
             field_palette: "iris".into(),
             field_ripple_mode: "rain".into(),
-            intensity_window_ms: 1000.00,
-            fluid_brightness_threshold: 8.00,
-            ball_speed_multiplier: 5.00,
-            rain_speed_multiplier: 3.00,
-            fluid_speed_multiplier: 1.00,
-            skin_flow_speed_multiplier: 4.00,
-            sensitivity: 2.00,
+            ball_speed_multiplier: 1.50,
+            rain_speed_multiplier: 1.20,
+            skin_flow_speed_multiplier: 1.30,
+            sensitivity: 1.00,
             response: "balanced".into(),
-            ball_radius_multiplier: 2.00,
+            ball_radius_multiplier: 1.00,
             ball_count: 5.00,
-            ball_trail: 0.35,
-            rain_radius_multiplier: 2.00,
+            ball_trail: 0.15,
+            rain_radius_multiplier: 1.00,
             rain_count: 10.00,
             rain_direction: "left".into(),
-            fluid_count: 2.00,
-            fluid_width: 1.00,
             dragon_width: 1.00,
             dragon_trail: 4.00,
             dragon_burst: 1.00,
-            spectrum_tracks: 28.00,
-            spectrum_amplitude: 1.00,
-            spectrum_note_density: 1.00,
             ripple_width: 1.00,
             ripple_twist: 1.00,
             ripple_lights: 2.00,
-            pulse_range: 1.00,
-            pulse_impact: 1.00,
-            pulse_particles: 8.00,
             meteor_density: 72.00,
             meteor_trail: 1.00,
             meteor_angle: 25.00,
@@ -266,16 +270,26 @@ impl Default for MusicSettings {
             vortex_arms: 4.00,
             vortex_range: 1.00,
             vortex_width: 1.00,
-            water_drops: 4.00,
-            water_range: 1.00,
-            water_echoes: 3.00,
-            source_fluid_fade_speed: 30.00,
-            speed: 4.00,
+            speed: 2.00,
         }
     }
 }
 impl MusicSettings {
     fn validate(&self) -> Result<(), String> {
+        for (value, min, max) in [
+            (self.jelly_count, 3.00, 7.00),
+            (self.jelly_size, 1.20, 4.80),
+            (self.tentacle_length, 0.00, 1.00),
+            (self.drift_speed, 0.10, 5.00),
+            (self.star_density, 1200.00, 6000.00),
+            (self.nebula_scale, 0.50, 2.00),
+            (self.dust_opacity, 0.00, 1.00),
+            (self.spin_speed, 0.00, 2.00),
+        ] {
+            if value.is_some_and(|v| !v.is_finite() || !(min..=max).contains(&v)) {
+                return Err("灯效独立参数超出允许范围".into());
+            }
+        }
         for (value, min, max) in [
             (self.ambient_density, 0.5, 2.0),
             (self.ambient_spread, 0.6, 1.8),
@@ -294,16 +308,6 @@ impl MusicSettings {
         {
             return Err("三维声场配色或涟漪模式无效".into());
         }
-        if !self.intensity_window_ms.is_finite()
-            || !(100.00..=3000.00).contains(&self.intensity_window_ms)
-        {
-            return Err("音乐灯效参数超出允许范围".into());
-        }
-        if !self.fluid_brightness_threshold.is_finite()
-            || !(0.00..=20.00).contains(&self.fluid_brightness_threshold)
-        {
-            return Err("音乐灯效参数超出允许范围".into());
-        }
         if !self.ball_speed_multiplier.is_finite()
             || !(0.10..=5.00).contains(&self.ball_speed_multiplier)
         {
@@ -311,11 +315,6 @@ impl MusicSettings {
         }
         if !self.rain_speed_multiplier.is_finite()
             || !(0.10..=5.00).contains(&self.rain_speed_multiplier)
-        {
-            return Err("音乐灯效参数超出允许范围".into());
-        }
-        if !self.fluid_speed_multiplier.is_finite()
-            || !(0.10..=5.00).contains(&self.fluid_speed_multiplier)
         {
             return Err("音乐灯效参数超出允许范围".into());
         }
@@ -346,12 +345,6 @@ impl MusicSettings {
         if !self.rain_count.is_finite() || !(5.00..=20.00).contains(&self.rain_count) {
             return Err("音乐灯效参数超出允许范围".into());
         }
-        if !self.fluid_count.is_finite() || !(1.00..=3.00).contains(&self.fluid_count) {
-            return Err("音乐灯效参数超出允许范围".into());
-        }
-        if !self.fluid_width.is_finite() || !(0.50..=2.00).contains(&self.fluid_width) {
-            return Err("音乐灯效参数超出允许范围".into());
-        }
         if !self.dragon_width.is_finite() || !(0.50..=2.00).contains(&self.dragon_width) {
             return Err("音乐灯效参数超出允许范围".into());
         }
@@ -361,18 +354,6 @@ impl MusicSettings {
         if !self.dragon_burst.is_finite() || !(0.00..=2.00).contains(&self.dragon_burst) {
             return Err("音乐灯效参数超出允许范围".into());
         }
-        if !self.spectrum_tracks.is_finite() || !(12.00..=40.00).contains(&self.spectrum_tracks) {
-            return Err("音乐灯效参数超出允许范围".into());
-        }
-        if !self.spectrum_amplitude.is_finite() || !(0.50..=1.50).contains(&self.spectrum_amplitude)
-        {
-            return Err("音乐灯效参数超出允许范围".into());
-        }
-        if !self.spectrum_note_density.is_finite()
-            || !(0.00..=3.00).contains(&self.spectrum_note_density)
-        {
-            return Err("音乐灯效参数超出允许范围".into());
-        }
         if !self.ripple_width.is_finite() || !(0.50..=2.00).contains(&self.ripple_width) {
             return Err("音乐灯效参数超出允许范围".into());
         }
@@ -380,15 +361,6 @@ impl MusicSettings {
             return Err("音乐灯效参数超出允许范围".into());
         }
         if !self.ripple_lights.is_finite() || !(1.00..=4.00).contains(&self.ripple_lights) {
-            return Err("音乐灯效参数超出允许范围".into());
-        }
-        if !self.pulse_range.is_finite() || !(0.50..=1.50).contains(&self.pulse_range) {
-            return Err("音乐灯效参数超出允许范围".into());
-        }
-        if !self.pulse_impact.is_finite() || !(0.00..=2.00).contains(&self.pulse_impact) {
-            return Err("音乐灯效参数超出允许范围".into());
-        }
-        if !self.pulse_particles.is_finite() || !(4.00..=16.00).contains(&self.pulse_particles) {
             return Err("音乐灯效参数超出允许范围".into());
         }
         if !self.meteor_density.is_finite() || !(24.00..=96.00).contains(&self.meteor_density) {
@@ -413,20 +385,6 @@ impl MusicSettings {
             return Err("音乐灯效参数超出允许范围".into());
         }
         if !self.vortex_width.is_finite() || !(0.50..=2.00).contains(&self.vortex_width) {
-            return Err("音乐灯效参数超出允许范围".into());
-        }
-        if !self.water_drops.is_finite() || !(2.00..=6.00).contains(&self.water_drops) {
-            return Err("音乐灯效参数超出允许范围".into());
-        }
-        if !self.water_range.is_finite() || !(0.50..=1.50).contains(&self.water_range) {
-            return Err("音乐灯效参数超出允许范围".into());
-        }
-        if !self.water_echoes.is_finite() || !(1.00..=4.00).contains(&self.water_echoes) {
-            return Err("音乐灯效参数超出允许范围".into());
-        }
-        if !self.source_fluid_fade_speed.is_finite()
-            || !(0.50..=50.00).contains(&self.source_fluid_fade_speed)
-        {
             return Err("音乐灯效参数超出允许范围".into());
         }
         if !self.speed.is_finite() || !(0.00..=4.00).contains(&self.speed) {
@@ -501,6 +459,7 @@ impl Default for WallpaperDepth {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", default)]
 pub struct Lyrics {
+    pub readability: String,
     pub enabled: bool,
     pub folder: String,
     pub font_size: f64,
@@ -512,6 +471,7 @@ pub struct Lyrics {
 impl Default for Lyrics {
     fn default() -> Self {
         Self {
+            readability: "soft".into(),
             enabled: false,
             folder: String::new(),
             font_size: 64.0,
@@ -544,6 +504,10 @@ pub struct Settings {
     #[serde(default)]
     pub view: SceneView,
     pub color: String,
+    #[serde(default)]
+    pub follow_cover: bool,
+    #[serde(default)]
+    pub layer_order: Vec<String>,
     pub opacity: f32,
     pub sensitivity: f32,
     pub decay: f32,
@@ -579,6 +543,8 @@ impl Default for Settings {
             scene_mode: SceneMode::Daily,
             view: SceneView::default(),
             color: "#d4c3ff".into(),
+            follow_cover: false,
+            layer_order: vec![],
             opacity: 85.0,
             sensitivity: 100.0,
             decay: 65.0,
@@ -604,7 +570,9 @@ impl Default for Settings {
 
 impl Settings {
     pub fn display_bounds(&self) -> Option<Bounds> {
-        if self.wallpaper_depth.enabled {
+        // Avoid independently placed rails without resizing the native host
+        // every time a rail moves. The overlay remains click-through.
+        if self.wallpaper_depth.enabled || self.lyrics.enabled {
             return Some(Bounds {
                 x: 0.0,
                 y: 0.0,
@@ -644,6 +612,7 @@ impl Settings {
         let lyrics = &self.lyrics;
         validate_bounds(&lyrics.bounds, 0.25, 0.1, 0.75)?;
         if !lyrics.font_size.is_finite()
+            || !["soft", "contrast"].contains(&lyrics.readability.as_str())
             || !(18.0..=72.0).contains(&lyrics.font_size)
             || !lyrics.background_opacity.is_finite()
             || !(0.0..=100.0).contains(&lyrics.background_opacity)
@@ -695,6 +664,19 @@ impl Settings {
             return Err("区域或遮罩数量／名称超出允许范围".into());
         }
         let mut ids = std::collections::HashSet::new();
+        if self.layer_order.len() > 6
+            || self.layer_order.iter().any(|id| {
+                !ids.insert(id)
+                    || !(id == "lyrics"
+                        || id == "card"
+                        || id
+                            .strip_prefix("effect:")
+                            .is_some_and(|region| region == "primary" || valid_id(region)))
+            })
+        {
+            return Err("桌面图层顺序无效".into());
+        }
+        ids.clear();
         for region in &self.regions {
             region.view.validate()?;
             region.atmosphere.validate()?;
@@ -963,17 +945,12 @@ mod tests {
     #[test]
     fn procedural_effects_survive_settings_round_trip() {
         for effect in [
-            "spectrum_bars",
             "ripple",
-            "pulse_ring",
             "volume_rain",
             "dream_stars",
             "vortex",
-            "water_ripple",
-            "rhythm_bars",
             "rhythm_balls",
             "rhythm_rain",
-            "rhythm_fluid",
             "rhythm_skin",
             "sound_field",
             "petal_bloom",
@@ -993,6 +970,51 @@ mod tests {
         let mut saved = serde_json::to_value(Settings::default()).unwrap();
         saved["effect"] = serde_json::json!("unknown");
         assert!(serde_json::from_value::<Settings>(saved).is_err());
+    }
+
+    #[test]
+    fn retired_effects_migrate_in_primary_and_additional_regions() {
+        for (retired, replacement) in [
+            ("spectrum_bars", "sound_field"),
+            ("rhythm_bars", "sound_field"),
+            ("pulse_ring", "vortex"),
+            ("rhythm_fluid", "rhythm_skin"),
+            ("water_ripple", "ripple"),
+            ("bars", "sound_field"),
+            ("ring", "vortex"),
+            ("valley", "ripple"),
+        ] {
+            let mut value = serde_json::to_value(Settings::default()).unwrap();
+            value["effect"] = serde_json::json!(retired);
+            value["regions"] = serde_json::json!([extra_region()]);
+            value["regions"][0]["effect"] = serde_json::json!(retired);
+            value["music"]["clusterCount"] = serde_json::json!(32);
+            let loaded: Settings = serde_json::from_value(value).unwrap();
+            loaded.validate().unwrap();
+            let saved = serde_json::to_value(loaded).unwrap();
+            assert_eq!(saved["effect"], replacement);
+            assert_eq!(saved["regions"][0]["effect"], replacement);
+            assert!(saved["music"].get("clusterCount").is_none());
+        }
+    }
+
+    #[test]
+    fn luminous_parameters_and_lyric_readability_survive_native_save() {
+        let mut settings = Settings::default();
+        settings.music.jelly_count = Some(7.0);
+        settings.music.jelly_size = Some(3.2);
+        settings.music.dust_opacity = Some(0.4);
+        settings.music.star_density = Some(4200.0);
+        settings.lyrics.readability = "contrast".into();
+        settings.validate().unwrap();
+        let saved = serde_json::to_value(&settings).unwrap();
+        let loaded: Settings = serde_json::from_value(saved).unwrap();
+        assert_eq!(
+            serde_json::to_value(loaded).unwrap(),
+            serde_json::to_value(&settings).unwrap()
+        );
+        settings.music.jelly_count = Some(f32::NAN);
+        assert!(settings.validate().is_err());
     }
 
     #[test]
@@ -1033,16 +1055,16 @@ mod tests {
         let mut settings = Settings::default();
         settings.regions.push(extra_region());
         settings.music.ball_speed_multiplier = 3.2;
-        settings.music.intensity_window_ms = 1200.0;
+        settings.music.drift_speed = Some(2.0);
         settings.music.ripple_twist = -1.5;
-        settings.regions[0].music.source_fluid_fade_speed = 11.5;
+        settings.regions[0].music.jelly_size = Some(3.0);
         settings.validate().unwrap();
         let saved = serde_json::to_value(&settings).unwrap();
         let loaded: Settings = serde_json::from_value(saved.clone()).unwrap();
         assert_eq!(serde_json::to_value(loaded).unwrap(), saved);
-        settings.regions[0].music.fluid_count = 99.0;
+        settings.regions[0].music.jelly_count = Some(99.0);
         assert!(settings.validate().is_err());
-        settings.regions[0].music.fluid_count = 2.0;
+        settings.regions[0].music.jelly_count = Some(5.0);
         settings.music.ball_speed_multiplier = f32::NAN;
         assert!(settings.validate().is_err());
         let mut legacy = serde_json::to_value(Settings::default()).unwrap();
@@ -1087,7 +1109,7 @@ mod tests {
         let mut settings: Settings = serde_json::from_value(value).unwrap();
         assert_eq!(settings.atmosphere, Atmosphere::default());
         assert_eq!(settings.regions[0].atmosphere, Atmosphere::default());
-        settings.effect = SpectrumEffect::WaterRipple;
+        settings.effect = SpectrumEffect::Ripple;
         settings.quality = RenderQuality::Unlimited;
         settings.atmosphere.direction = -150.0;
         settings.atmosphere.choreography = false;

@@ -23,7 +23,7 @@ export function QuitDialog({ open, onOpenChange, pending, installing, error, onC
         onEscapeKeyDown={event => { if (pending) event.preventDefault() }}>
         <span className="quit-dialog-icon" aria-hidden="true"><Power size={22} /></span>
         <AlertDialog.Title>退出 SoundSpectra？</AlertDialog.Title>
-        <AlertDialog.Description>退出后，桌面挂架、灯效、歌词和音乐卡片将停止运行。退出前会保存当前配置。</AlertDialog.Description>
+        <AlertDialog.Description>退出后，桌面拾光绳、灯效、歌词和音乐卡片将停止运行。退出前会保存当前配置。</AlertDialog.Description>
         {installing && <p className="quit-dialog-status" role="status">正在安装更新，请等待完成后再退出。</p>}
         {error && <p className="application-error" role="alert">{error}</p>}
         <footer>

@@ -1,6 +1,7 @@
 import { defaults, type SpectrumSettings, type RegionStyle, type SceneBounds, type SpectrumEffect } from '../spectrum/model'
 import { regionStyle } from '../spectrum/regions'
 import { luminance, suggestPalette } from './wallpaper-palette'
+import { recommendedMusic } from '../spectrum/effect-presets'
 
 export type SceneComposition = RegionStyle & Pick<SpectrumSettings, 'regionName' | 'regionVisible' | 'regions'>
 export interface SceneSuggestion { id: string; name: string; description: string; layers: RegionStyle[] }
@@ -60,12 +61,12 @@ export function analyzeWallpaper(data: Uint8ClampedArray, width: number, height:
   const ribbon = place([[.72, .24], [.92, .24]], .76, .6, .55)
   const layer = (effect: SpectrumEffect, bounds: SceneBounds, accent = false): RegionStyle => {
     const colors = suggestPalette(new Uint8ClampedArray(scan(bounds, true).pixels))
-    return { ...regionStyle(defaults), effect, bounds, color: lightColor(colors[accent ? Math.min(1, colors.length - 1) : 0]?.value ?? defaults.color), reflection: 0 }
+    return { ...regionStyle(defaults), effect, music: recommendedMusic(effect), bounds, color: lightColor(colors[accent ? Math.min(1, colors.length - 1) : 0]?.value ?? defaults.color), reflection: 0 }
   }
   return { key: `v1-${width}x${height}-${(hash >>> 0).toString(16)}`, suggestions: [
     { id: 'starlight', name: '星光留白', description: '星点与微光，轻柔铺开', layers: [layer('dream_stars', sky)] },
-    { id: 'fireflies', name: '彩球星海', description: '音乐弹球，映衬细碎星点', layers: [layer('rhythm_balls', drift, true), layer('dream_stars', sky)] },
-    { id: 'flow', name: '流光律动', description: '舒展的光浪，跟随音乐起伏', layers: [layer('ripple', ribbon), layer('dream_stars', sky, true)] },
+    { id: 'fireflies', name: '浮光星海', description: '水母缓缓漂游，映衬细碎星点', layers: [layer('rhythm_balls', drift, true), layer('dream_stars', sky)] },
+    { id: 'flow', name: '轻雪星光', description: '轻雪缓缓飘落，远星留出空白', layers: [layer('ripple', ribbon), layer('dream_stars', sky, true)] },
   ] }
 }
 
@@ -74,9 +75,9 @@ export function composeSuggestion(suggestion: SceneSuggestion, strength: number)
   const layers = suggestion.layers.map((layer, index) => ({ ...layer, sceneMode: amount >= .65 ? 'immersive' as const : 'daily' as const,
     opacity: Math.round((index ? 32 : 55) + amount * (index ? 32 : 45)), sensitivity: Math.round(70 + amount * 65),
     glow: Math.round(25 + amount * 65), decay: Math.round(65 + amount * 20), reflection: layer.effect === 'ripple' ? Math.round(amount * 20) : 0,
-    music: { ...layer.music, sensitivity: .5 + amount * 1.5, speed: Math.round(amount * 4),
-      ballSpeedMultiplier: .1 + amount * 4.9, rainSpeedMultiplier: .1 + amount * 4.9,
-      fluidSpeedMultiplier: .1 + amount * 4.9, skinFlowSpeedMultiplier: .1 + amount * 9.9 },
+    music: { ...layer.music, sensitivity: .5 + amount, speed: Math.min(4, Math.round(layer.music.speed * (.5 + amount * 1.5))),
+      driftSpeed: layer.music.driftSpeed * (.5 + amount), rainSpeedMultiplier: layer.music.rainSpeedMultiplier * (.5 + amount),
+      skinFlowSpeedMultiplier: layer.music.skinFlowSpeedMultiplier * (.5 + amount) },
     atmosphere: { ...layer.atmosphere, wind: Math.round(20 + amount * 40), fog: Math.round(30 + amount * 45), lights: Math.round(45 + amount * 50) } }))
   return { ...layers[0], regionName: suggestion.name, regionVisible: true,
     regions: layers.slice(1).map((layer, index) => ({ ...layer, id: `auto-${suggestion.id}-${index}`, name: '背景微光', visible: true })) }

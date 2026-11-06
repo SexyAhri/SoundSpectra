@@ -5,6 +5,7 @@ import { Switch } from '@/components/ui/switch'
 import { MAX_REGIONS, type SpectrumSettings, type SettingsUpdate } from '../spectrum/model'
 import { regionStyle, sceneRegions } from '../spectrum/regions'
 import { ChoiceSelect } from '@/components/ui/choice-select'
+import { removeRegion } from '../preview/scene-layers'
 
 interface Props { settings: SpectrumSettings; selected: string; onSelect: (id: string) => void; disabled: boolean; update: SettingsUpdate }
 export function RegionPanel({ settings, selected, onSelect, disabled, update }: Props) {
@@ -25,12 +26,7 @@ export function RegionPanel({ settings, selected, onSelect, disabled, update }: 
   }
   const remove = () => {
     if (disabled || regions.length < 2) return
-    if (region.id === 'primary') {
-      update(current => {
-        const [promoted, ...remaining] = current.regions
-        return promoted ? { ...regionStyle(promoted), regionName: promoted.name, regionVisible: promoted.visible, regions: remaining } : {}
-      })
-    } else update(current => ({ regions: current.regions.filter(item => item.id !== region.id) }))
+    update(current => removeRegion(current, region.id))
     onSelect('primary')
   }
   const finishRename = () => {

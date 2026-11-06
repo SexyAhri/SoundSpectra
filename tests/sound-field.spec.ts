@@ -54,27 +54,28 @@ test('3D scene parameters survive normalization and scene export, including olde
 
 test('spectrum terrain has peaks without ripples and scales with captured volume', () => {
   const quiet = new SceneMotion(), loud = new SceneMotion()
+  const music = { ...defaultMusicSettings, sensitivity: 2 }
   const input = { bands: Array(6).fill(.4), spectrum: Array(48).fill(.5), skin: [] }
   for (let i = 0; i < 180; i++) {
-    quiet.step({ ...input, rms: .025 }, 1 / 60, defaultMusicSettings, true)
-    loud.step({ ...input, rms: .18 }, 1 / 60, defaultMusicSettings, true)
+    quiet.step({ ...input, rms: .025 }, 1 / 60, music, true)
+    loud.step({ ...input, rms: .18 }, 1 / 60, music, true)
   }
   expect(loud.ripples).toHaveLength(0)
   const heights: number[] = [], quietHeights: number[] = []
   for (let z = -24; z <= 24; z += 3) for (let x = -24; x <= 24; x += 3) {
     const seed = ((x + 24) * 13 + (z + 24) * 29) % 101 / 100
-    heights.push(loud.sample(x, z, seed, defaultMusicSettings).height)
-    quietHeights.push(quiet.sample(x, z, seed, defaultMusicSettings).height)
+    heights.push(loud.sample(x, z, seed, music).height)
+    quietHeights.push(quiet.sample(x, z, seed, music).height)
   }
   const mean = (values: number[]) => values.reduce((sum, value) => sum + value, 0) / values.length
   expect(Math.max(...heights)).toBeGreaterThan(4)
   expect(Math.max(...heights)).toBeGreaterThan(mean(heights) * 2)
   expect(mean(heights)).toBeGreaterThan(mean(quietHeights) * 1.5)
-  expect(loud.sample(-3, -3, .8, defaultMusicSettings).heat).toBeGreaterThan(loud.sample(24, 24, .8, defaultMusicSettings).heat)
+  expect(loud.sample(-3, -3, .8, music).heat).toBeGreaterThan(loud.sample(24, 24, .8, music).heat)
 })
 
 test('terrain travels continuously with sound, stops its phase at silence and respects display resolution budgets', () => {
-  const settings = { ...defaultMusicSettings, fieldDrops: 1 }
+  const settings = { ...defaultMusicSettings, speed: 4, sensitivity: 2, fieldDrops: 1 }
   const sample = (fps: number) => {
     const motion = new SceneMotion()
     for (let i = 0; i < fps * 4; i++) motion.step({ rms: .15, bands: Array(6).fill(.4), spectrum: Array(48).fill(.5), skin: [] }, 1 / fps, settings, false)
@@ -172,6 +173,7 @@ test('3D scene fills preview, stays soft, responds to interaction and persists c
   })
   await page.goto('/')
   await page.getByRole('button', { name: '频谱回响', exact: true }).click()
+  await page.getByRole('button', { name: '全屏展示当前灯效', exact: true }).click()
   const canvas = page.locator('.sound-field-surface canvas')
   await expect(canvas).toHaveAttribute('data-renderer', 'three')
   await expect.poll(async () => (await pixels(canvas)).visible).toBeGreaterThan(1000)
@@ -217,7 +219,7 @@ test('3D desktop masks clip in scene coordinates; switching releases the Three c
   const image = await pixels(canvas)
   expect(image.left).toBe(0); expect(image.right).toBeGreaterThan(500)
   await canvas.evaluate(node => { (window as unknown as { __oldField: WebGL2RenderingContext }).__oldField = (node as HTMLCanvasElement).getContext('webgl2')! })
-  await page.getByRole('button', { name: '弹球', exact: true }).click()
+  await page.getByRole('button', { name: '浮光水母', exact: true }).click()
   await expect.poll(() => page.evaluate(() => (window as unknown as { __oldField: WebGL2RenderingContext }).__oldField.isContextLost())).toBe(true)
   await expect(page.locator('.sound-field-surface')).toHaveCount(0)
 })

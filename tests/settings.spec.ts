@@ -9,13 +9,21 @@ test('source effect renders actual pixels, source parameters persist, and silenc
   await expect(page.getByRole('button', { name: '调整桌面位置' })).toBeDisabled()
   const alphaPixels = () => page.locator('canvas').evaluate((canvas: HTMLCanvasElement) => {
     const gl = canvas.getContext('webgl2')!
-    return new Promise<number>((resolve) => requestAnimationFrame(() => {
-      const pixels = new Uint8Array(canvas.width * canvas.height * 4)
-      gl.readPixels(0, 0, canvas.width, canvas.height, gl.RGBA, gl.UNSIGNED_BYTE, pixels)
-      let visible = 0
-      for (let i = 3; i < pixels.length; i += 4) if (pixels[i] > 8) visible++
-      resolve(visible)
-    }))
+    return new Promise<number>(resolve => {
+      const draw = gl.drawArrays
+      const read = () => {
+        gl.drawArrays = draw; clearTimeout(timer)
+        const pixels = new Uint8Array(canvas.width * canvas.height * 4)
+        gl.readPixels(0, 0, canvas.width, canvas.height, gl.RGBA, gl.UNSIGNED_BYTE, pixels)
+        let visible = 0
+        for (let i = 3; i < pixels.length; i += 4) if (pixels[i] > 8) visible++
+        resolve(visible)
+      }
+      // The default framebuffer is discarded after presentation; sample the
+      // final composite itself rather than a later requestAnimationFrame.
+      const timer = setTimeout(read, 200)
+      gl.drawArrays = function (...args) { draw.apply(this, args); if (!gl.getParameter(gl.FRAMEBUFFER_BINDING)) read() }
+    })
   })
   await expect.poll(alphaPixels).toBeGreaterThan(100)
   await page.screenshot({ path: 'artifacts/settings-desktop.png', fullPage: true })
@@ -23,14 +31,14 @@ test('source effect renders actual pixels, source parameters persist, and silenc
   const opacity = page.getByRole('slider', { name: '不透明度', exact: true })
   await opacity.focus(); await opacity.press('ArrowRight')
   await expect(opacity).toHaveAttribute('aria-valuenow', '86')
-  const speed = page.getByRole('slider', { name: '弹球速度', exact: true })
+  const speed = page.getByRole('slider', { name: '漂游速度', exact: true })
   await speed.focus(); await speed.press('ArrowLeft')
-  await expect(speed).toHaveAttribute('aria-valuenow', '4.9')
+  await expect(speed).toHaveAttribute('aria-valuenow', '1.4')
   await expect(page.getByText('已保存到此浏览器')).toBeVisible()
   await page.reload()
   await page.getByRole('tab', { name: '外观', exact: true }).click()
   await expect(page.getByRole('slider', { name: '不透明度', exact: true })).toHaveAttribute('aria-valuenow', '86')
-  await expect(page.getByRole('slider', { name: '弹球速度', exact: true })).toHaveAttribute('aria-valuenow', '4.9')
+  await expect(page.getByRole('slider', { name: '漂游速度', exact: true })).toHaveAttribute('aria-valuenow', '1.4')
   await page.getByRole('switch', { name: '模拟预览' }).click()
   await expect(page.getByText('等待音乐播放', { exact: true })).toBeVisible()
   await expect.poll(alphaPixels, { timeout: 5000 }).toBe(0)
@@ -41,6 +49,7 @@ test('width changes preserve the center after full width, and defaults can be re
   await page.goto('/')
   await expect(page.getByText('已保存到此浏览器')).toBeVisible()
   await page.getByRole('tab', { name: '位置', exact: true }).click()
+  await page.getByText('精确位置', { exact: true }).click()
   await page.getByRole('slider', { name: '宽度', exact: true }).focus()
   await page.keyboard.press('End')
   await expect(page.getByRole('slider', { name: '宽度', exact: true })).toHaveAttribute('aria-valuenow', '100')
@@ -59,8 +68,9 @@ test('width changes preserve the center after full width, and defaults can be re
   await expect(page.getByText('已保存到此浏览器')).toBeVisible()
   await page.reload()
   await page.getByRole('tab', { name: '位置', exact: true }).click()
+  await page.getByText('精确位置', { exact: true }).click()
   await expect(page.getByRole('slider', { name: '距左侧', exact: true })).toHaveAttribute('aria-valuenow', '40')
-  await page.getByRole('button', { name: '恢复中下部位置' }).click()
+  await page.getByRole('button', { name: '应用中下部布局' }).click()
   await expect(page.getByRole('slider', { name: '宽度', exact: true })).toHaveAttribute('aria-valuenow', '76')
   await expect(page.getByRole('slider', { name: '距左侧', exact: true })).toHaveAttribute('aria-valuenow', '12')
 })
@@ -120,5 +130,5 @@ test('corrupted settings can be backed up and recovered', async ({ page }) => {
   expect(await page.evaluate(() => localStorage.getItem('soundspectra.settings.v1.backup'))).toBe('{broken')
   await page.getByRole('tab', { name: '外观', exact: true }).click()
   await expect(page.getByRole('slider', { name: '不透明度', exact: true })).toHaveAttribute('aria-valuenow', '85')
-  await expect(page.getByRole('slider', { name: '弹球速度', exact: true })).toHaveAttribute('aria-valuenow', '5')
+  await expect(page.getByRole('slider', { name: '漂游速度', exact: true })).toHaveAttribute('aria-valuenow', '1.5')
 })

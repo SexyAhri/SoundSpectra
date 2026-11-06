@@ -61,7 +61,9 @@ export function useRailMotion(root: RefObject<HTMLDivElement | null>, selector: 
         animate(entry.node, [{ opacity: 0, translate: key === 'railItem' ? '0 -10px' : '0 -5px' }, { opacity: 1, translate: '0 0' }], 240, undefined, key === 'railItem' ? Math.min(entering++ * 18, 72) : 0)
       } else {
         const dx = before.left - entry.left, dy = before.top - entry.top
-        if (Math.abs(dx) + Math.abs(dy) > 1) {
+        // The wheel already animates left/top in CSS. A second FLIP translation
+        // fights that interpolation when mounting, rotating, or removing cards.
+        if (key !== 'railItem' && Math.abs(dx) + Math.abs(dy) > 1) {
           const style = getComputedStyle(entry.node)
           const offset = active.current.has(entry.node) ? style.translate.split(' ').map(value => parseFloat(value) || 0) : []
           animate(entry.node, [{ translate: `${dx + (offset[0] ?? 0)}px ${dy + (offset[1] ?? 0)}px`, opacity: style.opacity }, { translate: '0 0', opacity: 1 }], 220)

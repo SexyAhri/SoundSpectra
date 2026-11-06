@@ -31,7 +31,7 @@ node scripts/desktop.mjs --cargo test --manifest-path src-tauri/Cargo.toml --loc
 | `src/features/spectrum/model.ts`、`regions.ts` | 配置归一化、区域隔离与显示范围 |
 | `src/features/spectrum/music-engine/` | RMS、六频段、48 格频谱、起音及共享参数 |
 | `src/features/spectrum/three/` | 相机、视角、帧生命周期、预算与透明合成 |
-| `three/classic/immersive/` | 经典场景实现，按原效果 ID 创建；包含兼容旧配置的隐藏场景 |
+| `three/classic/immersive/` | 七种经典场景的渲染实现 |
 | `three/terrain/`、`three/ambient/` | 频谱地形、花瓣、极光与星尘 |
 | `src/features/lyrics/` | 文字编排、逐字高亮、歌词位置与同步 |
 | `src/features/desktop/`、`desktop-card/`、`wallpaper-depth/` | 桌面输出、音乐信息与壁纸视差 |
@@ -44,7 +44,7 @@ node scripts/desktop.mjs --cargo test --manifest-path src-tauri/Cargo.toml --loc
 
 ## 场景与区域约定
 
-当前界面有 13 种可选灯效；熔金潮汐、水波纹、丹霞声谷只保留旧配置兼容。不要把底层 16 个效果 ID 的数量当作当前可选数量。
+当前有 11 种可选灯效。晶簇声境、日冕回响、熔金潮汐、水波纹和丹霞声谷的实现、参数与缩略图已删除；仅在配置读取时将旧 ID 迁移到现有灯效。
 
 灯效共享 `musicDriver`、`musicEnvelope` 与 `SceneMotion`，不另造音频能量或节拍。真实分析数据超过 350ms 未更新时按静音处理；渐隐后停止重复绘制，隐藏、暂停或离开场景时释放相应资源。减少动态效果时关闭空间传播，同时保留静态音乐响应。
 
@@ -87,7 +87,7 @@ git status --ignored --short
 
 ## 展示素材
 
-README 的素材位于 `docs/images/` 与 `docs/media/`，使用实际渲染器和原创示例歌词，全部标注为模拟展示。应用默认不读取这些展示文件。开发服务启动后可重拍：
+README 的素材位于 `docs/images/` 与 `docs/media/`。当前 8 张 PNG 图片为项目作者提供的 Windows 实机截图；歌词演示视频使用模拟输入和原创示例文字。应用默认不读取这些展示文件。需要生成模拟展示素材时，可在开发服务启动后运行：
 
 ```powershell
 node scripts/capture-showcase.mjs

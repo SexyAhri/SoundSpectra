@@ -6,12 +6,8 @@ import { fieldVertex, fieldFragment } from './terrain-shaders'
 import { passVertex, compositeFragment } from '../composite'
 import { heightFragment } from './height-shader'
 import { SceneCamera } from '../camera'
+import { resolveEffectPalette } from '../../effect-palette'
 
-const palettes = {
-  iris: ['#101b2d', '#455e89', '#df7058', '#f0d4a4'],
-  ember: ['#272737', '#786082', '#d58c62', '#edc996'],
-  lake: ['#142d3c', '#39758f', '#7fb4bc', '#bddbd9'],
-} as const
 
 /** GPU height field, solid terrain, then one compositing pass for wallpaper and masks. */
 export class SoundFieldRenderer {
@@ -141,8 +137,8 @@ export class SoundFieldRenderer {
 
   draw(motion: SceneMotion, config: SpectrumSettings, _reduced: boolean) {
     if (this.config !== config) {
-      const palette = palettes[config.music.fieldPalette]
-      this.uniforms.uLow.value.set(palette[0]); this.uniforms.uMid.value.set(palette[1]); this.uniforms.uWarm.value.set(palette[2]); this.uniforms.uHigh.value.set(palette[3])
+      const palette = resolveEffectPalette(config)
+      this.uniforms.uLow.value.set(palette.low); this.uniforms.uMid.value.set(palette.main); this.uniforms.uWarm.value.set(palette.accent); this.uniforms.uHigh.value.set(palette.high)
       this.uniforms.uBrightness.value = config.music.fieldBrightness / 45 * 1.12
       this.uniforms.uImmersive.value = config.sceneMode === 'immersive' ? 1 : 0
       const b = config.bounds; this.uniforms.uRegion.value.set(b.x, b.y, b.width, b.height)

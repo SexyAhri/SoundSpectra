@@ -5,49 +5,12 @@ import { silentAnalysis } from '../src/features/spectrum/music-analysis'
 import { touchEnergy } from '../src/features/spectrum/three/classic/kinetic/common'
 import { commonUniforms, flowDriver } from '../src/features/spectrum/three/classic/flow/shared'
 import { defaults } from '../src/features/spectrum/model'
-import { createNightLake } from '../src/features/spectrum/three/classic/immersive/night-lake'
 
 async function isolatedPage(page: Page) {
   await page.route('**/scene-lifecycle-probe', route => route.fulfill({ contentType: 'text/html',
     body: '<!doctype html><html><body style="margin:0"></body></html>' }))
   await page.goto('/scene-lifecycle-probe')
 }
-
-test('lake music waves fade while frozen and pointer rings do not restart when reduced motion ends', () => {
-  const effect=createNightLake(.5),motion=new SceneMotion()
-  const settings={...defaults,effect:'water_ripple' as const}
-  const drops=effect.group.children.map(object=>(object as any).material?.uniforms?.uDrops).find(Boolean)!.value
-  const audio={rms:.18,bands:Array(6).fill(.5),spectrum:Array(48).fill(.5),skin:[]}
-  try {
-    for(let frame=0;frame<6;frame++)motion.step(audio,.1,settings.music,false)
-    effect.update(motion,settings,false)
-    const musicBefore=drops[0].toArray()
-    expect(musicBefore[3]).toBeGreaterThan(0)
-    for(let frame=0;frame<10;frame++)motion.step(audio,.1,settings.music,true)
-    effect.update(motion,settings,true)
-    const musicAfter=drops[0].toArray()
-    expect(musicAfter.slice(0,3)).toEqual(musicBefore.slice(0,3))
-    expect(musicAfter[3]).toBeGreaterThan(0)
-    expect(musicAfter[3]).toBeLessThan(musicBefore[3])
-
-    motion.reset();motion.touch(8,4)
-    motion.step(silentAnalysis(),.1,settings.music,true);effect.update(motion,settings,true)
-    for(let frame=0;frame<10;frame++)motion.step(silentAnalysis(),.1,settings.music,true)
-    effect.update(motion,settings,true)
-    const frozen=drops[0].toArray()
-    // Toggling the preference without advancing audio must preserve the visible wave.
-    effect.update(motion,settings,false)
-    expect(drops[0].toArray()).toEqual(frozen)
-    motion.step(silentAnalysis(),.1,settings.music,false);effect.update(motion,settings,false)
-    const resumed=drops[0].toArray()
-    expect(resumed[2]).toBeGreaterThan(frozen[2])
-    expect(resumed[3]*Math.exp(-resumed[2]*.38)).toBeLessThan(frozen[3]*Math.exp(-frozen[2]*.38))
-  } finally {
-    const geometries=new Set<any>(),materials=new Set<any>()
-    effect.group.traverse((object:any)=>{if(object.geometry)geometries.add(object.geometry);if(object.material)materials.add(object.material)})
-    geometries.forEach(geometry=>geometry.dispose());materials.forEach(material=>material.dispose())
-  }
-})
 
 test('a reduced-motion touch fades and expires without propagating its wave', () => {
   const motion = new SceneMotion(), uniforms = commonUniforms(), drive = flowDriver(uniforms)
@@ -83,7 +46,7 @@ test('smallest scene scale and largest distance retain actual geometry in wide a
     const { ClassicSceneRenderer } = await import('/src/features/spectrum/three/classic/classic-renderer.ts')
     const { SceneMotion } = await import('/src/features/spectrum/three/motion.ts')
     const { defaults, normalizeSettings } = await import('/src/features/spectrum/model.ts')
-    const settings = normalizeSettings({ ...defaults, effect:'spectrum_bars', quality:'eco',
+    const settings = normalizeSettings({ ...defaults, effect:'rhythm_balls', quality:'eco',
       music:{ ...defaults.music, fieldScale:.8 }, view:{ ...defaults.view, distance:4 },
       bounds:{ x:0,y:0,width:1,height:1 } })
     const canvas = document.createElement('canvas'); document.body.append(canvas)
@@ -111,37 +74,3 @@ test('smallest scene scale and largest distance retain actual geometry in wide a
   }
 })
 
-test('water pointer hits keep their world location and fade in place under reduced motion', async ({ page }) => {
-  await isolatedPage(page)
-  const result = await page.evaluate(async () => {
-    const { ClassicSceneRenderer } = await import('/src/features/spectrum/three/classic/classic-renderer.ts')
-    const { SceneMotion } = await import('/src/features/spectrum/three/motion.ts')
-    const { defaults, normalizeSettings } = await import('/src/features/spectrum/model.ts')
-    const { silentAnalysis } = await import('/src/features/spectrum/music-analysis.ts')
-    const T = await import('/node_modules/.vite/deps/three.js')
-    const settings=normalizeSettings({ ...defaults,effect:'water_ripple',quality:'eco',bounds:{ x:0,y:0,width:1,height:1 } })
-    const canvas=document.createElement('canvas'); canvas.style.cssText='width:640px;height:360px'; document.body.append(canvas)
-    const world=new ClassicSceneRenderer(canvas),motion=new SceneMotion()
-    try {
-      world.resize(settings,1); motion.step(silentAnalysis(),1/60,settings.music,true); world.draw(motion,settings,true)
-      // Project an off-center point on the actual water plane back into pointer space.
-      const expected={x:8,z:4}, ndc=new T.Vector3(expected.x,-5,expected.z).project(world.camera), rect=canvas.getBoundingClientRect()
-      const hit=world.hit(rect.left+(ndc.x+1)*rect.width/2,rect.top+(1-ndc.y)*rect.height/2)!
-      motion.touch(hit.x,hit.z); motion.step(silentAnalysis(),1/60,settings.music,true); world.draw(motion,settings,true)
-      let water: any
-      world.scene.traverse((object: any)=>{ if(object.material?.uniforms?.uDrops)water=object.material.uniforms })
-      const before=water.uDrops.value[0].toArray()
-      for(let frame=0;frame<60;frame++)motion.step(silentAnalysis(),1/60,settings.music,true)
-      world.draw(motion,settings,true); const after=water.uDrops.value[0].toArray()
-      return { expected,hit,before,after,error:world.renderer.getContext().getError() }
-    } finally { world.dispose(); world.renderer.forceContextLoss(); canvas.remove() }
-  })
-  expect(result.hit.x).toBeCloseTo(result.expected.x,5)
-  expect(result.hit.z).toBeCloseTo(result.expected.z,5)
-  expect(result.before[0]).toBeCloseTo(result.expected.x,5)
-  expect(result.before[1]).toBeCloseTo(result.expected.z,5)
-  expect(result.after.slice(0,3)).toEqual(result.before.slice(0,3))
-  expect(result.after[3]).toBeGreaterThan(0)
-  expect(result.after[3]).toBeLessThan(result.before[3])
-  expect(result.error).toBe(0)
-})

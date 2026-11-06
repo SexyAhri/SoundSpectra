@@ -1,5 +1,6 @@
 // Shared appearance settings for the spatial music scenes.
-export type MusicEffectAppearance = {
+import type { LuminousAppearance } from './luminous-appearance'
+export type MusicEffectAppearance = LuminousAppearance & {
   ambientDensity: number;
   ambientSpread: number;
   fieldScale: number;
@@ -9,11 +10,8 @@ export type MusicEffectAppearance = {
   fieldDrops: number;
   fieldPalette: 'iris' | 'ember' | 'lake';
   fieldRippleMode: 'rain' | 'center';
-  intensityWindowMs: number;
-  fluidBrightnessThreshold: number;
   ballSpeedMultiplier: number;
   rainSpeedMultiplier: number;
-  fluidSpeedMultiplier: number;
   skinFlowSpeedMultiplier: number;
   sensitivity: number;
   response: 'soft' | 'balanced' | 'responsive';
@@ -23,21 +21,12 @@ export type MusicEffectAppearance = {
   rainRadiusMultiplier: number;
   rainCount: number;
   rainDirection: 'left' | 'down' | 'right';
-  fluidCount: number;
-  fluidWidth: number;
-  sourceFluidFadeSpeed: number;
   dragonWidth: number;
   dragonTrail: number;
   dragonBurst: number;
-  spectrumTracks: number;
-  spectrumAmplitude: number;
-  spectrumNoteDensity: number;
   rippleWidth: number;
   rippleTwist: number;
   rippleLights: number;
-  pulseRange: number;
-  pulseImpact: number;
-  pulseParticles: number;
   meteorDensity: number;
   meteorTrail: number;
   meteorAngle: number;
@@ -47,7 +36,4 @@ export type MusicEffectAppearance = {
   vortexArms: number;
   vortexRange: number;
   vortexWidth: number;
-  waterDrops: number;
-  waterRange: number;
-  waterEchoes: number;
 };

@@ -12,6 +12,8 @@ pub mod discovery;
 mod locations;
 mod lookup;
 mod online;
+mod storage;
+mod ttml;
 
 #[derive(Clone, Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -187,6 +189,9 @@ fn json_lyric(value: &serde_json::Value) -> Option<String> {
 fn parse(text: &str) -> Result<Vec<Line>, String> {
     if text.len() > 2_097_152 {
         return Err("歌词正文过大".into());
+    }
+    if ttml::is_ttml(text) {
+        return ttml::parse(text);
     }
     if text.trim_start().starts_with('{') {
         let json: serde_json::Value = serde_json::from_str(text).map_err(|_| "歌词缓存格式无效")?;
@@ -500,6 +505,7 @@ async fn race_sources(
     entries: Vec<discovery::Entry>,
     info: NowPlaying,
     cancel: Arc<lookup::Cancellation>,
+    cache_directory: PathBuf,
 ) -> Option<LyricDocument> {
     let local_stop = Arc::new(lookup::LocalStop::new(cancel.clone()));
     let _stop_local = lookup::StopLocalOnDrop(local_stop.clone());
@@ -512,7 +518,7 @@ async fn race_sources(
         .ok()
     };
     let remote = async {
-        match online::fetch(&info).await {
+        match online::fetch(&info, &cache_directory).await {
             Ok(Some((source, lines))) => Some(LyricDocument {
                 key: track_key(&info),
                 status: "ready".into(),
@@ -607,7 +613,13 @@ pub async fn get_current_lyrics(
             let task_state = state.clone();
             let task_key = key.clone();
             tauri::async_runtime::spawn(async move {
-                let found = race_sources(entries, info, task_cancel.clone()).await;
+                let found = race_sources(
+                    entries,
+                    info,
+                    task_cancel.clone(),
+                    task_state.path.with_file_name("lyric-cache"),
+                )
+                .await;
                 let mut document = if task_cancel.is_cancelled() {
                     LyricDocument {
                         key: task_key.clone(),

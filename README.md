@@ -2,12 +2,12 @@
   <img src="assets/app-icon.svg" width="88" alt="SoundSpectra 图标" />
   <h1>SoundSpectra · 声谱</h1>
   <p>让音乐成为桌面的一部分。</p>
-  <p>音乐灯效 · 动态歌词 · 音乐卡片 · 壁纸视差</p>
+  <p>音乐灯效 · 动态歌词 · 音乐卡片 · 拾光绳 · 壁纸视差</p>
   <p><strong>1.0.2</strong> · Windows x64 / macOS Universal · React / Three.js / Tauri / Rust</p>
   <p><a href="https://github.com/SexyAhri/SoundSpectra/releases">下载安装包</a> · <a href="#项目展示">项目展示</a> · <a href="#开发运行">开发运行</a> · <a href="https://github.com/SexyAhri/SoundSpectra/issues">反馈问题</a></p>
 </div>
 
-![SoundSpectra 工作台：旋臂星空与文字漫游](docs/images/workspace.webp)
+![SoundSpectra 深色工作台：实时音频、极光灯效、歌词与桌面拾光绳](docs/images/workspace-dark.png)
 
 SoundSpectra 是一款桌面音乐可视化工具。它捕获所选播放器的音频，让三维灯效、动态歌词和音乐信息融入桌面；日常使用时保持鼠标穿透。Windows 使用进程音频环回与桌面宿主，macOS 使用 ScreenCaptureKit 与 AppKit 桌面层。
 
@@ -15,36 +15,52 @@ SoundSpectra 是一款桌面音乐可视化工具。它捕获所选播放器的�
 
 ### 音乐有形，桌面有光
 
-13 种可选灯效，包括晴空浮游、雪花飘舞、梦幻星空、星瓣花境、极光流域和星尘航道。最多四个独立区域，可以分别调整位置、大小、视角和外观，再用柔边遮罩融入桌面。
+11 种可选灯效，包括浮光水母、银河、晴空浮游、雪花飘舞、星瓣花境、极光流域和星尘航道。最多四个独立区域，可以分别调整位置、大小、视角和外观，再用柔边遮罩融入桌面。
 
-| 晴空浮游 | 雪花飘舞 |
-| --- | --- |
-| ![晴空浮游的实际渲染画面](docs/images/clear-sky.webp) | ![雪花飘舞的实际渲染画面](docs/images/snowfall.webp) |
+![浅色工作台：灯效选择、实时预览与独立区域控制](docs/images/effects-light.png)
+
+![灯效外观：场景氛围、专属配色、运动速度与音乐响应设置](docs/images/effect-appearance.png)
 
 ### 歌词也能成为构图
 
 三种动态文字编排，支持逐字高亮、位置拖放、缩放、背景透明度和同步微调。时间由播放器驱动，暂停、拖动进度和切歌都会重新同步。
 
-| 文字漫游 | 错落排版 | 弧形流转 |
-| --- | --- | --- |
-| ![文字漫游](docs/images/lyrics-roaming.webp) | ![错落排版](docs/images/lyrics-staggered.webp) | ![弧形流转](docs/images/lyrics-arc.webp) |
-| 呼吸与推移 | 拆句与留白 | 弧线与环游 |
+支持文字漫游、错落排版和弧形编排，可搭配灯效与拾光绳一起展示。
 
-[观看三种歌词编排的 21 秒演示](docs/media/lyric-compositions.webm)。展示图和视频使用实际渲染器、模拟音频与原创示例文字，不代表真实播放器已连接。
+![实时歌词：弧形文字编排与歌词外观设置](docs/images/lyrics-live.png)
+
+[观看三种歌词编排的 21 秒演示](docs/media/lyric-compositions.webm)。视频为此前使用模拟音频与原创示例文字录制的编排演示。
 
 ### 一处预览，分别编辑
 
-灯效、歌词、音乐卡片和壁纸各有独立编辑入口。预览始终可见，底部集中放置音源、桌面输出和性能控制。音乐卡片提供唱片、简约两种样式；壁纸可添加轻微视差。
+灯效、歌词、音乐卡片、拾光绳和壁纸各有独立编辑入口。预览始终可见，支持拖放布置、图层调整和场景收藏，底部集中放置音源、桌面输出和性能控制。音乐卡片提供唱片、简约和「午后 · 紧凑」样式；壁纸可添加轻微视差。
 
-![音乐卡片与独立编辑面板](docs/images/music-card.webp)
+![音乐卡片样式、点缀色和位置设置](docs/images/music-card-live.png)
+
+![桌面布置：拖放拾光绳、音乐卡片与歌词的位置](docs/images/desktop-arrangement.png)
+
+![壁纸视差强度与构图设置](docs/images/wallpaper-live.png)
+
+### 把日常挂在拾光绳上
+
+将软件、文件、文件夹、图片和便签挂在桌面上，支持拖拽排序、跨组移动与最多四组独立布局。绳子沿浅弧展开，挂件带有轻柔的风吹摆动；鼠标靠近时暂停，便于操作，也遵循系统的减少动态效果设置。
+
+![桌面拾光绳：浅弧绳线、软件与图片挂件及挂件列表](docs/images/rail-live.png)
+
+- 单击挂件打开目标；右键选中并自动居中，点击挂件下方的三个点打开操作面板。
+- 滚轮或方向键切换居中挂件；单击绳子添加，双击绳子浏览和搜索全部挂件。
+- Windows 桌面客户端支持从桌面添加、拖出本地项目和就地展开文件夹。浏览器中的文件路径仅用于布局示例。
+
+以上 8 张静态展示图由项目作者于 2026 年 11 月 6 日提供，来自 Windows 桌面客户端的实机截图，展示浅色与深色主题、QQ 音乐实时输入及当前桌面配置。截图中的软件图标、图片、歌曲和歌词仅用于展示，相关权利归各自权利人所有。
 
 ## 使用
 
 1. 从 [Releases](https://github.com/SexyAhri/SoundSpectra/releases) 下载 Windows x64 的 `setup.exe`，或 Mac Universal 的 `.dmg`。Mac 请将应用拖入 Applications 后运行。
 2. 打开音乐播放器播放歌曲，在底部选择「自动识别」或指定音源。
 3. 选好灯效，在预览中调整，再开启「显示到桌面」。歌词和音乐卡片可分别启用。
+4. 需要整理桌面时，进入「拾光绳」添加挂件或便签，并单独开启桌面显示。
 
-音源菜单支持 **QQ 音乐、网易云音乐、酷狗音乐、酷我音乐、汽水音乐**。歌词联网查询和本地缓存读取同时进行，先找到有效结果就使用，并取消另一侧查询。首次发现的缓存目录会保存，后续优先读取已记住的位置。详见 [歌词说明](docs/LYRICS.md)。
+音源菜单支持 **QQ 音乐、网易云音乐、酷狗音乐、酷我音乐、汽水音乐**。歌词使用 AMLL 公开接口，并与本地播放器缓存同时查找，先找到有效结果就使用。成功取得的 AMLL 歌词会缓存，重启后可复用。首次发现的播放器缓存目录也会保存。详见 [歌词说明](docs/LYRICS.md)。
 
 支持场景收藏、配置导入导出、托盘、开机启动，以及省电 30 帧、均衡 60 帧、流畅 120 帧和不限帧四档性能设置。
 
@@ -78,7 +94,7 @@ Windows 包输出到 `src-tauri/target/release/bundle/nsis/`，Mac 包位于 `bu
 
 | 路径 | 内容 |
 | --- | --- |
-| `src/features/` | 工作台、预览、灯效、歌词、音乐卡片与壁纸 |
+| `src/features/` | 工作台、预览、灯效、歌词、音乐卡片、拾光绳与壁纸 |
 | `src-tauri/src/` | 音频捕获、媒体会话、歌词服务、桌面集成与持久化 |
 | `src/assets/`、`assets/` | 场景封面与应用图标 |
 | `tests/`、`scripts/` | 回归测试、原生验收、展示捕获与构建发布工具 |

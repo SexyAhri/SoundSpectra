@@ -57,21 +57,14 @@
 .studio-shell .section-label { font-size: 11px; font-weight: 600; color: var(--foreground); margin-bottom: 13px; letter-spacing: .025em; }
 .effect-art { display: block; width: 100%; height: 60px; flex: none; filter: drop-shadow(0 0 3px currentColor); }
 .effect-category + .effect-category { margin-top: 24px; }
-.desktop-layout-choices { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 6px; margin-bottom: 23px; }
-.immersive-presets { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 8px; margin-bottom: 14px; }
-.immersive-presets > button { height: auto; display: flex; flex-direction: column; align-items: stretch; gap: 0; padding: 0; overflow: hidden; border-color: var(--border-strong); background: var(--card); text-align: left; }
-.immersive-presets .effect-art { height: 63px; background: linear-gradient(140deg,#102e3c,#1a1731); }
-.immersive-presets > button > span { display: block; padding: 8px 9px; font-size: 12px; color: var(--foreground); }
-.immersive-presets small { display: block; margin-top: 3px; color: var(--muted-foreground); font-size: 10px; font-weight: 400; }
-.immersive-presets > .immersive-current { grid-column: 1 / -1; flex-direction: row; align-items: center; justify-content: center; gap: 8px; height: 36px; font-size: 12px; background: var(--secondary); color: var(--foreground); }
-.desktop-layout-choices > button { display: flex; flex-direction: column; height: 49px; gap: 6px; padding: 7px 3px; font-size: 9px; background: var(--secondary); border-color: var(--border-strong); }
-.desktop-layout-choices > button > svg { color: var(--primary); }
+.immersive-presets { margin-bottom: 20px; }
+.immersive-presets > .immersive-current { width: 100%; flex-direction: row; align-items: center; justify-content: center; gap: 8px; height: 36px; font-size: 12px; background: var(--secondary); color: var(--foreground); }
 .effect-category > .section-label { display: flex; align-items: center; justify-content: space-between; }
 .effect-category > .section-label small { font: 9px Consolas,monospace; color: var(--muted-foreground); }
 .studio-shell .effect-options { gap: 10px; }
 .studio-shell .effect-options .effect-tile { position: relative; display: flex; flex-direction: column; justify-content: flex-start; align-items: stretch; height: 103px; padding: 0; gap: 0; overflow: hidden; border-radius: 8px; border: 1px solid var(--border); background: var(--card); text-align: left; transition: border-color .16s,transform .16s; }
 .effect-tile > .effect-art { height: 65px; background: var(--art-background); border-bottom: 1px solid var(--border); padding: 2px 2px 0; }
-.effect-tile > img.effect-art, .immersive-presets img.effect-art { object-fit: cover; filter: none; padding: 0; }
+.effect-tile > img.effect-art { object-fit: cover; filter: none; padding: 0; }
 .effect-tile-caption { display: flex; align-items: center; justify-content: space-between; gap: 6px; padding: 10px 10px; font-size: 11px; color: var(--foreground); }
 .effect-tile-caption small { font: 7px Consolas,monospace; letter-spacing: .06em; color: var(--muted-foreground); }
 .studio-shell .effect-tile:hover { border-color: var(--border-strong); transform: translateY(-1px); }
@@ -89,7 +82,8 @@
 .studio-shell .inspector-performance .choice-trigger { background: var(--secondary); border-color: var(--border-strong); color: var(--foreground); }
 .card-enable { padding: 0; margin-bottom: 17px; }
 .card-enable p { font-size: 10px; }
-.card-style-preview { width: 100%; aspect-ratio: 3.2; margin: 0 0 16px; }
+.card-controls .scene-mode-options { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.card-controls .scene-mode-options button { padding-inline: 5px; font-size: 11px; }
 .card-position-label { margin-top: 25px; }
 .card-accent-control { display: flex; align-items: center; justify-content: space-between; gap: 9px; margin-top: 22px; font-size: 11px; color: var(--muted-foreground); }
 .card-accent-control > div { display: flex; align-items: center; gap: 7px; }
@@ -98,7 +92,6 @@
 .card-accent-control input { width: 23px; height: 23px; border: 0; padding: 0; background: transparent; cursor: pointer; }
 .card-position-options { display: flex; gap: 7px; margin-bottom: 25px; }
 .card-position-options button { flex: 1; font-size: 11px; }
-.card-provider-note { font-size: 10px; color: var(--muted-foreground); line-height: 1.8; margin-top: 15px; }
 @media (min-width: 1500px) { .studio-shell .main-pane { padding: 28px 36px; } }
 @media (max-width: 1199px) { .effect-tile-caption { padding: 10px 8px; font-size: 10px; } .effect-tile-caption small { display: none; } .studio-shell .main-pane { padding: 23px 22px; } .studio-shell .scene-choice { gap: 9px; } .scene-choice > .effect-art { width: 76px; } }
 @media (max-width: 760px) { .studio-shell .sidebar { display: none; } .studio-shell .topbar { height: 52px; padding-left: 16px; } .workspace-edition { display: none; } .studio-shell .main-pane { padding: 24px 18px; } .studio-shell .inspector { border-left: 0; } .studio-shell .desktop-actions { gap: 12px; } .studio-shell .workspace-title { font-size: 13px; } .studio-shell .preview-tools { gap: 2px; } .studio-shell .preview-tools > button { padding-left: 7px; padding-right: 7px; } .effect-tile-caption small { display: inline; } .studio-shell .effect-options .effect-tile { height: 112px; } .effect-tile > .effect-art { height: 73px; } }

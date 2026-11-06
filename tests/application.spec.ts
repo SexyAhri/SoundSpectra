@@ -15,7 +15,7 @@ test('application preferences persist and the browser honestly disables native u
   await dialog.getByRole('tab', { name: '更新', exact: true }).click()
   await dialog.getByRole('switch', { name: '顶栏显示更新按钮' }).click()
   await expect(dialog.getByRole('switch', { name: '顶栏显示更新按钮' })).toHaveAttribute('aria-checked', 'false')
-  await dialog.getByRole('button', { name: '完成', exact: true }).click()
+  await dialog.getByRole('button', { name: '收起应用设置', exact: true }).click()
   await expect(page.getByRole('button', { name: '检查更新', exact: true })).toHaveCount(0)
   await page.reload()
   await expect(page.getByRole('button', { name: '检查更新', exact: true })).toHaveCount(0)
@@ -32,14 +32,14 @@ test('application dialog remains reachable on a small screen', async ({ page }) 
   await page.goto('/')
   await page.getByRole('button', { name: '应用设置与更新', exact: true }).click()
   await page.getByRole('button', { name: '导出诊断', exact: true }).scrollIntoViewIfNeeded()
-  await expect(page.getByRole('button', { name: '完成', exact: true })).toBeVisible()
+  await expect(page.getByRole('button', { name: '收起应用设置', exact: true })).toBeVisible()
   const dialog = page.getByRole('dialog')
   const headerTop = (await dialog.locator('header').boundingBox())!.y
   for (const tab of ['常规', '更新', '关于']) {
     await dialog.getByRole('tab', { name: tab, exact: true }).click()
     await expect(dialog.getByRole('tabpanel', { name: tab, exact: true })).toBeVisible()
     expect(await dialog.evaluate(el => el.scrollWidth <= el.clientWidth)).toBe(true)
-    await expect(dialog.getByRole('button', { name: '完成', exact: true })).toBeInViewport()
+    await expect(dialog.getByRole('button', { name: '收起应用设置', exact: true })).toBeInViewport()
   }
   await page.setViewportSize({ width: 390, height: 520 })
   await dialog.getByRole('tab', { name: '更新', exact: true }).click()
@@ -49,7 +49,7 @@ test('application dialog remains reachable on a small screen', async ({ page }) 
   await page.mouse.wheel(0, 400)
   await expect.poll(() => panel.evaluate(el => el.scrollTop)).toBeGreaterThan(0)
   expect((await dialog.locator('header').boundingBox())!.y).toBe(shortHeaderTop)
-  await expect(dialog.getByRole('button', { name: '完成', exact: true })).toBeInViewport()
+  await expect(dialog.getByRole('button', { name: '收起应用设置', exact: true })).toBeInViewport()
   expect((await dialog.locator('header').boundingBox())!.y).toBeLessThan(headerTop)
   await page.setViewportSize({ width: 390, height: 844 })
   await dialog.getByRole('tab', { name: '常规', exact: true }).click()
@@ -58,14 +58,16 @@ test('application dialog remains reachable on a small screen', async ({ page }) 
 })
 
 // Only test IPC is mocked. Production hooks, SDK resources and visible controls run unchanged.
-async function nativeFixture(page: Page, failure: 'check' | 'download' | 'backup' | 'none', automatic = false, holdDownload = false) {
-  await page.addInitScript(({ failure, automatic, holdDownload }) => {
+async function nativeFixture(page: Page, failure: 'check' | 'download' | 'backup' | 'none', automatic = false, holdDownload = false, automaticInstall = automatic, openUpdates = true) {
+  await page.addInitScript(({ failure, automatic, holdDownload, automaticInstall }) => {
     const app = window as unknown as Record<string, any>
     app.isTauri = true
     app.__commands = []
+    app.__checks = 0
+    app.__closedResources = []
     let checkCount = 0, downloadCount = 0, backupCount = 0
     let settings = { version: 1, enabled: false, color: '#d4c3ff', opacity: 85, sensitivity: 100, decay: 65, reflection: 32, glow: 35, bounds: { x: .12, y: .7, width: .76, height: .22 } }
-    let preferences = { closeToTray: true, autoCheckUpdates: automatic, autoInstallUpdates: automatic, showUpdateButton: true }
+    let preferences = { closeToTray: true, autoCheckUpdates: automatic, autoInstallUpdates: automaticInstall, showUpdateButton: true }
     app.__TAURI_EVENT_PLUGIN_INTERNALS__ = { unregisterListener() {} }
     app.__TAURI_INTERNALS__ = {
       metadata: { currentWindow: { label: 'settings' }, currentWebview: { label: 'settings' } },
@@ -84,10 +86,14 @@ async function nativeFixture(page: Page, failure: 'check' | 'download' | 'backup
           case 'get_audio_sources': return { selection: { mode: 'auto' }, error: null, catalog: [], discovery: { targets: [], warning: null } }
           case 'plugin:autostart|is_enabled': case 'plugin:window|is_maximized': return false
           case 'plugin:event|listen': return 1
-          case 'plugin:event|unlisten': case 'plugin:resources|close': return
+          case 'plugin:event|unlisten': return
+          case 'plugin:resources|close': app.__closedResources.push(args.rid); return
           case 'plugin:updater|check':
+            app.__checks++
+            if (app.__checkFailure) throw new Error('重新检查网络不可用')
             if (failure === 'check' && checkCount++ === 0) throw new Error('测试网络不可用')
-            return { rid: 7, currentVersion: '0.1.0', version: '0.2.0', body: '修复桌面恢复并保留配置。', rawJson: {} }
+            if (app.__updateResponse === null) return null
+            return { rid: 100 + app.__checks, currentVersion: '0.1.0', version: app.__updateResponse ?? '0.2.0', body: '修复桌面恢复并保留配置。', rawJson: {} }
           case 'plugin:updater|download':
             args.onEvent.onmessage({ event: 'Started', data: { contentLength: 100 } })
             args.onEvent.onmessage({ event: 'Progress', data: { chunkLength: 40 } })
@@ -109,8 +115,9 @@ async function nativeFixture(page: Page, failure: 'check' | 'download' | 'backup
         }
       },
     }
-  }, { failure, automatic, holdDownload })
+  }, { failure, automatic, holdDownload, automaticInstall })
   await page.goto('/')
+  if (!openUpdates) return
   await page.getByRole('button', { name: '应用设置与更新', exact: true }).click()
   await page.getByRole('dialog').getByRole('tab', { name: '更新', exact: true }).click()
   if (!automatic) await page.getByRole('dialog').getByRole('button', { name: '检查更新', exact: true }).click()
@@ -182,4 +189,70 @@ test('configuration backup failure blocks installation and install errors remain
   const commands = await page.evaluate(() => (window as any).__commands as string[])
   expect(commands.lastIndexOf('backup_configuration')).toBeLessThan(commands.lastIndexOf('plugin:updater|install'))
   expect(commands.lastIndexOf('update_settings')).toBeLessThan(commands.lastIndexOf('backup_configuration'))
+})
+
+test('startup checks once, a red dot opens cached results and the check button always requests fresh results', async ({ page }) => {
+  await nativeFixture(page, 'none', true, false, false, false)
+  const arrow = page.locator('.application-actions').getByRole('button', { name: '检查更新', exact: true })
+  await expect(arrow.locator('.update-dot')).toBeVisible()
+  await expect.poll(() => page.evaluate(() => (window as any).__checks)).toBe(1)
+  expect(await page.evaluate(() => (window as any).__commands)).not.toContain('plugin:updater|download')
+  await expect(page.locator('.update-notification')).toHaveCount(0)
+  await page.screenshot({ path: 'artifacts/application-update-red-dot.png' })
+  await arrow.click()
+  const dialog = page.getByRole('dialog')
+  await expect(dialog.getByRole('heading', { name: '新版本 0.2.0', exact: true })).toBeVisible()
+  expect(await page.evaluate(() => (window as any).__checks)).toBe(1)
+  await dialog.getByRole('button', { name: '收起应用设置' }).click()
+  await arrow.click()
+  expect(await page.evaluate(() => (window as any).__checks)).toBe(1)
+  await page.evaluate(() => { (window as any).__updateResponse = '0.3.0' })
+  await dialog.getByRole('button', { name: '检查更新', exact: true }).click()
+  await expect(dialog.getByRole('heading', { name: '新版本 0.3.0', exact: true })).toBeVisible()
+  expect(await page.evaluate(() => (window as any).__checks)).toBe(2)
+  expect(await page.evaluate(() => (window as any).__closedResources)).toContain(101)
+  for (const theme of ['light', 'dark']) {
+    await page.evaluate(t => { document.documentElement.dataset.theme = t }, theme)
+    await page.screenshot({ path: `artifacts/application-update-actions-${theme}.png` })
+  }
+  await page.setViewportSize({ width: 390, height: 620 })
+  await expect(dialog.getByRole('button', { name: '检查更新', exact: true })).toBeInViewport()
+  await expect(dialog.getByRole('button', { name: '下载更新', exact: true })).toBeInViewport()
+  expect(await dialog.evaluate(el => el.scrollWidth <= el.clientWidth)).toBe(true)
+  await page.screenshot({ path: 'artifacts/application-update-actions-mobile.png' })
+})
+
+test('failed fresh checks preserve the known update and a successful current response clears the dot', async ({ page }) => {
+  await nativeFixture(page, 'none')
+  const dialog = page.getByRole('dialog')
+  await expect(dialog.getByRole('button', { name: '下载更新', exact: true })).toBeVisible()
+  await page.evaluate(() => { (window as any).__checkFailure = true })
+  await dialog.getByRole('button', { name: '检查更新', exact: true }).click()
+  await expect(dialog.getByRole('alert')).toContainText('重新检查网络不可用')
+  await expect(dialog.getByRole('button', { name: '下载更新', exact: true })).toBeVisible()
+  await expect(page.locator('.update-dot')).toHaveCount(1)
+  expect(await page.evaluate(() => (window as any).__checks)).toBe(2)
+  await page.evaluate(() => { (window as any).__checkFailure = false; (window as any).__updateResponse = null })
+  await dialog.getByRole('button', { name: '检查更新', exact: true }).click()
+  await expect(dialog.getByRole('heading', { name: '已是最新版本', exact: true })).toBeVisible()
+  await expect(page.locator('.update-dot')).toHaveCount(0)
+  expect(await page.evaluate(() => (window as any).__checks)).toBe(3)
+})
+
+test('checking again after download retains the verified package for installation', async ({ page }) => {
+  await nativeFixture(page, 'none')
+  const dialog = page.getByRole('dialog')
+  await dialog.getByRole('button', { name: '下载更新', exact: true }).click()
+  await expect(dialog.getByRole('button', { name: '安装并重启', exact: true })).toBeVisible()
+  await dialog.getByRole('button', { name: '检查更新', exact: true }).click()
+  await expect(dialog.getByRole('button', { name: '安装并重启', exact: true })).toBeVisible()
+  expect(await page.evaluate(() => (window as any).__checks)).toBe(2)
+  const closed = await page.evaluate(() => (window as any).__closedResources as number[])
+  expect(closed).toContain(102)
+  expect(closed).not.toContain(101)
+  expect(closed).not.toContain(8)
+  await dialog.getByRole('button', { name: '安装并重启', exact: true }).click()
+  await expect.poll(() => page.evaluate(() => (window as any).__commands.includes('restart_after_update'))).toBe(true)
+  const commands = await page.evaluate(() => (window as any).__commands as string[])
+  expect(commands.filter(c => c === 'plugin:updater|download')).toHaveLength(1)
 })

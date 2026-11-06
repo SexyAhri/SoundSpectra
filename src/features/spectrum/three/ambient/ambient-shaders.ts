@@ -42,15 +42,17 @@ varying vec2 vUv;
 varying vec3 vWorld;
 varying float vLayer;
 void main() {
-  vec3 normal = normalize(cross(dFdx(vWorld), dFdy(vWorld)));
+  vec3 normal = cross(dFdx(vWorld), dFdy(vWorld));
+  normal /= max(length(normal), .00001);
   vec3 view = normalize(cameraPosition - vWorld);
-  float rim = pow(1. - abs(dot(normal, view)), 1.6);
+  float rim = pow(clamp(1. - abs(dot(normal, view)), 0., 1.), 1.6);
   float vein = pow(.5 + .5 * sin(vUv.x * 65. + sin(vUv.y * 6.) * 3.), 8.);
   float edge = pow(max(0., sin(vUv.x * 3.14159265)), .5) * pow(max(0., sin(vUv.y * 3.14159265)), .35);
   vec3 color = mix(uWarm, uMid, smoothstep(.08, .95, vUv.y));
-  color = mix(color, uHigh, rim * .45 + vein * .12);
-  color *= (.55 + rim * .65 + vein * .1 + uVolume * .3) * uBrightness;
-  float alpha = edge * (.075 + rim * .35 + vein * .025) * (1. - vLayer * .08);
+  color = mix(color, uHigh, rim * .18 + vein * .04);
+  float diffuse = .65 + .35 * abs(dot(normal, normalize(vec3(-.4,.7,1.))));
+  color *= (diffuse + rim * .15 + uVolume * .1) * uBrightness;
+  float alpha = edge * (.48 + rim * .15) * (1. - vLayer * .08);
   gl_FragColor = vec4(color, alpha);
 }`
 

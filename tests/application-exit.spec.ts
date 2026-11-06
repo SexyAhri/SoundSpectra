@@ -61,7 +61,7 @@ test('exit defaults to cancel, traps focus, and cancellation never saves or quit
   const exit = page.getByRole('dialog').getByRole('button', { name: '退出应用', exact: true })
   await exit.click()
   const confirmation = page.getByRole('alertdialog')
-  await expect(confirmation).toContainText('退出后，桌面挂架、灯效、歌词和音乐卡片将停止运行')
+  await expect(confirmation).toContainText('退出后，桌面拾光绳、灯效、歌词和音乐卡片将停止运行')
   await expect(confirmation.getByRole('button', { name: '取消', exact: true })).toBeFocused()
   await page.keyboard.press('Shift+Tab')
   await expect(confirmation.getByRole('button', { name: '退出应用', exact: true })).toBeFocused()

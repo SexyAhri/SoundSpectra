@@ -1,11 +1,13 @@
 import {
   useEffect,
+  useLayoutEffect,
   useRef,
   useState,
   type CSSProperties,
   type PointerEvent,
 } from "react";
 import { invoke } from "@tauri-apps/api/core";
+import { listen } from "@tauri-apps/api/event";
 import {
   ChevronDown,
   ChevronUp,
@@ -16,120 +18,277 @@ import {
   X,
 } from "lucide-react";
 import { native } from "../spectrum/bridge";
-import { openRailItem } from "./client";
+import { dragRailItem, openRailItem } from "./client";
 import { RailMedia } from "./rail-media";
+import { RailItemPicker } from "./rail-item-picker";
 import { kindLabels, type RailGroup, type RailItem } from "./model";
 import type { RailController } from "./use-rail";
-import { NoteEditor, RailAddPanel } from './rail-add-panel';
-import { placeRailPopup } from './popup-position';
-import { useRailMotion } from './use-rail-motion';
-import { railFocusRequest } from './focus';
-import { useRailReorder } from './use-rail-reorder';
+import { NoteEditor, RailAddPanel } from "./rail-add-panel";
+import { placeRailPopup } from "./popup-position";
+import { useRailMotion } from "./use-rail-motion";
+import { railFocusRequest } from "./focus";
+import { useRailReorder } from "./use-rail-reorder";
+import { FolderBrowser } from "./folder-browser";
+import { railWheel } from "./rail-wheel";
+import { useRailWheel } from "./use-rail-wheel";
+import { useRailPresence } from "./use-rail-presence";
+import { useRailPopupWindow, type RailPopup as Popup } from "./use-rail-popup-window";
+import { useRailHitRegions } from "./use-rail-hit-regions";
 
 interface Props {
   group: RailGroup;
   controller: RailController;
   selected?: string | null;
   desktop?: boolean;
+  popupWindow?: "source" | "host";
   onSelect?: (groupId: string, itemId?: string) => void;
   onDragGroup?: (
     event: PointerEvent<HTMLButtonElement>,
     group: RailGroup,
   ) => void;
   editing?: boolean;
+  layoutWidth?: number;
 }
-type Popup = { mode: "menu" | "more" | "add" | "note"; item?: RailItem };
 export function RailSurface({
   group,
   controller,
   selected,
   desktop = false,
+  popupWindow,
   onSelect,
   onDragGroup,
   editing = false,
+  layoutWidth,
 }: Props) {
   const holder = useRef<HTMLDivElement>(null),
-    [width, setWidth] = useState(780);
-  const [popup, setPopup] = useState<Popup | null>(null),
+    [measuredWidth, setWidth] = useState(780);
+  const width = layoutWidth ?? measuredWidth;
+  const [requestedPopup, setPopup] = useState<Popup | null>(null),
     [notice, setNotice] = useState<string | null>(null);
+  const popup = useRailPresence(requestedPopup);
+  const bodyPresent = useRailPresence(group.collapsed ? null : true, 180);
+  const animateBodyEntry = useRef(group.collapsed);
+  if (group.collapsed) animateBodyEntry.current = true;
   const [desktopSelection, setDesktopSelection] = useState<string | null>(null);
   const [rename, setRename] = useState<string | null>(null);
+  useEffect(() => {
+    if (requestedPopup?.token) { setRename(null); setNotice(null) }
+  }, [requestedPopup?.token]);
   const [popupAnchor, setPopupAnchor] = useState({ x: 120, bottom: 80 });
+  const popupElement = useRef<HTMLElement>(null);
+  const [previewPopup, setPreviewPopup] = useState<CSSProperties>({});
+  const cordClickTimer = useRef(0);
+  const doubleClickInterval = useRef(500);
+  useEffect(() => {
+    if (native) void invoke<number>("rail_double_click_interval").then(value => {
+      if (value > 0) doubleClickInterval.current = value;
+    }).catch(() => {});
+    const cancel = (event: Event) => {
+      if (!(event.target as Element)?.closest?.(".rail-cord-add")) window.clearTimeout(cordClickTimer.current);
+      if (!holder.current?.contains(event.target as Node)) recentActivation.current = null;
+    };
+    document.addEventListener("pointerdown", cancel, true);
+    window.addEventListener("blur", cancel);
+    return () => {
+      window.clearTimeout(cordClickTimer.current);
+      document.removeEventListener("pointerdown", cancel, true);
+      window.removeEventListener("blur", cancel);
+    };
+  }, []);
   // Keep the approved proportions without shrinking narrow groups into miniature cards.
-  const unit = Math.max(.65, Math.min(1.35, width / 880));
-  useRailMotion(holder, '.rail-items > .rail-hanging', 'railItem', `${group.id}:${group.collapsed}:${unit}`);
-  const itemWidth = (item: RailItem) => item.kind === 'app' ? Math.min(88, 72 * unit) : (item.kind === 'image' ? 167 : item.kind === 'file' ? 108 : 126) * unit;
-  const fits = (reserve: number) => { let used = 0, count = 0; for (const item of group.items) { const size = itemWidth(item) + (count ? 26 * unit : 0); if (used + size > width - 32 * unit - reserve) break; used += size; count++ } return count };
-  const allFit = fits(0), capacity = allFit < group.items.length ? fits(70) : allFit;
-  const visible = group.items.slice(0, capacity);
+  const unit = Math.max(0.65, Math.min(1.35, width / 880));
+  const itemWidth = (item: RailItem) =>
+    item.kind === "app"
+      ? Math.min(88, 72 * unit)
+      : (item.kind === "image" ? 167 : item.kind === "file" || item.kind === "folder" ? 104 : 126) * unit;
+  const wheel = useRailWheel(group, selected, popupWindow !== "host");
+  useRailMotion(
+    holder,
+    ".rail-items > .rail-hanging",
+    "railItem",
+    `${group.id}:${group.collapsed}:${unit}`,
+  );
+  const geometry = railWheel(
+    width,
+    Math.max(88 * unit, ...group.items.map(itemWidth)),
+    unit,
+    group.items.length,
+  );
+  const visible = group.items;
+  const rotate = (direction: number) => {
+    const index =
+      (wheel.active + direction + group.items.length) % group.items.length;
+    const item = group.items[index];
+    if (item) {
+      wheel.choose(item.id);
+      onSelect?.(group.id, item.id);
+    }
+  };
+  const wheelDelta = useRef(0);
+  const recentActivation = useRef<{
+    x: number;
+    y: number;
+    until: number;
+  } | null>(null);
   const popupTrigger = useRef<HTMLElement | null>(null);
   const closePopup = () => {
-    const focus = railFocusRequest(), trigger = popupTrigger.current;
-    setPopup(null); setRename(null);
-    requestAnimationFrame(() => { focus.focus(trigger); focus.dispose(); });
+    const focus = railFocusRequest(),
+      trigger = popupTrigger.current;
+    setPopup(null);
+    setRename(null);
+    requestAnimationFrame(() => {
+      focus.focus(trigger);
+      focus.dispose();
+    });
   };
+  useLayoutEffect(() => {
+    const panel = popupElement.current;
+    if (desktop || !panel || !popup) return;
+    const position = () => {
+      const host = holder.current?.getBoundingClientRect();
+      if (!host) return;
+      const layout = placeRailPopup(
+        host.width,
+        popupAnchor,
+        popup.mode === "menu" ? 280 : 440,
+      );
+      const maxHeight = Math.min(360, window.innerHeight - 24);
+      setPreviewPopup({
+        position: "fixed",
+        width: layout.width,
+        left: Math.max(
+          8,
+          Math.min(window.innerWidth - layout.width - 8, host.x + layout.left),
+        ),
+        top: Math.max(
+          12,
+          Math.min(window.innerHeight - maxHeight - 12, host.y + layout.top),
+        ),
+        maxHeight,
+      });
+    };
+    // The browser's top layer escapes the clipped desktop preview while
+    // retaining DOM ownership, keyboard handling and the existing material UI.
+    position();
+    panel.showPopover();
+    window.addEventListener("resize", position);
+    document.addEventListener("scroll", position, true);
+    return () => {
+      window.removeEventListener("resize", position);
+      document.removeEventListener("scroll", position, true);
+      if (panel.matches(":popover-open")) panel.hidePopover();
+    };
+  }, [desktop, popup?.mode, popupAnchor, width]);
   useEffect(() => {
+    const host = holder.current;
+    if (!host) return;
+    const scroll = (event: WheelEvent) => {
+      if (
+        (event.target as Element).closest(".rail-popup, input, textarea") ||
+        group.collapsed ||
+        group.items.length < 2 ||
+        event.ctrlKey
+      )
+        return;
+      event.preventDefault();
+      event.stopPropagation();
+      wheelDelta.current +=
+        Math.abs(event.deltaX) > Math.abs(event.deltaY)
+          ? event.deltaX
+          : event.deltaY;
+      if (Math.abs(wheelDelta.current) >= 35) {
+        rotate(wheelDelta.current > 0 ? 1 : -1);
+        wheelDelta.current = 0;
+      }
+    };
+    host.addEventListener("wheel", scroll, { passive: false });
+    return () => host.removeEventListener("wheel", scroll);
+  }, [group.items, group.collapsed, wheel.active, onSelect]);
+  useLayoutEffect(() => {
+    setWidth(holder.current!.clientWidth);
     const observer = new ResizeObserver((entries) =>
       setWidth(entries[0].contentRect.width),
     );
     observer.observe(holder.current!);
     return () => observer.disconnect();
   }, []);
+  useRailHitRegions(holder, desktop && native && popupWindow !== "host", group,
+    geometry, wheel.active, unit, !!bodyPresent, popup?.mode, setNotice);
   useEffect(() => {
-    if (!desktop || !native) return;
-    let disposed = false;
-    const measure = () => {
-      if (disposed || !holder.current) return;
-      const box = holder.current.getBoundingClientRect(), dpi = window.devicePixelRatio;
-      const regions = [...holder.current.querySelectorAll<HTMLElement>('.rail-header button, .rail-item, .rail-clip, .rail-item-menu, .rail-empty, .rail-more, .rail-popup, .rail-inline-notice')].map(element => {
-        const r = element.getBoundingClientRect(), pad = 6;
-        return { x: (r.x - box.x - pad) * dpi, y: (r.y - box.y - pad) * dpi, width: (r.width + pad * 2) * dpi, height: (r.height + pad * 2) * dpi };
-      });
-      if (!group.collapsed) for (let i = 0; i < 80; i++) {
-        const t = i / 80, y = ((1 - t) ** 2 + 182 * t * (1 - t) + 5 * t ** 2) * unit;
-        regions.push({ x: width * t * dpi, y: (28 + y - 10) * dpi, width: (width / 80 + 2) * dpi, height: 22 * dpi });
-      }
-      void invoke('rail_hit_regions', { regions }).catch(error => { if (!disposed) setNotice(String(error)); });
-    };
-    const frame = requestAnimationFrame(measure);
-    const observer = new ResizeObserver(measure);
-    observer.observe(holder.current!);
-    const panel = holder.current?.querySelector('.rail-popup');
-    if (panel) observer.observe(panel);
-    const host = holder.current;
-    host?.addEventListener('rail-motion-end', measure);
-    return () => { disposed = true; cancelAnimationFrame(frame); observer.disconnect(); host?.removeEventListener('rail-motion-end', measure); };
-  }, [desktop, popup?.mode, group.collapsed, group.items, width, unit]);
-  useEffect(() => {
+    if (popupWindow === "source") return;
     const focus = railFocusRequest();
-    let disposed = false, frame = 0;
-    const ready = desktop && native ? invoke('rail_popup', { open: !!popup }) : Promise.resolve();
-    void ready.then(() => {
-      if (disposed || !popup) { focus.dispose(); return; }
-      frame = requestAnimationFrame(() => {
-        focus.focus(holder.current?.querySelector<HTMLElement>('.rail-popup textarea, .rail-popup input') ?? holder.current?.querySelector<HTMLElement>('.rail-popup button') ?? null);
+    let disposed = false,
+      frame = 0;
+    const ready =
+      popupWindow === "host"
+        ? requestedPopup?.token && popupElement.current
+          ? invoke("rail_popup_resize", { token: requestedPopup.token, width: popupElement.current.offsetWidth, height: popupElement.current.offsetHeight })
+          : Promise.resolve()
+        : desktop && native ? invoke("rail_popup", { open: !!popup })
+        : Promise.resolve();
+    void ready
+      .then(() => {
+        if (disposed || !requestedPopup) {
+          focus.dispose();
+          return;
+        }
+        frame = requestAnimationFrame(() => {
+          focus.focus(
+            holder.current?.querySelector<HTMLElement>(
+              ".rail-popup textarea, .rail-popup input",
+            ) ??
+              holder.current?.querySelector<HTMLElement>(
+                ".rail-popup button",
+              ) ??
+              null,
+          );
+          focus.dispose();
+        });
+      })
+      .catch((error) => {
+        if (!disposed) setNotice(String(error));
         focus.dispose();
       });
-    }).catch(error => { if (!disposed) setNotice(String(error)); focus.dispose(); });
-    return () => { disposed = true; cancelAnimationFrame(frame); focus.dispose(); };
-  }, [desktop, popup?.mode, popup?.item?.id]);
+    return () => {
+      disposed = true;
+      cancelAnimationFrame(frame);
+      focus.dispose();
+    };
+  }, [desktop, popupWindow, !!popup, requestedPopup?.token, requestedPopup?.mode, requestedPopup?.item?.id]);
   useEffect(() => {
-    if (!popup) return;
+    if (!requestedPopup) return;
+    let disposed = false,
+      stop: (() => void) | undefined;
+    if (desktop && native)
+      void listen<string | null>("rail-dismiss-popup", event => {
+        setPopup(value => typeof event.payload === "string" && value?.token !== event.payload ? value : null);
+        setRename(null);
+      })
+        .then((value) => {
+          if (disposed) value();
+          else stop = value;
+        })
+        .catch(() => {});
     const escape = (event: KeyboardEvent) => {
       if (event.key === "Escape") {
         closePopup();
       }
     };
     const outside = (event: Event) => {
-      if (!holder.current?.contains(event.target as Node)) setPopup(null);
+      if (!popupElement.current?.contains(event.target as Node)) {
+        setPopup(null);
+        setRename(null);
+      }
     };
     window.addEventListener("keydown", escape);
     document.addEventListener("pointerdown", outside);
     return () => {
+      disposed = true;
+      stop?.();
       window.removeEventListener("keydown", escape);
       document.removeEventListener("pointerdown", outside);
     };
-  }, [!!popup]);
+  }, [!!requestedPopup]);
   const perform = async (operation: () => Promise<unknown>) => {
     try {
       await operation();
@@ -138,112 +297,270 @@ export function RailSurface({
       setNotice(String(error));
     }
   };
-  const reorder = useRailReorder(controller.settings.groups, change => { void perform(() => controller.change(change)); });
+  const reorder = useRailReorder(
+    controller.settings.groups,
+    (change) => {
+      void perform(() => controller.change(change));
+    },
+    controller.supported
+      ? (id) =>
+          perform(async () => {
+            await dragRailItem(id);
+          })
+      : undefined,
+    (id) => perform(() => controller.detach(id)),
+  );
   const show = (mode: Popup["mode"], item?: RailItem) => {
-    if (!popup) popupTrigger.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    if (item) wheel.choose(item.id);
+    if (!requestedPopup)
+      popupTrigger.current =
+        document.activeElement instanceof HTMLElement
+          ? document.activeElement
+          : null;
     const host = holder.current?.getBoundingClientRect();
-    const target = item ? [...holder.current!.querySelectorAll<HTMLElement>('[data-rail-item]')].find(element => element.dataset.railItem === item.id) : holder.current?.querySelector('.rail-cord-add');
+    const target = item
+      ? [
+          ...holder.current!.querySelectorAll<HTMLElement>("[data-rail-item]"),
+        ].find((element) => element.dataset.railItem === item.id)
+      : holder.current?.querySelector(".rail-cord-add");
     const bounds = target?.getBoundingClientRect();
-    if (host && bounds) setPopupAnchor({ x: bounds.x - host.x + bounds.width / 2, bottom: bounds.bottom - host.y });
+    if (host && bounds)
+      setPopupAnchor({
+        x: item ? width / 2 : bounds.x - host.x + bounds.width / 2,
+        bottom: item
+          ? 28 + geometry.point(0).y + 154 * unit
+          : bounds.bottom - host.y,
+      });
     setRename(null);
-    setPopup({ mode, item });
+    setPopup({ mode, item: item ?? (mode === "more" ? group.items[wheel.active] : undefined),
+      token: popupWindow === "host" ? requestedPopup?.token : crypto.randomUUID(),
+      nativeWidth: popupWindow === "host" ? mode === "menu" ? 280 : 440 : undefined,
+    });
     setNotice(null);
   };
-  const open = (item: RailItem) =>
-    item.kind === 'note' ? show('note', item) : void perform(async () => { await openRailItem(item.id); setPopup(null); });
+  const open = (item: RailItem) => {
+    if (item.kind === "note") {
+      if (desktop || !onSelect) show("note", item);
+    } else if (controller.missing.includes(item.id)) {
+      show("menu", item);
+    } else {
+      void perform(async () => {
+        try {
+          await openRailItem(item.id);
+          setPopup(null);
+        } catch (error) {
+          void controller.refresh();
+          throw error;
+        }
+      });
+    }
+  };
+  const openFromCord = (mode: "add" | "more") => {
+    window.clearTimeout(cordClickTimer.current);
+    show(mode);
+    setPopupAnchor({ x: width / 2, bottom: 28 + geometry.point(0).y + 100 * unit });
+  };
   const add = () => {
     onSelect?.(group.id);
-    void show('add');
+    void show("add");
   };
-  const hangingDrop = (index: number) => {
-    const used = visible.reduce((total, item) => total + itemWidth(item), 0) + Math.max(0, visible.length - 1) * 26 * unit;
-    const space = Math.max(0, width - 32 * unit - used) / Math.max(1, visible.length);
-    const before = visible.slice(0, index).reduce((total, item) => total + itemWidth(item) + 26 * unit, 0);
-    const t = (16 * unit + before + space * (index + .5) + itemWidth(visible[index]) / 2) / width;
-    return ((1 - t) ** 2 + 182 * t * (1 - t) + 5 * t ** 2) * unit;
-  };
-  const card = (item: RailItem, compact = false, index = 0) => (
-    <div
-      key={item.id}
-      data-rail-item={item.id}
-      className={`rail-hanging rail-${item.kind}${(desktop ? desktopSelection : selected) === item.id ? " rail-selected" : ""}${compact ? " rail-compact" : ""}${reorder.target === item.id ? ' rail-reorder-target' : ''}`}
-      style={{ '--hang-drop': `${compact ? 0 : hangingDrop(index)}px`, '--hang-tilt': `${[-3, 2, -2, 2, -4, 5][index % 6]}deg` } as CSSProperties}
-    >
-      {!compact && <span className="rail-clip" aria-hidden="true" />}
-      <button
-        className="rail-item"
-        type="button"
-        aria-label={`${item.name}，${kindLabels[item.kind]}`}
-        title={item.kind === 'note' ? item.text : `${item.name}\n${item.path}\n双击或 Enter 使用系统默认方式打开，右键更多操作`}
-        aria-pressed={(desktop ? desktopSelection : selected) === item.id}
-        draggable={false}
-        onClick={() => { setNotice(null); setDesktopSelection(item.id); onSelect?.(group.id, item.id); if (desktop && item.kind === 'note') open(item); }}
-        onDoubleClick={() => { if (!desktop || item.kind !== 'note') open(item); }}
-        onContextMenu={(event) => {
-          event.preventDefault();
-          setDesktopSelection(item.id);
-          onSelect?.(group.id, item.id);
-          void show("menu", item);
-        }}
-        onKeyDown={(event) => {
-          if (event.key === "Enter") {
-            event.preventDefault();
-            open(item);
-          }
-          if (
-            (event.shiftKey && event.key === "F10") ||
-            event.key === "ContextMenu"
-          ) {
-            event.preventDefault();
-            void show("menu", item);
-          }
-        }}
+  const card = (item: RailItem, index: number) => {
+    const slot = geometry.slot(index, wheel.active);
+    const windSeed = Array.from(item.id).reduce((seed, char) => (seed * 31 + char.charCodeAt(0)) >>> 0, 7);
+    return (
+      <div
+        key={item.id}
+        data-rail-item={item.id}
+        data-reorder-side={reorder.target === item.id ? reorder.side : undefined}
+        data-dragging={reorder.dragging === item.id || undefined}
+        data-wheel-active={
+          wheel.activeId === item.id ? "true" : undefined
+        }
+        inert={!slot.visible}
+        aria-hidden={!slot.visible || undefined}
+        className={`rail-hanging rail-${item.kind}${reorder.target === item.id ? " rail-reorder-target" : ""}`}
+        style={
+          {
+            "--hang-drop": "0px",
+            "--hang-tilt": "0deg",
+            "--wind-duration": `${8 + windSeed % 41 / 10}s`,
+            "--wind-delay": `${-(windSeed % 100) / 10}s`,
+            left: slot.x,
+            top: slot.y,
+            width: itemWidth(item),
+            opacity: slot.visible ? 1 : 0,
+            visibility: slot.visible ? "visible" : "hidden",
+            "--wheel-angle": `${(slot.angle * 180) / Math.PI}deg`,
+          } as CSSProperties
+        }
       >
-        {item.kind === 'note' ? <><span className="rail-note-kicker">随手记</span><span className="rail-note-content">{item.text}</span></> : <>
-        {item.kind === 'folder' && <span className="rail-folder-paper" aria-hidden="true" />}
-        {item.kind === 'file' && <span className="rail-document-top"><span>{item.path.split('.').pop()?.toUpperCase().slice(0, 8)}</span><span aria-hidden="true">↗</span></span>}
-        <span className="rail-item-media">
-          <RailMedia item={item} />
-        </span>
-        {item.kind !== 'image' && <span className="rail-item-name">{item.name}</span>}
-        {item.kind === 'folder' && <span className="rail-item-detail">打开文件夹 ↗</span>}
-        </>}
-        {controller.missing.includes(item.id) && (
-          <span className="rail-item-missing">
-            <Link2 size={12} />
-            需重新关联
-          </span>
+        <div className="rail-sway">
+        <span className="rail-clip" aria-hidden="true" />
+        <button
+          className="rail-item"
+          type="button"
+          aria-label={`${item.name}，${kindLabels[item.kind]}`}
+          title={
+            item.kind === "note"
+              ? item.text
+              : `${item.name}\n${item.path}\n单击或 Enter 打开，拖出拾光绳可发送到其他软件`
+          }
+          aria-pressed={(desktop ? desktopSelection : selected) === item.id}
+          draggable={false}
+          onClick={(event) => {
+            if (event.detail > 0) {
+              recentActivation.current = {
+                x: event.clientX,
+                y: event.clientY,
+                until: performance.now() + 500,
+              };
+            }
+            setNotice(null);
+            wheel.choose(item.id);
+            setDesktopSelection(item.id);
+            onSelect?.(group.id, item.id);
+            open(item);
+          }}
+          onContextMenu={(event) => {
+            event.preventDefault();
+            setDesktopSelection(item.id);
+            wheel.choose(item.id);
+            onSelect?.(group.id, item.id);
+          }}
+          onKeyDown={(event) => {
+            if (event.key === "Enter") {
+              event.preventDefault();
+              open(item);
+            }
+            if (
+              (event.shiftKey && event.key === "F10") ||
+              event.key === "ContextMenu"
+            ) {
+              event.preventDefault();
+            }
+          }}
+        >
+          {item.kind === "note" ? (
+            <>
+              <span className="rail-note-kicker">随手记</span>
+              <span className="rail-note-content">{item.text}</span>
+            </>
+          ) : (
+            <>
+              <span className="rail-item-media">
+                <RailMedia item={item} unavailable={controller.missing.includes(item.id)} />
+              </span>
+              {item.kind !== "image" && (
+                <span className="rail-item-name">{item.name}</span>
+              )}
+            </>
+          )}
+          {controller.missing.includes(item.id) && (
+            <span className="rail-item-missing">
+              <Link2 size={12} />
+              需重新关联
+            </span>
+          )}
+        </button>
+        {item.kind === "folder" && (
+          <button
+            type="button"
+            className="rail-folder-expand"
+            aria-label={`展开${item.name}`}
+            title="就地展开文件夹"
+            onClick={() => show(controller.missing.includes(item.id) ? "menu" : "folder", item)}
+          >
+            <ChevronDown size={13} />
+          </button>
         )}
-      </button>
-      {!compact && (
         <button
           className="rail-item-menu"
+          type="button"
           aria-label={`${item.name}的操作`}
           onClick={() => void show("menu", item)}
         >
           <Ellipsis size={13} />
         </button>
-      )}
-    </div>
-  );
+        </div>
+      </div>
+    );
+  };
   const popupItem =
     popup?.item && group.items.find((item) => item.id === popup.item!.id);
-  const popupLayout = placeRailPopup(width, popupAnchor, popup?.mode === 'menu' ? 280 : 440);
+  const popupMissing = !!popupItem && controller.missing.includes(popupItem.id);
+  const popupLayout = popupWindow === "host" ? { width: popup?.nativeWidth ?? 280, left: 12, top: 12 } : placeRailPopup(
+    width,
+    popupAnchor,
+    popup?.mode === "menu" ? 280 : 440,
+  );
+  useRailPopupWindow(popupWindow, group, requestedPopup, popup, setPopup, popupLayout, popupElement,
+    id => { wheel.choose(id); setDesktopSelection(id); onSelect?.(group.id, id) }, setNotice);
   return (
     <div
       ref={holder}
-      className={`rail-surface${popup ? " rail-popup-open" : ""}${editing ? ' rail-is-editing' : ''}${group.collapsed ? ' rail-is-collapsed' : ''}`}
+      className={`rail-surface rail-wheel${popupWindow === "host" ? " rail-popup-host" : ""}${popup ? " rail-popup-open" : ""}${editing ? " rail-is-editing" : ""}${group.collapsed ? " rail-is-collapsed" : ""}`}
       data-rail-group={group.id}
       {...reorder.events}
+      onClickCapture={(event) => {
+        reorder.events.onClickCapture(event);
+        if (event.defaultPrevented || event.detail === 0) return;
+        const pending = recentActivation.current;
+        // A repeated click at the old position of a moving card must not launch
+        // another item or open an unrelated menu after the first activation.
+        if (
+          pending &&
+          performance.now() < pending.until &&
+          Math.hypot(event.clientX - pending.x, event.clientY - pending.y) <=
+            5 &&
+          !(event.target as Element).closest(".rail-popup")
+        ) {
+          event.preventDefault();
+          event.stopPropagation();
+        }
+      }}
+      onKeyDown={(event) => {
+        reorder.events.onKeyDown(event);
+        if (
+          (event.target as Element).closest(".rail-popup, input, textarea") ||
+          !["ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key) ||
+          event.altKey ||
+          event.ctrlKey ||
+          event.metaKey
+        )
+          return;
+        event.preventDefault();
+        const next =
+          event.key === "Home"
+            ? 0
+            : event.key === "End"
+              ? group.items.length - 1
+              : (wheel.active +
+                  (event.key === "ArrowRight" ? 1 : -1) +
+                  group.items.length) %
+                group.items.length;
+        const item = group.items[next];
+        if (item) {
+          wheel.choose(item.id);
+          onSelect?.(group.id, item.id);
+          requestAnimationFrame(() =>
+            holder.current
+              ?.querySelector<HTMLButtonElement>(
+                `[data-rail-item="${CSS.escape(item.id)}"] .rail-item`,
+              )
+              ?.focus({ preventScroll: true }),
+          );
+        }
+      }}
       style={
         {
           "--rail-unit": `${unit}px`,
-          minHeight: group.collapsed ? 36 : 226 * unit + 28,
+          "--rail-cord-center": `${geometry.point(0).y}px`,
+          minHeight: popupWindow === "host" ? 0 : group.collapsed ? 36 : geometry.height + 28,
         } as CSSProperties
       }
     >
       <div className="rail-design">
-        <header className="rail-header">
+        {popupWindow !== "host" && <header className="rail-header">
           <button
             className="rail-drag"
             aria-label={`选择并移动${group.name}`}
@@ -283,29 +600,57 @@ export function RailSurface({
               )}
             </button>
           </div>
-        </header>
-        {!group.collapsed && (
-          <>
-            <button className="rail-cord-add" type="button" aria-label="点击绳子添加挂件" onClick={event => { const host = holder.current!.getBoundingClientRect(); void show('add'); if (event.detail) { const t = (event.clientX - host.x) / width; setPopupAnchor({ x: event.clientX - host.x, bottom: 28 + ((1 - t) ** 2 + 182 * t * (1 - t) + 5 * t ** 2) * unit }); } }}><svg className="rail-cord" viewBox={`0 0 ${width} ${54 * unit}`} preserveAspectRatio="none" aria-hidden="true"><path className="rail-cord-shadow" d={`M 2 ${3 * unit} Q ${width / 2} ${93 * unit} ${width - 2} ${7 * unit}`} /><path d={`M 2 ${1 * unit} Q ${width / 2} ${91 * unit} ${width - 2} ${5 * unit}`} /><path className="rail-cord-hit" d={`M 2 ${1 * unit} Q ${width / 2} ${91 * unit} ${width - 2} ${5 * unit}`} /></svg></button>
+        </header>}
+        {popupWindow !== "host" && bodyPresent && (
+          <div className="rail-body" data-entry={animateBodyEntry.current || undefined} inert={group.collapsed}>
+            <button
+              className="rail-cord-add"
+              type="button"
+              aria-label="点击绳子添加挂件"
+              title="单击添加挂件，双击查看全部挂件"
+              onClick={(event) => {
+                window.clearTimeout(cordClickTimer.current);
+                if (event.detail === 0) openFromCord("add");
+                else if (event.detail === 1) cordClickTimer.current = window.setTimeout(() => openFromCord("add"), doubleClickInterval.current + 20);
+              }}
+              onDoubleClick={() => openFromCord("more")}
+              onKeyDown={(event) => {
+                if (event.key === "Enter" && event.shiftKey) {
+                  event.preventDefault();
+                  openFromCord("more");
+                }
+              }}
+            >
+              <svg
+                className="rail-cord"
+                viewBox={`0 0 ${width} ${geometry.height}`}
+                preserveAspectRatio="none"
+                aria-hidden="true"
+              >
+                <path
+                  className="rail-cord-shadow"
+                  d={geometry.path}
+                  transform="translate(0 2)"
+                />
+                <path d={geometry.path} />
+                <path className="rail-cord-hit" d={geometry.path} />
+              </svg>
+            </button>
             <div className="rail-items">
-              {visible.map((item, index) => card(item, false, index))}
+              {visible.map(card)}
               {!group.items.length && (
                 <button className="rail-empty" onClick={add}>
                   <Plus size={22} />
                   <span>挂上常用的软件、文件或照片</span>
                   <small>
-                    {desktop ? "点击选择，或把文件拖到这里" : "从右侧添加，也可以直接拖入文件"}
+                    {desktop
+                      ? "点击选择，或把文件拖到这里"
+                      : "从右侧添加，也可以直接拖入文件"}
                   </small>
                 </button>
               )}
-              {group.items.length > capacity && (
-                <button className="rail-more" onClick={() => void show("more")}>
-                  <span>+{group.items.length - capacity}</span>
-                  <small>更多</small>
-                </button>
-              )}
             </div>
-          </>
+          </div>
         )}
         {notice && !popup && (
           <div className="rail-inline-notice" role="alert">
@@ -315,21 +660,36 @@ export function RailSurface({
             </button>
           </div>
         )}
-        {popup && (
+        {popup && popupWindow !== "source" && (
           <section
+            ref={popupElement}
+            data-state={requestedPopup ? "open" : "closed"}
+            inert={!requestedPopup}
+            popover={desktop ? undefined : "manual"}
             className={`rail-popup rail-popup-${popup.mode}`}
-            style={{ ...popupLayout, '--rail-popup-top': `${popupLayout.top}px` } as CSSProperties}
+            data-detaching={popup.mode === "more" && !!reorder.detaching || undefined}
+            style={
+              {
+                ...popupLayout,
+                "--rail-popup-top": `${popupLayout.top}px`,
+                ...(!desktop ? previewPopup : {}),
+              } as CSSProperties
+            }
             aria-label={
-              popup.mode === 'add' ? '添加挂件' : popup.mode === "more"
-                ? "更多挂件"
-                : (popupItem?.name ?? "挂件操作")
+              popup.mode === "add"
+                ? "添加挂件"
+                : popup.mode === "more"
+                  ? "更多挂件"
+                  : (popupItem?.name ?? "挂件操作")
             }
           >
             <div className="rail-popup-heading">
               <strong>
-                {popup.mode === 'add' ? '想挂点什么？' : popup.mode === "more"
-                  ? `${group.name} · 更多`
-                  : (popupItem?.name ?? "项目已移除")}
+                {popup.mode === "add"
+                  ? "想挂点什么？"
+                  : popup.mode === "more"
+                    ? `${group.name} · 更多`
+                    : (popupItem?.name ?? "项目已移除")}
               </strong>
               <button
                 aria-label="关闭挂件面板"
@@ -345,49 +705,96 @@ export function RailSurface({
                 {notice}
               </p>
             )}
-            {popup.mode === 'add' && <RailAddPanel group={group} controller={controller} onDone={() => setPopup(null)} />}
-            {popup.mode === 'note' && popupItem && <NoteEditor key={popupItem.id} item={popupItem} onSave={async text => { await controller.change({ type: 'item', id: popupItem.id, text }); setPopup(null) }} />}
+            {popup.mode === "menu" && popupMissing && (
+              <p className="rail-popup-error" role="status">
+                目标已移动或删除。可以重新关联，也可以取消挂载。
+              </p>
+            )}
+            {popup.mode === "add" && (
+              <RailAddPanel
+                group={group}
+                controller={controller}
+                onDone={() => setPopup(null)}
+              />
+            )}
+            {popup.mode === "note" && popupItem && (
+              <NoteEditor
+                key={popupItem.id}
+                item={popupItem}
+                onSave={async (text) => {
+                  await controller.change({
+                    type: "item",
+                    id: popupItem.id,
+                    text,
+                  });
+                  setPopup(null);
+                }}
+              />
+            )}
+            {popup.mode === "folder" && popupItem && (
+              <FolderBrowser key={popupItem.id} item={popupItem} />
+            )}
             {popup.mode === "more" && (
-              <div className="rail-overflow-items">
-                {group.items.slice(capacity).map((item) => card(item, true))}
-              </div>
+              <>
+              <RailItemPicker key={popup.token} items={group.items} activeId={wheel.activeId}
+                missing={controller.missing} dragging={reorder.dragging} target={reorder.target} side={reorder.side}
+                onChoose={item => {
+                      wheel.choose(item.id);
+                      setDesktopSelection(item.id);
+                      onSelect?.(group.id, item.id);
+                      setPopup(null);
+                    }} />
+              <p className="rail-overflow-hint" role="status">
+                {reorder.detaching ? "松开恢复到桌面" : reorder.dragging ? "松开放到标记位置" : group.items.length ? "拖动排序 · 拖入挂载 · 拖出恢复桌面" : "把桌面图标拖到这里"}
+              </p>
+              </>
             )}
             {popup.mode === "menu" && popupItem && (
               <div className="rail-context-actions">
-                <button onClick={() => open(popupItem)}>
-                  {popupItem.kind === 'note' ? '编辑便签' : '打开'}
-                </button>
-                {popupItem.kind !== 'note' && <><button
-                  onClick={() =>
-                    void perform(() => openRailItem(popupItem.id, true))
-                  }
-                >
-                  打开所在位置
-                </button>
-                <button
-                  onClick={() =>
-                    void perform(() =>
-                      navigator.clipboard.writeText(popupItem.path),
-                    )
-                  }
-                >
-                  复制路径
-                </button>
-                </>}
+                {!popupMissing && <button onClick={() => open(popupItem)}>
+                  {popupItem.kind === "note" ? "编辑便签" : "打开"}
+                </button>}
+                {!popupMissing && popupItem.kind === "folder" && (
+                  <button onClick={() => show("folder", popupItem)}>
+                    就地展开
+                  </button>
+                )}
+                {popupItem.kind !== "note" && (
+                  <>
+                    {!popupMissing && <button
+                      onClick={() =>
+                        void perform(() => openRailItem(popupItem.id, true))
+                      }
+                    >
+                      打开所在位置
+                    </button>}
+                    <button
+                      onClick={() =>
+                        void perform(() =>
+                          navigator.clipboard.writeText(popupItem.path),
+                        )
+                      }
+                    >
+                      复制路径
+                    </button>
+                  </>
+                )}
                 <button onClick={() => setRename(popupItem.name)}>
                   修改显示名称
                 </button>
-                {popupItem.kind !== 'note' && <button
-                  onClick={() => {
-                    void controller.pick(
-                      group.id,
-                      popupItem.kind === "folder",
-                      popupItem.id,
-                    );
-                  }}
-                >
-                  重新关联
-                </button>}
+                {popupItem.kind !== "note" && (
+                  <button
+                    onClick={() => {
+                      void controller.pick(
+                        group.id,
+                        popupItem.kind === "folder",
+                        popupItem.id,
+                      );
+                    }}
+                  >
+                    重新关联
+                  </button>
+                )}
                 <button
                   onClick={() =>
                     void perform(async () => {

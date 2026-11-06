@@ -1,7 +1,6 @@
-import { Button } from '@/components/ui/button'
 import { Parameter } from '@/components/ui/parameter'
 import { LayoutPresets } from '../preview/layout-presets'
-import { defaults, type SpectrumSettings } from '../spectrum/model'
+import type { SpectrumSettings } from '../spectrum/model'
 import { isThreeEffect } from '../spectrum/music-engine/catalog'
 import { SceneViewControls } from './scene-view-controls'
 
@@ -23,7 +22,7 @@ export function PositionPanel({ settings, update, disabled }: { settings: Spectr
       {isThreeEffect(settings.effect) && <><SceneViewControls view={settings.view} onChange={view => update({ view })} disabled={disabled} /><div className="inspector-divider" /></>}
       <div className="section-label">布局预设</div>
       <LayoutPresets bounds={settings.bounds} disabled={disabled} onChange={bounds => update({ bounds })} />
-      <div className="section-label">相对主屏幕的比例</div>
+      <details className="inspector-advanced"><summary>精确位置</summary>
       <Parameter
         label="宽度"
         value={settings.bounds.width * 100}
@@ -56,14 +55,7 @@ export function PositionPanel({ settings, update, disabled }: { settings: Spectr
         disabled={disabled}
         onChange={(value) => positionPatch("y", value)}
       />
-      <Button
-        variant="outline"
-        className="w-full"
-        disabled={disabled}
-        onClick={() => update({ bounds: { ...defaults.bounds } })}
-      >
-        恢复中下部位置
-      </Button>
+      </details>
     </div>
   )
 }

@@ -22,7 +22,9 @@ void main(){
  float branches=pow(.5+.5*cos(radius*22.),9.)*(1.-smoothstep(.04,.20,six*radius));
  float soft=exp(-radius*radius*7.);
  float alpha=mix(soft,crystal*.8+branches*.35,smoothstep(.5,.9,vDetail))*vAlpha;
- vec3 tint=mix(vec3(.68,.76,.81),vec3(.93,.95,.97),vDetail);
+ vec3 tint=mix(uColor,uHighlight,vDetail);
+ // A cool edge preserves the crystal on pale wallpaper without an opaque box.
+ tint=mix(tint,uAccent*.42,smoothstep(.2,.9,radius)*.65);
  gl_FragColor=vec4(tint,alpha);
 }`
 

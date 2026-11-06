@@ -71,6 +71,7 @@ test('layout presets apply only geometry, persist, and reflect custom positions'
   await page.getByRole('button', { name: '完成布置', exact: true }).click()
   await page.getByRole('tab', { name: '位置', exact: true }).click()
   await expect(page.getByRole('button', { name: '应用右侧布局' })).toHaveAttribute('aria-pressed', 'true')
+  await page.getByText('精确位置', { exact: true }).click()
   await page.getByRole('slider', { name: '距左侧', exact: true }).focus()
   await page.keyboard.press('ArrowLeft')
   await expect(page.getByRole('button', { name: '应用右侧布局' })).toHaveAttribute('aria-pressed', 'false')

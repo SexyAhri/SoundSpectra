@@ -65,7 +65,7 @@ test('idle, obscured previews and offscreen previews stop drawing; quality remai
   await page.getByRole('button', { name: '应用设置与更新', exact: true }).click()
   await page.waitForTimeout(300)
   expect((await sampleFrames()).frames).toBe(0)
-  await page.getByRole('button', { name: '完成', exact: true }).click()
+  await page.getByRole('button', { name: '收起应用设置', exact: true }).click()
   await page.setViewportSize({ width: 390, height: 600 })
   await page.getByRole('tab', { name: '外观', exact: true }).click()
   await page.getByRole('button', { name: '恢复当前灯效参数' }).scrollIntoViewIfNeeded()

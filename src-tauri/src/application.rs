@@ -144,6 +144,22 @@ pub fn backup(app: &AppHandle, state: &AppState) -> Result<PathBuf, String> {
     if rail_path.exists() {
         std::fs::copy(rail_path, folder.join("rail.json")).map_err(|e| e.to_string())?;
     }
+    let images = app
+        .path()
+        .app_config_dir()
+        .map_err(|e| e.to_string())?
+        .join("rail-images");
+    if images.exists() {
+        let destination = folder.join("rail-images");
+        std::fs::create_dir_all(&destination).map_err(|e| e.to_string())?;
+        for entry in std::fs::read_dir(images).map_err(|e| e.to_string())? {
+            let entry = entry.map_err(|e| e.to_string())?;
+            if entry.file_type().map_err(|e| e.to_string())?.is_file() {
+                std::fs::copy(entry.path(), destination.join(entry.file_name()))
+                    .map_err(|e| e.to_string())?;
+            }
+        }
+    }
     if audio_source.exists() {
         std::fs::copy(audio_source, folder.join("audio-source.json")).map_err(|e| e.to_string())?;
     }
@@ -208,13 +224,14 @@ pub fn export_diagnostics(
 }
 
 #[tauri::command]
-pub fn quit_application(
+pub async fn quit_application(
     window: WebviewWindow,
     app: AppHandle,
     state: State<'_, Arc<AppState>>,
 ) -> Result<(), String> {
     settings_window(&window)?;
     crate::change_editing(&app, &state, false)?;
+    crate::rail::restore_desktop(&app)?;
     app.exit(0);
     Ok(())
 }

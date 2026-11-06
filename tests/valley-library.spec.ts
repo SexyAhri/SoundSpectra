@@ -21,7 +21,7 @@ test('unlimited frame pacing keeps pixel budgets and old configurations migrate'
     const size = drawingSize(7680, 4320, 2, 'unlimited', count)
     expect(size.width * size.height * count).toBeLessThanOrEqual(budgets.unlimited.pixels)
   }
-  expect(normalizeSettings({ effect: 'valley', quality: 'unlimited' })).toMatchObject({ effect: 'water_ripple', quality: 'unlimited', atmosphere: defaults.atmosphere })
+  expect(normalizeSettings({ effect: 'valley', quality: 'unlimited' })).toMatchObject({ effect: 'ripple', quality: 'unlimited', atmosphere: defaults.atmosphere })
   expect(normalizeSettings({ atmosphere: { wind: NaN, fog: -50, direction: 2000, lights: Infinity } })).toMatchObject({ atmosphere: { direction: 180, wind: 40, fog: 0, lights: 60 } })
 })
 
@@ -86,7 +86,7 @@ test('saved layouts restore on demand, preserve quality, undo and exchange witho
   await expect(page.getByRole('dialog').getByRole('alert')).toContainText('不是受支持')
   expect(await library(page)).toHaveLength(2)
   await page.getByRole('button', { name: '关闭场景收藏' }).click()
-  await page.getByRole('button', { name: '弹球', exact: true }).click()
+  await page.getByRole('button', { name: '浮光水母', exact: true }).click()
   await selectChoice(page, '渲染性能', 'unlimited'); await settled(page)
   const changed = await saved(page)
   await page.reload(); await settled(page)

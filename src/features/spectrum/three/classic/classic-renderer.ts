@@ -6,49 +6,40 @@ import { threeDrawingSize } from '../render-budget'
 import { compositeFragment, passVertex } from '../composite'
 import { createImmersiveScene } from './immersive/scenes'
 import { isClassicEffect } from '../../music-engine/catalog'
+import { resolveEffectPalette } from '../../effect-palette'
+import { SceneBloom, bloomProfile } from './scene-bloom'
 
 interface SpatialEffect {
   group: T.Group
+  layout?(aspect: number): void
   update(motion: SceneMotion, config: SpectrumSettings, reduced: boolean): void
 }
-const palettes = {
-  iris: { accent: '#60cee8', low: '#080f1c', warm: '#9676da' },
-  ember: { accent: '#e8ac61', low: '#160d15', warm: '#b27bcc' },
-  lake: { accent: '#54c8bb', low: '#06151e', warm: '#6b9ddc' },
-} as const
 const viewpoints: Partial<Record<SpectrumSettings['effect'],readonly [number,number,number]>> = {
-  rhythm_balls:[0,2,24],rhythm_rain:[0,5,24],rhythm_fluid:[0,7,24],rhythm_skin:[0,4,24],
-  spectrum_bars:[0,8,24],rhythm_bars:[0,5,24],water_ripple:[0,4,24],volume_rain:[0,5,24],
-  ripple:[0,4,24],pulse_ring:[0,0,24],dream_stars:[0,2,24],vortex:[0,4,24],
+  rhythm_balls:[0,2,24],rhythm_rain:[0,5,24],rhythm_skin:[0,4,24],
+  volume_rain:[0,5,24],
+  ripple:[0,4,24],dream_stars:[0,2,24],vortex:[0,4,24],
 }
-const composite = `uniform float uSceneBrightness,uTransparentScene;
-// A small, energy-limited optical halo keeps luminous edges readable. It never
-// blurs the structural image, and shares the scene's final masks and opacity.
-vec3 edgeGlow(sampler2D source, vec2 uv, vec2 pixel) {
-  vec3 light=vec3(0.);
-  for(int i=0;i<8;i++) {
-    float a=float(i)*.785398;
-    vec2 direction=vec2(cos(a),sin(a));
-    light+=max(texture2D(source,uv+direction*pixel*2.).rgb-vec3(.14),vec3(0.))*.035;
-    light+=max(texture2D(source,uv+direction*pixel*5.).rgb-vec3(.14),vec3(0.))*.018;
-  }
-  return light;
-}
+const composite = `uniform float uSceneBrightness,uTransparentScene,uBloomStrength,uAirPhase;
+uniform sampler2D uBloom0,uBloom1,uBloom2;
 ${compositeFragment}`.replace(
   'vec4 terrain = texture2D(uImage, uv);',
-  'vec4 terrain = texture2D(uImage, uv); terrain.rgb = (terrain.rgb + edgeGlow(uImage,uv,1./uResolution)) * uSceneBrightness;',
+  `vec4 terrain = texture2D(uImage, uv);
+   vec3 glow=(texture2D(uBloom0,uv).rgb*.5+texture2D(uBloom1,uv).rgb*.3+texture2D(uBloom2,uv).rgb*.2)*uBloomStrength;
+   terrain.rgb=(terrain.rgb+glow)*uSceneBrightness;
+   terrain.a=max(terrain.a,clamp(max(max(glow.r,glow.g),glow.b)*.6,0.,.45));`,
 ).replace(
   'vec3 backdrop = mix(uLow * .08, uLow * .24, uv.y) + uWarm * halo * .055;',
-  'vec3 backdrop = mix(uLow * .3, uLow * .65, uv.y) + uWarm * halo * .035;',
-).replace('mix(pool, .985, uImmersive)','mix(pool, 1., uImmersive)')
- .replace('float backdropAlpha = mix(pool, 1., uImmersive);','float backdropAlpha = mix(pool, 1., uImmersive)*(1.-uTransparentScene);')
+  'vec3 backdrop = mix(uLow * .12, uLow * .32, uv.y) + uWarm * halo * .035 + uLow*(.02+.01*sin(uv.x*9.+uAirPhase*.02)*cos(uv.y*7.-uAirPhase*.01));',
+).replace('float backdropAlpha = .985 * uImmersive;', 'float backdropAlpha = uImmersive * (1. - uTransparentScene);')
 
-/** Shared real-geometry stage for the twelve redesigned music effects. */
+/** Shared real-geometry stage for the seven music effects. */
 export class ClassicSceneRenderer {
   readonly renderer: T.WebGLRenderer
   readonly scene = new T.Scene()
   readonly camera = new T.PerspectiveCamera(46, 1, .1, 180)
-  private readonly image = new T.WebGLRenderTarget(1, 1, { samples: 4 })
+  private readonly image = new T.WebGLRenderTarget(1, 1, { samples: 4, type:T.HalfFloatType })
+  private readonly bloom = new SceneBloom()
+  private hdr = true
   private readonly postScene = new T.Scene()
   private readonly postCamera = new T.Camera()
   private readonly postGeometry = new T.BufferGeometry().setAttribute('position', new T.Float32BufferAttribute([-1,-1,0,3,-1,0,-1,3,0],3))
@@ -63,6 +54,8 @@ export class ClassicSceneRenderer {
     uImage: { value: this.image.texture }, uLow: { value: new T.Color() }, uWarm: { value: new T.Color() },
     uOpacity: { value: 0 }, uImmersive: { value: 0 }, uSceneBrightness: { value: 1 },
     uTransparentScene: { value: 0 },
+    uBloom0:{value:this.bloom.texture(0)},uBloom1:{value:this.bloom.texture(1)},uBloom2:{value:this.bloom.texture(2)},
+    uBloomStrength:{value:0},uAirPhase:{value:0},
     uResolution: { value: new T.Vector2(1,1) }, uRegion: { value: new T.Vector4() },
     uMasks: { value: Array.from({length:8},()=>new T.Vector4()) }, uFeather: { value: new Float32Array(8) }, uMaskCount: { value: 0 },
   }
@@ -72,8 +65,6 @@ export class ClassicSceneRenderer {
   private stamp = ''
   private count = 1
   private frames = 0
-  private config: SpectrumSettings | undefined
-  private appearance: SpectrumSettings | undefined
   private pixelRatio = 1
 
   private syncPointScale() {
@@ -88,6 +79,8 @@ export class ClassicSceneRenderer {
   constructor(readonly canvas: HTMLCanvasElement) {
     this.renderer = new T.WebGLRenderer({canvas,alpha:true,premultipliedAlpha:true,antialias:false,powerPreference:'high-performance'})
     this.renderer.setClearColor(0,0); this.renderer.toneMapping=T.ACESFilmicToneMapping; this.renderer.toneMappingExposure=.95
+    this.hdr=this.renderer.extensions.has('EXT_color_buffer_float')
+    if(!this.hdr)this.image.texture.type=T.UnsignedByteType
     this.renderer.debug.onShaderError=(gl,program,vertex,fragment)=>{throw new Error([
       gl.getShaderInfoLog(vertex),gl.getShaderInfoLog(fragment),gl.getProgramInfoLog(program),
     ].filter(Boolean).join('\n')||'三维灯效初始化失败。')}
@@ -104,7 +97,9 @@ export class ClassicSceneRenderer {
     const samples=config.quality==='eco'?0:Math.min(4,this.renderer.capabilities.maxSamples)
     if(this.image.samples!==samples){this.image.samples=samples;this.image.dispose()}
     this.image.setSize(size.width,size.height);this.uniforms.uResolution.value.set(size.width,size.height)
+    this.bloom.resize(size.width,size.height,config.quality,regionCount,this.hdr)
     this.camera.aspect=size.width/size.height;this.camera.updateProjectionMatrix()
+    this.effect?.layout?.(this.camera.aspect)
   }
 
   private releaseEffect() {
@@ -126,7 +121,6 @@ export class ClassicSceneRenderer {
     this.pointer.set((clientX-box.left)/box.width*2-1,1-(clientY-box.top)/box.height*2)
     this.ray.setFromCamera(this.pointer,this.camera)
     if(!this.ray.ray.intersectPlane(this.plane,this.point))return null
-    if(this.config?.effect==='water_ripple' && (Math.abs(this.point.x)>110 || this.point.z< -225 || this.point.z>45))return null
     return {x:this.point.x,z:this.point.z}
   }
 
@@ -137,31 +131,35 @@ export class ClassicSceneRenderer {
       this.releaseEffect()
       if(!isClassicEffect(config.effect))throw new Error(`Unknown classic scene: ${config.effect}`)
       this.effect=createImmersiveScene(config.effect,detail)
+      this.effect.layout?.(this.camera.aspect)
       this.syncPointScale()
       this.scene.add(this.effect.group);this.stamp=stamp
-      this.plane.constant=config.effect==='water_ripple'?5:0
+      this.plane.constant=0
       this.canvas.dataset.scene=config.effect
     }
-    const palette=palettes[config.music.fieldPalette]
-    if(this.config!==config){this.config=config;this.appearance={...config,color:palette.accent}}
-    this.effect!.update(motion,this.appearance!,reduced)
+    const palette=resolveEffectPalette(config)
+    this.effect!.update(motion,config,reduced)
     const u=this.uniforms,b=config.bounds
-    u.uLow.value.set(palette.low);u.uWarm.value.set(palette.warm)
+    u.uLow.value.set(palette.low);u.uWarm.value.set(palette.accent)
     u.uOpacity.value=config.opacity/100*motion.presence;u.uImmersive.value=config.sceneMode==='immersive'?1:0
     const snow=config.effect==='ripple'
     u.uTransparentScene.value=snow?1:0
+    u.uAirPhase.value=reduced?0:motion.phase
     u.uLow.value.multiplyScalar(snow?0:1);u.uWarm.value.multiplyScalar(snow?0:1)
-    const softMaterial=config.effect==='rhythm_fluid'||config.effect==='rhythm_skin'||config.effect==='rhythm_bars'
+    const softMaterial=config.effect==='rhythm_skin'
     u.uSceneBrightness.value=softMaterial?Math.min(.95,.68*Math.sqrt(config.music.fieldBrightness/45)):config.music.fieldBrightness/45
     u.uRegion.value.set(b.x,b.y,b.width,b.height);u.uMaskCount.value=config.masks.length
     config.masks.forEach((mask,i)=>{const b=mask.bounds;u.uMasks.value[i].set(b.x,b.y,b.width,b.height);u.uFeather.value[i]=mask.feather})
     const position=viewpoints[config.effect]??[0,9,30]
-    const scale=1.35/config.music.fieldScale*Math.max(1,1.15/this.camera.aspect)
+    // A wide, short desktop region otherwise creates an extreme horizontal
+    // field of view and stretches rounded silhouettes at its edges. A longer
+    // lens preserves the vertical framing and normal proportions of geometry.
+    const geometric=config.effect==='rhythm_balls'
+    const fov=geometric?Math.min(38,130/this.camera.aspect):62
+    const lensScale=Math.tan(31*Math.PI/180)/Math.tan(fov*Math.PI/360)
+    const scale=1.35/config.music.fieldScale*Math.max(1,1.15/this.camera.aspect)*lensScale
     this.basePosition.set(position[0]*scale,position[1]*scale,position[2]*scale)
     this.target.set(0,0,0)
-    if(config.effect==='spectrum_bars')this.target.set(0,3,-55)
-    if(config.effect==='rhythm_bars')this.target.set(0,1,-45)
-    const fov=62
     if(this.camera.fov!==fov){this.camera.fov=fov;this.camera.updateProjectionMatrix()}
     this.viewpoint.apply(this.camera,this.basePosition,this.target,config.view)
     // The dolly and narrow regions can move the camera beyond the old fixed
@@ -169,10 +167,13 @@ export class ClassicSceneRenderer {
     const far=Math.max(350,this.camera.position.distanceTo(this.target)+350)
     if(Math.abs(this.camera.far-far)>.1){this.camera.far=far;this.camera.updateProjectionMatrix()}
     this.renderer.setRenderTarget(this.image);this.renderer.render(this.scene,this.camera)
+    const [threshold,strength]=bloomProfile(config.effect)
+    this.bloom.draw(this.renderer,this.image.texture,threshold)
+    u.uBloom0.value=this.bloom.texture(0);u.uBloom1.value=this.bloom.texture(1);u.uBloom2.value=this.bloom.texture(2);u.uBloomStrength.value=snow?0:strength
     this.renderer.setRenderTarget(null);this.renderer.render(this.postScene,this.postCamera)
     this.canvas.dataset.frames=String(++this.frames)
   }
 
   clear(){this.renderer.setRenderTarget(null);this.renderer.clear()}
-  dispose(){this.releaseEffect();this.image.dispose();this.postGeometry.dispose();this.postMaterial.dispose();this.renderer.dispose()}
+  dispose(){this.releaseEffect();this.bloom.dispose();this.image.dispose();this.postGeometry.dispose();this.postMaterial.dispose();this.renderer.dispose()}
 }

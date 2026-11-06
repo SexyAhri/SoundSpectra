@@ -59,7 +59,7 @@ test('preview and cancel are isolated; apply, global edits and undo preserve the
   await page.getByRole('button', { name: '纯色预览背景' }).click()
   const before = await saved(page)
   await open(page)
-  await page.getByRole('button', { name: /彩球星海/ }).click()
+  await page.getByRole('button', { name: /浮光星海/ }).click()
   await expect(page.locator('canvas')).toHaveCount(2)
   await page.getByRole('slider', { name: '搭配氛围强度' }).focus(); await page.keyboard.press('End')
   expect(await saved(page)).toEqual(before)
@@ -68,7 +68,7 @@ test('preview and cancel are isolated; apply, global edits and undo preserve the
   expect(await saved(page)).toEqual(before)
   await expect(page.locator('canvas')).toHaveCount(1)
   await open(page)
-  await page.getByRole('button', { name: /流光律动/ }).click()
+  await page.getByRole('button', { name: /轻雪星光/ }).click()
   await page.getByRole('slider', { name: '搭配氛围强度' }).focus(); await page.keyboard.press('End')
   await page.getByRole('button', { name: '应用搭配', exact: true }).click(); await settled(page)
   await expect(page.getByRole('dialog')).toHaveCount(0)
@@ -83,7 +83,7 @@ test('preview and cancel are isolated; apply, global edits and undo preserve the
   await page.reload(); await settled(page)
   await page.getByRole('button', { name: '纯色预览背景' }).click()
   await open(page)
-  await expect(page.getByRole('button', { name: /流光律动/ })).toHaveAttribute('aria-pressed', 'true')
+  await expect(page.getByRole('button', { name: /轻雪星光/ })).toHaveAttribute('aria-pressed', 'true')
   await expect(page.getByRole('slider', { name: '搭配氛围强度' })).toHaveAttribute('aria-valuenow', '100')
   expect(await saved(page)).toEqual({ ...before, quality: 'eco', masks })
   await page.getByRole('button', { name: '应用搭配', exact: true }).click(); await settled(page)
@@ -106,7 +106,7 @@ test('failed apply and failed undo leave committed scene intact and can retry', 
     }
   })
   await open(page)
-  await page.getByRole('button', { name: /彩球星海/ }).click()
+  await page.getByRole('button', { name: /浮光星海/ }).click()
   await page.getByRole('button', { name: '应用搭配', exact: true }).click()
   await expect(page.getByRole('dialog').getByRole('alert')).toContainText('磁盘写入失败')
   expect(await saved(page)).toEqual(before)
@@ -187,7 +187,9 @@ test('scene commit queues behind earlier edits and a simultaneous close flush sa
       invoke: async (command: string, args: any = {}) => {
         switch (command) {
           case 'get_settings': return app.__saved
+          case 'apply_scene':
           case 'update_settings': {
+            if (command === 'apply_scene') args.settings = { ...app.__saved, ...args.scene }
             app.__writes.push(args.settings)
             await new Promise<void>(resolve => app.__release.push(resolve))
             app.__saved = args.settings; return args.settings
@@ -200,7 +202,7 @@ test('scene commit queues behind earlier edits and a simultaneous close flush sa
           case 'plugin:autostart|is_enabled': case 'plugin:window|is_maximized': return false
           case 'plugin:window|is_visible': return true
           case 'plugin:event|listen': return 1
-          case 'plugin:event|unlisten': return
+          case 'plugin:event|unlisten': case 'sync_scene_shortcuts': return
           default: throw new Error(`Unexpected IPC: ${command}`)
         }
       },
@@ -238,7 +240,7 @@ for (const viewport of [{ width: 1440, height: 940 }, { width: 1000, height: 620
     await page.getByRole('button', { name: '纯色预览背景' }).click()
     const errors: string[] = []; page.on('pageerror', error => errors.push(error.message))
     await open(page)
-    for (const name of ['星光留白', '彩球星海', '流光律动']) {
+    for (const name of ['星光留白', '浮光星海', '轻雪星光']) {
       await page.getByRole('button', { name: new RegExp(name) }).click()
       await expect(page.locator('canvas')).toHaveCount(name === '星光留白' ? 1 : 2)
       await expect.poll(() => page.locator('canvas').evaluateAll(async canvases => {

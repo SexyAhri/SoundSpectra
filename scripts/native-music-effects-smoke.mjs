@@ -46,11 +46,11 @@ try {
       regions:[],masks:[],music:{...initial.music,fieldScale:1.35,fieldBrightness:60} } })
     await page.reload()
     const effects = [
-      ['rhythm_balls', '弹球'], ['rhythm_rain', '落雨'], ['rhythm_fluid', '熔金潮汐'], ['rhythm_skin', '风织绸境'],
-      ['spectrum_bars', '频谱柱'], ['ripple', '雪花飘舞'], ['pulse_ring', '脉冲光环'], ['volume_rain', '晴空浮游'],
-      ['dream_stars', '梦幻星空'], ['vortex', '旋涡'], ['water_ripple', '水波纹'], ['rhythm_bars', '丹霞声谷'],
+      ['rhythm_balls', '浮光水母'], ['rhythm_rain', '落雨'], ['rhythm_skin', '风织绸境'],
+      ['ripple', '雪花飘舞'], ['volume_rain', '晴空浮游'],
+      ['dream_stars', '银河'], ['vortex', '旋涡'],
     ]
-    for (const [id, label] of effects.filter(([id])=>!process.argv.includes('--immersive') || id==='rhythm_fluid' || id==='pulse_ring')) {
+    for (const [id, label] of effects) {
       await page.getByRole('tab', { name: '动效', exact: true }).click()
       await page.getByRole('button', { name: label, exact: true }).click()
       await expect.poll(async () => (await invoke('get_settings')).effect).toBe(id)

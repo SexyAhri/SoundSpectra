@@ -7,24 +7,124 @@ use std::{
 };
 use tauri::WebviewWindow;
 use windows_sys::Win32::{
-    Foundation::{HWND, LPARAM, POINT},
+    Foundation::{HWND, LPARAM, POINT, RECT},
     Graphics::Gdi::*,
     UI::{Controls::Dialogs::*, Shell::*, WindowsAndMessaging::*},
 };
 fn wide(value: &str) -> Vec<u16> {
     value.encode_utf16().chain(Some(0)).collect()
 }
+
+#[cfg(test)]
+mod transition_tests {
+    use super::*;
+    use std::cell::Cell;
+    thread_local! {
+        static HIDES: Cell<u32> = const { Cell::new(0) };
+        static ACTIVATIONS: Cell<u32> = const { Cell::new(0) };
+    }
+    unsafe extern "system" fn observe(
+        hwnd: HWND,
+        message: u32,
+        wp: usize,
+        lp: isize,
+        _: usize,
+        _: usize,
+    ) -> isize {
+        if message == WM_SHOWWINDOW && wp == 0 {
+            HIDES.with(|count| count.set(count.get() + 1));
+        }
+        if message == WM_SETFOCUS || (message == WM_ACTIVATE && wp & 0xffff != WA_INACTIVE as usize)
+        {
+            ACTIVATIONS.with(|count| count.set(count.get() + 1));
+        }
+        DefSubclassProc(hwnd, message, wp, lp)
+    }
+    struct TestWindow(HWND);
+    impl TestWindow {
+        unsafe fn new(visible: bool) -> Self {
+            let handle = CreateWindowExW(
+                0,
+                wide("STATIC").as_ptr(),
+                null(),
+                WS_POPUP | if visible { WS_VISIBLE } else { 0 },
+                -30000,
+                -30000,
+                100,
+                100,
+                null_mut(),
+                null_mut(),
+                null_mut(),
+                null(),
+            );
+            assert!(!handle.is_null());
+            Self(handle)
+        }
+    }
+    impl Drop for TestWindow {
+        fn drop(&mut self) {
+            unsafe {
+                DestroyWindow(self.0);
+            }
+        }
+    }
+    #[test]
+    fn layout_updates_keep_the_rail_attached_visible_and_inactive() {
+        unsafe {
+            let parent = TestWindow::new(true);
+            let rail = TestWindow::new(false);
+            assert_ne!(SetWindowSubclass(rail.0, Some(observe), 1, 0), 0);
+            position_window(rail.0, parent.0, -30000, -30000, 100, 100).unwrap();
+            HIDES.with(|count| count.set(0));
+            ACTIVATIONS.with(|count| count.set(0));
+            for height in [200, 100, 200, 100] {
+                position_window(rail.0, parent.0, -30000, -30000, 100, height).unwrap();
+                assert_eq!(GetParent(rail.0), parent.0);
+                assert_ne!(IsWindowVisible(rail.0), 0);
+                assert!(Bounds {
+                    x: -30000,
+                    y: -30000,
+                    width: 100,
+                    height
+                }
+                .matches(rail.0));
+                // A visible, attached window still needs repair after the
+                // display size or scale changes its expected geometry.
+                assert!(!Bounds {
+                    x: -30000,
+                    y: -30000,
+                    width: 120,
+                    height
+                }
+                .matches(rail.0));
+            }
+            assert_eq!(HIDES.with(Cell::get), 0);
+            // Observe this window instead of assuming the user and other
+            // concurrently running tests never change the global foreground.
+            assert_eq!(ACTIVATIONS.with(Cell::get), 0);
+            RemoveWindowSubclass(rail.0, Some(observe), 1);
+        }
+    }
+}
 pub fn desktop_directories() -> (Vec<std::path::PathBuf>, Vec<String>) {
     let mut directories = vec![];
     let mut issues = vec![];
-    for (id, label) in [(FOLDERID_Desktop, "个人桌面"), (FOLDERID_PublicDesktop, "公共桌面")] {
+    for (id, label) in [
+        (FOLDERID_Desktop, "个人桌面"),
+        (FOLDERID_PublicDesktop, "公共桌面"),
+    ] {
         unsafe {
             let mut value = null_mut();
             let result = SHGetKnownFolderPath(&id, 0, null_mut(), &mut value);
-            if result < 0 || value.is_null() { issues.push(format!("无法读取{label}：{result}")); continue; }
+            if result < 0 || value.is_null() {
+                issues.push(format!("无法读取{label}：{result}"));
+                continue;
+            }
             let mut length = 0;
-            while *value.add(length) != 0 { length += 1; }
-            let path = String::from_utf16_lossy(std::slice::from_raw_parts(value,length));
+            while *value.add(length) != 0 {
+                length += 1;
+            }
+            let path = String::from_utf16_lossy(std::slice::from_raw_parts(value, length));
             windows_sys::Win32::System::Com::CoTaskMemFree(value.cast());
             directories.push(std::path::PathBuf::from(path));
         }
@@ -56,23 +156,51 @@ fn host() -> Result<HWND, String> {
         }
     }
 }
-pub fn attached(window: &WebviewWindow, expanded: bool) -> bool {
+pub fn attached(window: &WebviewWindow, group: &RailGroup) -> bool {
     unsafe {
-        match (window.hwnd(), host()) {
-            (Ok(hwnd), Ok(host)) => {
+        match (window.hwnd(), host(), bounds(window, group)) {
+            (Ok(hwnd), Ok(host), Ok(bounds)) => {
                 let handle = hwnd.0 as HWND;
-                let parent = if expanded { null_mut() } else { host };
-                GetParent(handle) == parent && IsWindowVisible(handle) != 0
+                GetParent(handle) == host && IsWindowVisible(handle) != 0 && bounds.matches(handle)
             }
             _ => false,
         }
     }
 }
-pub fn attach(window: &WebviewWindow, group: &RailGroup, expanded: bool) -> Result<(), String> {
-    // Editable popups need an activatable top-level window. The resting rail
-    // remains a non-activating child of Explorer, without any global input hooks.
-    let parent = if expanded { null_mut() } else { host()? };
+struct Bounds {
+    x: i32,
+    y: i32,
+    width: i32,
+    height: i32,
+}
+impl Bounds {
+    unsafe fn matches(&self, handle: HWND) -> bool {
+        let mut rect: RECT = zeroed();
+        GetWindowRect(handle, &mut rect) != 0
+            && (
+                rect.left,
+                rect.top,
+                rect.right - rect.left,
+                rect.bottom - rect.top,
+            ) == (self.x, self.y, self.width, self.height)
+    }
+}
+pub fn attach(window: &WebviewWindow, group: &RailGroup) -> Result<(), String> {
+    super::native_drop::install(window)?;
+    super::popup_focus::install(window)?;
+    // Menus have a companion window. The rail always remains a non-activating
+    // child of Explorer; opening a panel never reparents or resizes this HWND.
+    let parent = host()?;
     let handle = window.hwnd().map_err(|e| e.to_string())?.0 as HWND;
+    let Bounds {
+        x,
+        y,
+        width,
+        height,
+    } = bounds(window, group)?;
+    unsafe { position_window(handle, parent, x, y, width, height) }
+}
+fn bounds(window: &WebviewWindow, group: &RailGroup) -> Result<Bounds, String> {
     let monitor = window
         .primary_monitor()
         .map_err(|e| e.to_string())?
@@ -82,11 +210,30 @@ pub fn attach(window: &WebviewWindow, group: &RailGroup, expanded: bool) -> Resu
     let width = (screen.width as f64 * group.width).round() as i32;
     let dpi = monitor.scale_factor();
     let unit = (width as f64 / dpi / 880.0).clamp(0.65, 1.35);
-    let logical_height = if group.collapsed { 36.0 } else { 226.0 * unit + 28.0 };
-    let height = ((logical_height + if expanded { 320.0 } else { 0.0 }) * dpi)
-        .ceil().min(screen.height as f64 * (1.0 - group.y)) as i32;
+    // The native region supplies click-through. Keep the backing surface tall
+    // enough for the collapse fade instead of cutting the WebView mid-frame.
+    let logical_height = 300.0 * unit + 28.0;
+    let height = (logical_height * dpi)
+        .ceil()
+        .min(screen.height as f64 * (1.0 - group.y)) as i32;
     let x = origin.x + (screen.width as f64 * group.x).round() as i32;
     let y = origin.y + (screen.height as f64 * group.y).round() as i32;
+    Ok(Bounds {
+        x,
+        y,
+        width,
+        height,
+    })
+}
+
+unsafe fn position_window(
+    handle: HWND,
+    parent: HWND,
+    x: i32,
+    y: i32,
+    width: i32,
+    height: i32,
+) -> Result<(), String> {
     unsafe {
         let mut current = std::mem::zeroed();
         GetWindowRect(handle, &mut current);
@@ -100,40 +247,51 @@ pub fn attach(window: &WebviewWindow, group: &RailGroup, expanded: bool) -> Resu
             return Ok(());
         }
         let changing_parent = GetParent(handle) != parent;
-        if changing_parent { ShowWindow(handle, SW_HIDE); }
-        SetWindowPos(
-            handle,
-            HWND_NOTOPMOST,
-            0,
-            0,
-            0,
-            0,
-            SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE,
-        );
         let style = GetWindowLongPtrW(handle, GWL_STYLE);
-        SetWindowLongPtrW(
-            handle,
-            GWL_STYLE,
-            (style & !((WS_POPUP | WS_CHILD | WS_CAPTION | WS_THICKFRAME) as isize))
-                | if expanded { WS_POPUP as isize } else { WS_CHILD as isize },
-        );
+        let next_style = (style & !((WS_POPUP | WS_CHILD | WS_CAPTION | WS_THICKFRAME) as isize))
+            | WS_CHILD as isize;
+        if next_style != style {
+            SetWindowLongPtrW(handle, GWL_STYLE, next_style);
+        }
         let ex = GetWindowLongPtrW(handle, GWL_EXSTYLE);
-        SetWindowLongPtrW(
-            handle,
-            GWL_EXSTYLE,
-            (ex & !((WS_EX_APPWINDOW | WS_EX_TOPMOST | WS_EX_TRANSPARENT | WS_EX_NOACTIVATE) as isize))
-                | (WS_EX_TOOLWINDOW | WS_EX_LAYERED) as isize
-                | if expanded { 0 } else { WS_EX_NOACTIVATE as isize },
-        );
-        if SetLayeredWindowAttributes(handle, 0, 255, LWA_ALPHA) == 0 {
+        if ex & WS_EX_TOPMOST as isize != 0 {
+            SetWindowPos(
+                handle,
+                HWND_NOTOPMOST,
+                0,
+                0,
+                0,
+                0,
+                SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE,
+            );
+        }
+        let next_ex = (ex
+            & !((WS_EX_APPWINDOW | WS_EX_TOPMOST | WS_EX_TRANSPARENT | WS_EX_NOACTIVATE) as isize))
+            | (WS_EX_TOOLWINDOW | WS_EX_LAYERED) as isize
+            | WS_EX_NOACTIVATE as isize;
+        if next_ex != ex {
+            SetWindowLongPtrW(handle, GWL_EXSTYLE, next_ex);
+        }
+        let (mut alpha, mut flags) = (0, 0);
+        if (GetLayeredWindowAttributes(handle, null_mut(), &mut alpha, &mut flags) == 0
+            || alpha != 255
+            || flags != LWA_ALPHA)
+            && SetLayeredWindowAttributes(handle, 0, 255, LWA_ALPHA) == 0
+        {
             return Err(std::io::Error::last_os_error().to_string());
         }
-        if changing_parent { SetParent(handle, parent); }
+        // Keep the WebView visible throughout the synchronous host change.
+        // Hiding it drops its compositor surface and flashes the entire rail.
+        if changing_parent {
+            SetParent(handle, parent);
+        }
         if GetParent(handle) != parent {
-            return Err("挂架挂载到桌面失败".into());
+            return Err("拾光绳挂载到桌面失败".into());
         }
         let mut point = POINT { x, y };
-        if !parent.is_null() { MapWindowPoints(null_mut(), parent, &mut point, 1); }
+        if !parent.is_null() {
+            MapWindowPoints(null_mut(), parent, &mut point, 1);
+        }
         if SetWindowPos(
             handle,
             HWND_TOP,
@@ -141,7 +299,17 @@ pub fn attach(window: &WebviewWindow, group: &RailGroup, expanded: bool) -> Resu
             point.y,
             width,
             height,
-            SWP_NOACTIVATE | SWP_FRAMECHANGED | SWP_SHOWWINDOW
+            SWP_NOACTIVATE
+                | if next_style != style || next_ex != ex {
+                    SWP_FRAMECHANGED
+                } else {
+                    0
+                }
+                | if IsWindowVisible(handle) == 0 {
+                    SWP_SHOWWINDOW
+                } else {
+                    0
+                }
                 | if changing_parent { 0 } else { SWP_NOZORDER },
         ) == 0
         {
@@ -154,12 +322,32 @@ pub fn hit_regions(window: &WebviewWindow, regions: &[super::HitRect]) -> Result
     let handle = window.hwnd().map_err(|e| e.to_string())?.0 as HWND;
     unsafe {
         let combined = CreateRectRgn(0, 0, 0, 0);
-        if combined.is_null() { return Err(std::io::Error::last_os_error().to_string()); }
+        if combined.is_null() {
+            return Err(std::io::Error::last_os_error().to_string());
+        }
         for r in regions {
-            let part = CreateRectRgn(r.x.floor() as i32, r.y.floor() as i32, (r.x + r.width).ceil() as i32, (r.y + r.height).ceil() as i32);
-            if part.is_null() { DeleteObject(combined); return Err("无法创建挂件点击区域".into()); }
+            let part = CreateRectRgn(
+                r.x.floor() as i32,
+                r.y.floor() as i32,
+                (r.x + r.width).ceil() as i32,
+                (r.y + r.height).ceil() as i32,
+            );
+            if part.is_null() {
+                DeleteObject(combined);
+                return Err("无法创建挂件点击区域".into());
+            }
             CombineRgn(combined, combined, part, RGN_OR);
             DeleteObject(part);
+        }
+        let previous = CreateRectRgn(0, 0, 0, 0);
+        if !previous.is_null() {
+            let unchanged =
+                GetWindowRgn(handle, previous) != 0 && EqualRgn(previous, combined) != 0;
+            DeleteObject(previous);
+            if unchanged {
+                DeleteObject(combined);
+                return Ok(());
+            }
         }
         if SetWindowRgn(handle, combined, 1) == 0 {
             DeleteObject(combined);

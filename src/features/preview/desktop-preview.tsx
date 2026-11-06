@@ -1,6 +1,6 @@
 import { ModalContent } from '@/components/ui/modal'
 import { IconButton } from '@/components/ui/icon-button'
-import { useEffect, useRef, useState, type KeyboardEvent, type PointerEvent, type RefObject } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState, type KeyboardEvent, type PointerEvent, type RefObject } from 'react'
 import { Dialog } from 'radix-ui'
 import { ImagePlus, Maximize2, Monitor, Move, RefreshCw, Scan, Sparkles, Undo2, X, Bookmark } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -20,6 +20,7 @@ import { AutoSceneDialog } from './auto-scene-dialog'
 import { composition, rememberChoice, type SceneComposition } from './scene-suggestions'
 import { SceneLibraryDialog } from './scene-library-dialog'
 import { layout, type SceneLayout } from './scene-library'
+import { desktopLayout } from './desktop-scenes'
 import { CardLayer } from '../desktop-card/card-layer'
 import { emptyNowPlaying, type NowPlaying } from '../desktop-card/use-now-playing'
 import { DepthWallpaper } from '../wallpaper-depth/wallpaper-depth-layer'
@@ -27,10 +28,18 @@ import { LyricLayer } from '../lyrics/lyric-layer'
 import { emptyLyrics, type LyricDocument } from '../lyrics/model'
 import { RailLayer } from '../rail/rail-layer'
 import type { RailController } from '../rail/use-rail'
+import { useCoverColors } from '../desktop-card/use-cover-colors'
+import { CoverColorControl } from '../desktop-card/cover-color-control'
+import { useSceneShortcuts } from './use-scene-shortcuts'
+import { ContextMenu } from '@/components/ui/context-menu'
+import { layerIndex } from './scene-layers'
+import { previewObjectActions } from './preview-object-actions'
+import { railObstacles } from '../lyrics/avoid-rail'
+import { railPlacementActions } from '../rail/rail-placement-actions'
 
 interface Props {
   settings: SpectrumSettings; update: SettingsUpdate;
-  commitScene: (patch: Partial<SpectrumSettings>) => Promise<SpectrumSettings>;
+  commitScene: (patch: Partial<SceneLayout>) => Promise<SpectrumSettings>;
   bands: RefObject<Float32Array>; receivedAt: RefObject<number>; analysis: RefObject<AnalysisSnapshot>;
   demo: boolean; onDemoChange: (value: boolean) => void; running: boolean;
   disabled: boolean; active: boolean;
@@ -40,6 +49,7 @@ interface Props {
   onEditLyrics?: () => void; onEditCard?: () => void;
   rail?: RailController; selectedRail?: string | null; railEditing?: boolean;
   onSelectRail?: (groupId: string, itemId?: string) => void;
+  onShow?: () => void;
 }
 interface StageProps extends Props {
   viewPreviewOnly?: boolean;
@@ -50,11 +60,26 @@ interface StageProps extends Props {
 
 function PreviewStage(props: StageProps) {
   const { settings, update, screen, desktop, image, arranging, expanded, disabled } = props
+  const colors = useCoverColors(settings, props.nowPlaying ?? emptyNowPlaying, props.active)
+  const [selectedObject, setSelectedObject] = useState(`effect:${props.selectedRegion}`)
+  useEffect(() => setSelectedObject(`effect:${props.selectedRegion}`), [props.selectedRegion])
+  const selectObject = (key: string) => {
+    setSelectedObject(key)
+    if (key === 'lyrics') props.onEditLyrics?.()
+    else if (key === 'card') props.onEditCard?.()
+    else if (key.startsWith('rail:')) props.onSelectRail?.(key.slice(5))
+    else props.onSelectRegion(key.slice(7))
+  }
+  const menu = selectedObject.startsWith('rail:') && props.rail
+    ? railPlacementActions(props.rail, selectedObject.slice(5), () => selectObject(selectedObject))
+    : previewObjectActions(settings, selectedObject, update, selectObject)
+  const logicalScreen = { width: screen.width / window.devicePixelRatio, height: screen.height / window.devicePixelRatio }
+  const obstacles = railObstacles(props.rail?.settings, logicalScreen)
   const holder = useRef<HTMLDivElement>(null), surface = useRef<HTMLDivElement>(null)
   const [size, setSize] = useState({ width: 0, height: 0 })
   const [draft, setDraft] = useState<{ region: string; bounds: Bounds } | null>(null)
   const gesture = useRef<{ id: number; region: string; x: number; y: number; width: number; height: number; start: Bounds; next: Bounds; resize: boolean } | null>(null)
-  useEffect(() => {
+  useLayoutEffect(() => {
     const measure = () => {
       const available = holder.current!.clientWidth
       const maxHeight = expanded || window.innerWidth > 760 ? Math.max(1, holder.current!.clientHeight) : Infinity
@@ -73,7 +98,7 @@ function PreviewStage(props: StageProps) {
     event.preventDefault(); event.stopPropagation(); event.currentTarget.focus()
     const rect = surface.current!.getBoundingClientRect()
     const bounds = settingsForRegion(settings, region).bounds
-    props.onSelectRegion(region)
+    selectObject(`effect:${region}`)
     gesture.current = { id: event.pointerId, region, x: event.clientX, y: event.clientY, width: rect.width, height: rect.height, start: { ...bounds }, next: { ...bounds }, resize }
     event.currentTarget.setPointerCapture(event.pointerId)
   }
@@ -105,19 +130,27 @@ function PreviewStage(props: StageProps) {
     update(latest => regionPatch(latest, region, { bounds: (resize ? resizeBounds : moveBounds)(settingsForRegion(latest, region).bounds, dx, dy) }))
   }
   const regions = sceneRegions(settings), count = Math.max(1, regions.filter(region => region.visible).length)
-  return <div className="preview-stage-holder" ref={holder}>
-    <div className={`desktop-preview${arranging ? ' arranging' : ''}`} ref={surface} style={{ width: size.width || '100%', height: size.width ? size.height : undefined, aspectRatio: `${screen.width} / ${screen.height}` }}>
+  return <><div className="preview-stage-holder" ref={holder}>
+    <ContextMenu {...menu} disabled={!arranging || disabled || props.viewPreviewOnly} onReturnFocus={() => {
+      surface.current?.querySelector<HTMLElement>(`[data-preview-object="${CSS.escape(selectedObject)}"]`)?.focus({ preventScroll: true })
+    }}>
+    <div className={`desktop-preview${arranging ? ' arranging' : ''}`} ref={surface} style={{ width: size.width || '100%', height: size.width ? size.height : undefined, aspectRatio: `${screen.width} / ${screen.height}` }}
+      onContextMenu={event => {
+        const target = (event.target as Element).closest<HTMLElement>('[data-preview-object]')
+        if (!arranging || disabled || !target || gesture.current) { event.preventDefault(); return }
+        selectObject(target.dataset.previewObject!)
+      }}>
       <div className="preview-wallpaper" data-testid="preview-wallpaper" style={wallpaperStyle(image, desktop, screen, size.width)} />
       {settings.wallpaperDepth.enabled&&<DepthWallpaper settings={settings.wallpaperDepth} active={props.active} host={surface}/>}
       <div className="preview-corner"><span className={props.demo ? 'demo-dot' : props.running ? 'live-dot' : 'idle-dot'} />{props.demo ? '模拟音频' : props.running ? '实时输入' : '等待音乐播放'}</div>
       {regions.filter(region => region.visible || arranging).map(region => {
         const bounds = draft?.region === region.id ? draft.bounds : region.bounds
         const selected = props.selectedRegion === region.id
-        return <div key={region.id} className={`preview-spectrum${selected ? ' selected' : ''}${selected && regions.length > 1 && !arranging && !props.viewPreviewOnly ? ' region-edit-target' : ''}${region.visible ? '' : ' region-hidden'}`} data-region-id={region.id} style={{ left: `${bounds.x * 100}%`, top: `${bounds.y * 100}%`, width: `${bounds.width * 100}%`, height: `${bounds.height * 100}%`, zIndex: arranging && selected ? 3 : 2, pointerEvents: arranging || selected ? undefined : 'none' }}
+        return <div key={region.id} className={`preview-spectrum${selected ? ' selected' : ''}${selected && regions.length > 1 && !arranging && !props.viewPreviewOnly ? ' region-edit-target' : ''}${region.visible ? '' : ' region-hidden'}`} data-region-id={region.id} data-preview-object={`effect:${region.id}`} data-selected={selectedObject === `effect:${region.id}` || undefined} style={{ left: `${bounds.x * 100}%`, top: `${bounds.y * 100}%`, width: `${bounds.width * 100}%`, height: `${bounds.height * 100}%`, zIndex: layerIndex(settings, `effect:${region.id}`), pointerEvents: arranging || selected ? undefined : 'none' }}
         role={arranging ? 'group' : undefined} tabIndex={arranging && !disabled ? 0 : undefined}
         aria-label={arranging ? `${regions.length > 1 ? region.name + '，' : ''}动效位置，方向键移动，Shift 加速` : undefined}
-        onFocus={() => { if (arranging) props.onSelectRegion(region.id) }} onPointerDown={event => begin(event, false, region.id)} onPointerMove={move} onPointerUp={event => finish(event)} onPointerCancel={event => finish(event, true)} onLostPointerCapture={event => finish(event, true)} onKeyDown={event => keyboard(event, false, region.id)}>
-        {region.visible && <SpectrumCanvas settings={{ ...settingsForRegion(settings, region.id), bounds }} regionCount={count} bands={props.bands} receivedAt={props.receivedAt} analysis={props.analysis} demo={props.demo} active={props.active} interactive={!disabled && !arranging && !props.masking && selected}
+        onFocus={() => { if (arranging) selectObject(`effect:${region.id}`) }} onPointerDown={event => begin(event, false, region.id)} onPointerMove={move} onPointerUp={event => finish(event)} onPointerCancel={event => finish(event, true)} onLostPointerCapture={event => finish(event, true)} onKeyDown={event => keyboard(event, false, region.id)}>
+        {region.visible && <SpectrumCanvas settings={{ ...settingsForRegion(colors.settings, region.id), bounds }} regionCount={count} bands={props.bands} receivedAt={props.receivedAt} analysis={props.analysis} demo={props.demo} active={props.active} interactive={!disabled && !arranging && !props.masking && selected}
           onViewChange={props.viewPreviewOnly ? undefined : view => update(latest => regionPatch(latest, region.id, { view }))} />}
         {selected && regions.length > 1 && !arranging && !props.viewPreviewOnly && <span className="region-edit-label">正在调整：{region.name}</span>}
         {arranging && <>
@@ -126,14 +159,18 @@ function PreviewStage(props: StageProps) {
             onPointerDown={event => begin(event, true, region.id)} onPointerMove={move} onPointerUp={event => finish(event)} onPointerCancel={event => finish(event, true)} onLostPointerCapture={event => finish(event, true)} onKeyDown={event => keyboard(event, true, region.id)} />
         </>}
       </div>})}
-      {settings.desktopCard.enabled && <CardLayer settings={settings.desktopCard} info={props.nowPlaying ?? emptyNowPlaying} color={settings.color} bands={props.bands} receivedAt={props.receivedAt} demo={props.demo} active={props.active} arranging={arranging && !disabled} onSelect={props.onEditCard} onChange={bounds => update({ desktopCard: { ...settings.desktopCard, bounds } })} />}
-      {settings.lyrics.enabled && <LyricLayer settings={settings.lyrics} document={props.lyricDocument ?? emptyLyrics} info={props.nowPlaying ?? emptyNowPlaying} demo={props.demo} active={props.active}
-        draggable={!disabled && !props.masking && !props.viewPreviewOnly} onSelect={props.onEditLyrics} onBoundsChange={(bounds, resized) => update(current => ({ lyrics: { ...current.lyrics, bounds,
+      {settings.desktopCard.enabled && <CardLayer zIndex={layerIndex(settings, 'card')} selected={selectedObject === 'card'} settings={settings.desktopCard} info={props.nowPlaying ?? emptyNowPlaying} color={colors.settings.color} bands={props.bands} receivedAt={props.receivedAt} demo={props.demo} active={props.active} arranging={arranging && !disabled} onSelect={() => selectObject('card')} onChange={bounds => update({ desktopCard: { ...settings.desktopCard, bounds } })} />}
+      {settings.lyrics.enabled && <LyricLayer settings={settings.lyrics} appearance={settings} document={props.lyricDocument ?? emptyLyrics} info={props.nowPlaying ?? emptyNowPlaying} demo={props.demo} active={props.active}
+        obstacles={obstacles} zIndex={layerIndex(settings, 'lyrics')} selected={selectedObject === 'lyrics'} draggable={!disabled && !props.masking && !props.viewPreviewOnly} onSelect={() => selectObject('lyrics')} onBoundsChange={(bounds, resized) => update(current => ({ lyrics: { ...current.lyrics, bounds,
           fontSize: resized ? Math.round(Math.max(18, Math.min(72, current.lyrics.fontSize * Math.sqrt(bounds.width * bounds.height / (current.lyrics.bounds.width * current.lyrics.bounds.height))))) : current.lyrics.fontSize } }))} />}
-      {props.rail && !props.viewPreviewOnly && <RailLayer controller={props.rail} selected={props.selectedRail ?? null} editing={!!props.railEditing && !disabled} interactive={!props.masking} onSelect={props.onSelectRail ?? (() => {})} />}
+      {props.rail && !props.viewPreviewOnly && <RailLayer desktopWidth={logicalScreen.width} controller={props.rail} selected={arranging ? selectedObject.startsWith('rail:') ? selectedObject.slice(5) : null : props.selectedRail ?? null} arranging={arranging && !disabled} editing={!!props.railEditing && !disabled} interactive={!props.masking && !disabled} onSelect={(groupId, itemId) => {
+        if (arranging) setSelectedObject(`rail:${groupId}`)
+        props.onSelectRail?.(groupId, itemId)
+      }} />}
       {props.masking && <MaskEditor masks={settings.masks} selected={props.selectedMask} onSelect={props.onSelectMask} disabled={disabled} onChange={masks => update({ masks })} />}
     </div>
-  </div>
+    </ContextMenu>
+  </div>{!props.viewPreviewOnly && <CoverColorControl settings={settings} display={colors.settings} message={colors.message} available={colors.available} disabled={disabled} update={update} />}</>
 }
 
 export function DesktopPreview(props: Props) {
@@ -144,10 +181,10 @@ export function DesktopPreview(props: Props) {
   const autoTrigger = useRef<HTMLButtonElement>(null)
   const [libraryOpen, setLibraryOpen] = useState(false)
   const libraryTrigger = useRef<HTMLButtonElement>(null)
-  const [history, setHistory] = useState<{ before: SceneComposition | SceneLayout; after: string; masks: boolean } | null>(null)
+  const [history, setHistory] = useState<{ before: SceneComposition | SceneLayout; after: string; masks: boolean; desktop?: boolean } | null>(null)
   const [sceneNotice, setSceneNotice] = useState<{ text: string; error: boolean } | null>(null)
   const [undoing, setUndoing] = useState(false)
-  const canUndo = history && history.after === JSON.stringify(history.masks ? layout(props.settings) : composition(props.settings))
+  const canUndo = history && history.after === JSON.stringify(history.desktop ? desktopLayout(props.settings) : history.masks ? layout(props.settings) : composition(props.settings))
   useEffect(() => {
     if (history && !canUndo && !undoing) { setHistory(null); setSceneNotice(null) }
   }, [history, canUndo, undoing])
@@ -160,19 +197,23 @@ export function DesktopPreview(props: Props) {
     catch { setSceneNotice({ text: '搭配已应用，但未能记住这张壁纸的方案偏好。', error: true }) }
   }
   const applySavedScene = async (scene: SceneLayout) => {
-    const before = layout(props.settings)
+    const capture = scene.desktop ? desktopLayout : layout
+    const before = capture(props.settings)
     const saved = await props.commitScene(scene)
-    setHistory({ before, after: JSON.stringify(layout(saved)), masks: true })
+    setHistory({ before, after: JSON.stringify(capture(saved)), masks: true, desktop: !!scene.desktop })
     props.onSelectRegion('primary'); setArranging(false); setMasking(false)
     setSceneNotice({ text: '收藏场景已应用，可撤销。', error: false })
   }
   const undoScene = async () => {
     if (!history || !canUndo || undoing || props.disabled) return
     setUndoing(true)
-    try { await props.commitScene(history.before); setHistory(null); setSceneNotice({ text: '已恢复之前的动效与区域。', error: false }) }
+    try { await props.commitScene(history.before); setHistory(null); setSceneNotice({ text: '已恢复应用前的搭配。', error: false }) }
     catch (error) { setSceneNotice({ text: `撤销失败：${error instanceof Error ? error.message : String(error)}`, error: true }) }
     finally { setUndoing(false) }
   }
+  useSceneShortcuts({ disabled: props.disabled, apply: applySavedScene,
+    show: () => props.onShow?.(), open: () => { setExpanded(false); setAutoOpen(false); setLibraryOpen(true) },
+    report: text => setSceneNotice({ text, error: true }) })
   const maskSelection = props.settings.masks.some(mask => mask.id === selectedMask) ? selectedMask : props.settings.masks[0]?.id ?? null
   useEffect(() => { if (props.arrangeRequest) { setArranging(true); setMasking(false) } }, [props.arrangeRequest])
   const fileInput = useRef<HTMLInputElement>(null)
@@ -221,7 +262,7 @@ export function DesktopPreview(props: Props) {
     </div>}
     <input ref={fileInput} type="file" accept="image/png,image/jpeg,image/webp,image/bmp" aria-label="参考图片文件" hidden onChange={event => { const file = event.target.files?.[0]; event.target.value = ''; if (file) void background.importFile(file) }} />
     {(status || background.fileError || background.importing) && <p className="preview-message" role={background.fileError || background.error && background.mode === 'desktop' ? 'alert' : 'status'}>{background.fileError ?? (background.importing ? '正在保存参考图片…' : status)}</p>}
-    {arranging && !props.disabled && <p className="preview-message">拖动位置，右下角以中心缩放；方向键微调，Shift 加速。</p>}
+    {arranging && !props.disabled && <p className="preview-message">拖动位置，右下角缩放；右键调整图层、居中或复制。方向键微调，Shift 加速。歌词自动避让拾光绳。</p>}
     <Dialog.Root open={expanded} onOpenChange={setExpanded}>
       <ModalContent className="preview-dialog">
         <div className="preview-dialog-heading"><Dialog.Title>桌面预览</Dialog.Title><div className="preview-tools">{arrangementButton}{maskButton}<Dialog.Close asChild><IconButton aria-label="关闭放大预览"><X size={18} /></IconButton></Dialog.Close></div></div>

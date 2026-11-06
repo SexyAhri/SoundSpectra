@@ -37,8 +37,8 @@
 .studio-shell .inspector-content .parameter { margin-bottom: 22px; }
 .studio-shell .inspector-content .parameter-label { margin-bottom: 12px; }
 .studio-shell .wallpaper-depth-controls { border: 0; margin: 0; padding: 0; }
-.studio-shell .wallpaper-depth-heading { flex-wrap: wrap; }
 .studio-shell .wallpaper-depth-tuning { align-items: stretch; flex-direction: column; margin-top: 24px; gap: 20px; }
+.wallpaper-depth-tuning .parameter, .wallpaper-depth-tuning .custom-color { margin-bottom: 0; }
 .studio-shell .wallpaper-depth-controls p { margin-top: 16px; line-height: 1.7; font-size: 11px; }
 .inspector-advanced { margin-top: 16px; border-top: 1px solid var(--border); }
 .inspector-advanced > summary { padding: 16px 0; cursor: pointer; color: var(--muted-foreground); font-size: 12px; }

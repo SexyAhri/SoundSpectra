@@ -1,245 +1,385 @@
-use super::{folded, parse, Line};
+use super::{folded, ttml, Line};
 use crate::now_playing::NowPlaying;
-use base64::{engine::general_purpose::STANDARD, Engine};
 use reqwest::{Client, Response};
-use serde_json::{json, Value};
-use std::time::Duration;
+use serde::{Deserialize, Serialize};
+use std::{path::Path, time::Duration};
 
-struct Song {
-    id: String,
-    mid: String,
-    title: String,
-    artist: String,
-    album: String,
-    duration: f64,
+const API: &str = "https://api.amll.dev";
+
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub(super) struct Song {
+    pub id: u64,
+    pub filename: String,
+    #[serde(default)]
+    pub created_at: u64,
+    #[serde(default)]
+    pub music_names: Vec<String>,
+    #[serde(default)]
+    pub artist_names: Vec<String>,
+    #[serde(default)]
+    pub album_names: Vec<String>,
+    #[serde(default)]
+    pub ncm_music_ids: Vec<String>,
+    #[serde(default)]
+    pub qq_music_ids: Vec<String>,
+    #[serde(default)]
+    pub apple_music_ids: Vec<String>,
+    #[serde(default)]
+    pub spotify_ids: Vec<String>,
+    #[serde(default)]
+    pub isrcs: Vec<String>,
+    #[serde(default)]
+    pub author_usernames: Vec<String>,
+    #[serde(default)]
+    pub lyrics: Option<String>,
 }
-fn score(song: &Song, info: &NowPlaying) -> Option<i32> {
-    if folded(&song.title) != folded(&info.title)
-        || folded(&song.artist) != folded(&info.artist)
-        || info.artist.is_empty()
+
+fn artist_parts(value: &str) -> Vec<String> {
+    value
+        .split(['/', '、', ',', '，', ';', '；', '&', '＆'])
+        .map(folded)
+        .filter(|v| !v.is_empty())
+        .collect()
+}
+fn score(song: &Song, info: &NowPlaying) -> Option<u16> {
+    if folded(&info.title).is_empty()
+        || folded(&info.artist).is_empty()
+        || !song
+            .music_names
+            .iter()
+            .any(|n| folded(n) == folded(&info.title))
     {
         return None;
     }
-    if info.duration > 0.0 && song.duration > 0.0 && (song.duration - info.duration).abs() > 4.0 {
+    let mut expected = artist_parts(&info.artist);
+    let mut actual: Vec<_> = song
+        .artist_names
+        .iter()
+        .flat_map(|n| artist_parts(n))
+        .collect();
+    expected.sort();
+    expected.dedup();
+    actual.sort();
+    actual.dedup();
+    if expected != actual {
         return None;
     }
-    Some(
-        100 + if !info.album.is_empty() && folded(&song.album) == folded(&info.album) {
-            10
-        } else {
-            0
-        },
-    )
+    let album = !info.album.is_empty()
+        && song
+            .album_names
+            .iter()
+            .any(|n| folded(n) == folded(&info.album));
+    Some(if album { 110 } else { 100 })
+}
+fn same_recording(a: &Song, b: &Song) -> bool {
+    a.id == b.id
+        || [
+            (&a.ncm_music_ids, &b.ncm_music_ids),
+            (&a.qq_music_ids, &b.qq_music_ids),
+            (&a.apple_music_ids, &b.apple_music_ids),
+            (&a.spotify_ids, &b.spotify_ids),
+            (&a.isrcs, &b.isrcs),
+        ]
+        .iter()
+        .any(|(left, right)| left.iter().any(|id| !id.is_empty() && right.contains(id)))
 }
 fn choose(songs: Vec<Song>, info: &NowPlaying) -> Option<Song> {
     let mut candidates: Vec<_> = songs
         .into_iter()
         .filter_map(|s| score(&s, info).map(|score| (score, s)))
         .collect();
-    candidates.sort_by(|a, b| b.0.cmp(&a.0));
-    if candidates.len() > 1 && candidates[0].0 == candidates[1].0 {
+    candidates.sort_by(|a, b| {
+        b.0.cmp(&a.0)
+            .then(b.1.created_at.cmp(&a.1.created_at))
+            .then(a.1.id.cmp(&b.1.id))
+    });
+    let (best, first) = candidates.first()?;
+    // Different lyric revisions may share a recording. Never resolve equally
+    // ranked different recordings just by choosing the first search result.
+    if candidates
+        .iter()
+        .skip(1)
+        .take_while(|(s, _)| s == best)
+        .any(|(_, s)| !same_recording(first, s))
+    {
         return None;
     }
     candidates.into_iter().next().map(|(_, song)| song)
 }
-async fn json_response(response: Response) -> Result<Value, String> {
+pub(super) fn lines(song: &Song, info: &NowPlaying) -> Option<Vec<Line>> {
+    score(song, info)?;
+    let text = song.lyrics.as_deref()?;
+    let lines = ttml::parse(text).ok()?;
+    // AMLL's body dur is the final lyric end, not necessarily the audio length.
+    // An instrumental outro is valid; only reject lyrics exceeding the track.
+    if info.duration > 0.0
+        && lines
+            .iter()
+            .any(|l| l.end as f64 > (info.duration + 4.0) * 1000.0)
+    {
+        return None;
+    }
+    Some(lines)
+}
+async fn json_response(response: Response) -> Result<serde_json::Value, String> {
+    if response.status().as_u16() == 429 {
+        return Err("AMLL 请求较多，请稍后重试".into());
+    }
     let mut response = response
         .error_for_status()
-        .map_err(|_| "歌词服务暂时不可用")?;
+        .map_err(|_| "AMLL 歌词服务暂时不可用")?;
     let mut bytes = Vec::new();
-    while let Some(chunk) = response.chunk().await.map_err(|_| "歌词响应读取失败")? {
+    while let Some(chunk) = response
+        .chunk()
+        .await
+        .map_err(|_| "AMLL 歌词响应读取失败")?
+    {
         if bytes.len() + chunk.len() > 2_097_152 {
-            return Err("歌词响应过大".into());
+            return Err("AMLL 歌词响应过大".into());
         }
         bytes.extend_from_slice(&chunk);
     }
-    serde_json::from_slice(&bytes).map_err(|_| "歌词服务返回格式异常".into())
+    let value: serde_json::Value =
+        serde_json::from_slice(&bytes).map_err(|_| "AMLL 返回格式异常")?;
+    if value["status"].as_u64() != Some(200) {
+        return Err("AMLL 歌词服务返回异常".into());
+    }
+    Ok(value)
 }
-fn artists(value: &Value) -> String {
-    value
-        .as_array()
-        .map(|items| {
-            items
-                .iter()
-                .filter_map(|v| v.get("name")?.as_str())
-                .collect::<Vec<_>>()
-                .join("/")
-        })
-        .unwrap_or_default()
-}
-fn text<'a>(value: &'a Value, key: &str) -> &'a str {
-    value.get(key).and_then(Value::as_str).unwrap_or("")
-}
-fn endpoint(base: &str, pairs: &[(&str, &str)]) -> reqwest::Url {
-    let mut url = reqwest::Url::parse(base).expect("constant provider URL");
+fn endpoint(base: &str, path: &str, pairs: &[(&str, &str)]) -> Result<reqwest::Url, String> {
+    let mut url = reqwest::Url::parse(base)
+        .and_then(|u| u.join(path))
+        .map_err(|_| "歌词服务地址无效")?;
     url.query_pairs_mut().extend_pairs(pairs.iter().copied());
-    url
+    Ok(url)
 }
-
-async fn netease(client: &Client, info: &NowPlaying) -> Result<Option<Vec<Line>>, String> {
-    let query = format!("{} {}", info.title, info.artist);
-    let search = json_response(
-        client
-            .get(endpoint(
-                "https://music.163.com/api/search/get",
-                &[("s", query.as_str()), ("type", "1"), ("limit", "20")],
-            ))
-            .header("Referer", "https://music.163.com/")
-            .send()
-            .await
-            .map_err(|error| format!("联网查找歌词失败：{}", error.without_url()))?,
-    )
-    .await?;
-    let songs = search
-        .pointer("/result/songs")
-        .and_then(Value::as_array)
-        .map(|songs| {
-            songs
-                .iter()
-                .map(|s| Song {
-                    id: s["id"].to_string(),
-                    mid: String::new(),
-                    title: text(s, "name").into(),
-                    artist: artists(&s["artists"]),
-                    album: text(&s["album"], "name").into(),
-                    duration: s["duration"].as_f64().unwrap_or(0.0) / 1000.0,
-                })
-                .collect()
-        })
-        .unwrap_or_default();
-    let Some(song) = choose(songs, info) else {
+async fn request(client: &Client, url: reqwest::Url) -> Result<serde_json::Value, String> {
+    let response = client
+        .get(url)
+        .send()
+        .await
+        .map_err(|_| "AMLL 歌词服务连接失败")?;
+    json_response(response).await
+}
+async fn fetch_from(
+    client: &Client,
+    base: &str,
+    info: &NowPlaying,
+) -> Result<Option<Song>, String> {
+    if folded(&info.title).is_empty() || folded(&info.artist).is_empty() {
         return Ok(None);
-    };
-    let response = json_response(
-        client
-            .get(endpoint(
-                "https://music.163.com/api/song/lyric",
+    }
+    // Structured metadata search avoids matches in the lyric body. One artist
+    // filter supports sessions that join several artists with separators.
+    let artist = info
+        .artist
+        .split(['/', '、', ',', '，', ';', '；', '&', '＆'])
+        .next()
+        .unwrap_or("")
+        .trim();
+    let mut songs = Vec::new();
+    for page_number in 1..=3 {
+        let page = page_number.to_string();
+        let response = request(
+            client,
+            endpoint(
+                base,
+                "/v1/lyrics/search",
                 &[
-                    ("id", song.id.as_str()),
-                    ("lv", "-1"),
-                    ("kv", "-1"),
-                    ("tv", "-1"),
+                    ("musicName", &info.title),
+                    ("artistName", artist),
+                    ("pageSize", "100"),
+                    ("page", &page),
                 ],
-            ))
-            .header("Referer", "https://music.163.com/")
-            .send()
-            .await
-            .map_err(|_| "联网读取歌词失败")?,
-    )
-    .await?;
-    let Some(lyric) = response.pointer("/lrc/lyric").and_then(Value::as_str) else {
-        return Ok(None);
-    };
-    Ok(parse(lyric).ok())
-}
-
-async fn qq(client: &Client, info: &NowPlaying) -> Result<Option<Vec<Line>>, String> {
-    let search=json_response(client.post("https://u.y.qq.com/cgi-bin/musicu.fcg").header("Referer","https://y.qq.com/").json(&json!({
-        "comm":{"ct":24,"cv":0},"req":{"module":"music.search.SearchCgiService","method":"DoSearchForQQMusicDesktop",
-        "param":{"query":format!("{} {}",info.title,info.artist),"num_per_page":20,"page_num":1,"search_type":0}}
-    })).send().await.map_err(|error|format!("QQ 歌词服务连接失败：{}",error.without_url()))?).await?;
-    let songs = search
-        .pointer("/req/data/body/song/list")
-        .and_then(Value::as_array)
-        .map(|songs| {
-            songs
-                .iter()
-                .map(|s| Song {
-                    id: s["id"].to_string(),
-                    mid: text(s, "mid").into(),
-                    title: text(s, "title").into(),
-                    artist: artists(&s["singer"]),
-                    album: text(&s["album"], "name").into(),
-                    duration: s["interval"].as_f64().unwrap_or(0.0),
-                })
-                .collect()
-        })
-        .unwrap_or_default();
-    let Some(song) = choose(songs, info) else {
-        return Ok(None);
-    };
-    let response=json_response(client.post("https://u.y.qq.com/cgi-bin/musicu.fcg").header("Referer","https://y.qq.com/").json(&json!({
-        "comm":{"ct":24,"cv":0},"lyric":{"module":"music.musichallSong.PlayLyricInfo","method":"GetPlayLyricInfo",
-        "param":{"songMID":song.mid,"songID":song.id.parse::<u64>().unwrap_or(0)}}
-    })).send().await.map_err(|_|"QQ 歌词读取失败")?).await?;
-    for field in ["qrc", "lyric"] {
-        if let Some(value) = response
-            .pointer(&format!("/lyric/data/{field}"))
-            .and_then(Value::as_str)
-        {
-            let decoded = STANDARD
-                .decode(value)
-                .ok()
-                .and_then(|v| String::from_utf8(v).ok())
-                .unwrap_or_else(|| value.into());
-            if let Ok(lines) = parse(&decoded) {
-                return Ok(Some(lines));
-            }
-            if let Some(decoded) =
-                lyrics_crypto::decrypter::qrc::decrypter::decrypt_lyrics(&decoded)
-            {
-                if let Ok(lines) = parse(&decoded) {
-                    return Ok(Some(lines));
-                }
-            }
+            )?,
+        )
+        .await?;
+        let items: Vec<Song> = serde_json::from_value(response["data"]["items"].clone())
+            .map_err(|_| "AMLL 歌曲列表格式异常")?;
+        songs.extend(items);
+        match response["data"]["pagination"]["hasMore"].as_bool() {
+            Some(false) => break,
+            Some(true) if page_number < 3 => {}
+            Some(true) => return Ok(None), // Do not choose from a truncated set.
+            None => return Err("AMLL 分页信息缺失".into()),
         }
     }
-    Ok(None)
+    let Some(song) = choose(songs, info) else {
+        return Ok(None);
+    };
+    let response = request(
+        client,
+        endpoint(base, "/v1/lyrics/get", &[("id", &song.id.to_string())])?,
+    )
+    .await?;
+    let fetched: Song =
+        serde_json::from_value(response["data"].clone()).map_err(|_| "AMLL 歌词格式异常")?;
+    if fetched.id != song.id || lines(&fetched, info).is_none() {
+        return Ok(None);
+    }
+    Ok(Some(fetched))
 }
 
-pub async fn fetch(info: &NowPlaying) -> Result<Option<(String, Vec<Line>)>, String> {
+pub async fn fetch(
+    info: &NowPlaying,
+    directory: &Path,
+) -> Result<Option<(String, Vec<Line>)>, String> {
+    let dir = directory.to_owned();
+    let track = info.clone();
+    let cached = tauri::async_runtime::spawn_blocking(move || super::storage::read(&dir, &track))
+        .await
+        .ok()
+        .flatten();
+    if let Some((song, true)) = &cached {
+        if let Some(lines) = lines(song, info) {
+            return Ok(Some(("AMLL · 本地缓存".into(), lines)));
+        }
+    }
     let client = Client::builder()
-        .timeout(Duration::from_secs(5))
+        .timeout(Duration::from_secs(8))
         .connect_timeout(Duration::from_secs(3))
         .redirect(reqwest::redirect::Policy::limited(2))
-        .user_agent("Mozilla/5.0 SoundSpectra/0.1")
+        .user_agent(concat!("SoundSpectra/", env!("CARGO_PKG_VERSION")))
         .build()
-        .map_err(|e| e.to_string())?;
-    let mut failure = None;
-    // Cross-catalog fallback works for all captured players; exact artist/title
-    // and recording duration are required before borrowing another catalog's lyric.
-    match netease(&client, info).await {
-        Ok(Some(lines)) => return Ok(Some(("网易云音乐".into(), lines))),
-        Err(e) => failure = Some(e),
-        _ => {}
-    }
-    match qq(&client, info).await {
-        Ok(Some(lines)) => return Ok(Some(("QQ 音乐".into(), lines))),
-        Err(e) => failure = Some(e),
-        _ => {}
-    }
-    if let Some(error) = failure {
-        Err(error)
-    } else {
-        Ok(None)
+        .map_err(|_| "AMLL 歌词服务初始化失败")?;
+    let result = tokio::time::timeout(Duration::from_secs(20), fetch_from(&client, API, info))
+        .await
+        .unwrap_or_else(|_| Err("AMLL 歌词查询超时".into()));
+    match result {
+        Ok(Some(song)) => {
+            let result = lines(&song, info).map(|lines| ("AMLL".into(), lines));
+            let dir = directory.to_owned();
+            let track = info.clone();
+            // A failed cache write never discards otherwise usable lyrics.
+            let _ = tauri::async_runtime::spawn_blocking(move || {
+                super::storage::write(&dir, &track, song)
+            })
+            .await;
+            Ok(result)
+        }
+        Err(error) => {
+            if let Some((song, _)) = cached {
+                if let Some(lines) = lines(&song, info) {
+                    return Ok(Some(("AMLL · 离线缓存".into(), lines)));
+                }
+            }
+            Err(error)
+        }
+        Ok(None) => Ok(None),
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    fn song(title: &str, artist: &str, duration: f64) -> Song {
-        Song {
-            id: "1".into(),
-            mid: String::new(),
-            title: title.into(),
-            artist: artist.into(),
-            duration,
-            album: String::new(),
+    pub(super) fn track() -> NowPlaying {
+        NowPlaying {
+            title: "微光".into(),
+            artist: "甲 / 乙".into(),
+            album: "星海".into(),
+            duration: 10.0,
+            ..Default::default()
         }
     }
+    pub(super) fn song(id: u64) -> Song {
+        Song { id, filename: format!("{id}.ttml"), music_names: vec!["微光".into()], artist_names: vec!["乙".into(), "甲".into()], album_names: vec!["星海".into()], ncm_music_ids: vec!["100".into()], lyrics: Some(r#"<tt xmlns="http://www.w3.org/ns/ttml"><body dur="10"><div><p begin="1" end="2">原创测试</p></div></body></tt>"#.into()), ..Default::default() }
+    }
     #[test]
-    fn never_borrows_a_cover_or_different_recording() {
-        let info = NowPlaying {
-            title: "测试歌曲".into(),
-            artist: "测试歌手".into(),
-            duration: 200.0,
-            ..Default::default()
+    fn matches_artists_as_a_set_and_never_borrows_a_cover_or_live_version() {
+        assert!(choose(vec![song(1)], &track()).is_some());
+        let mut cover = song(1);
+        cover.artist_names = vec!["丙".into()];
+        assert!(choose(vec![cover], &track()).is_none());
+        let mut live = song(1);
+        live.music_names = vec!["微光 (Live)".into()];
+        assert!(choose(vec![live], &track()).is_none());
+        let mut wrong = track();
+        wrong.duration = 1.0;
+        let mut longer = song(1);
+        longer.lyrics = longer.lyrics.map(|s| s.replace("end=\"2\"", "end=\"9\""));
+        assert!(lines(&longer, &wrong).is_none());
+        wrong.duration = 20.0; // Instrumental outro must not cause a miss.
+        assert!(lines(&song(1), &wrong).is_some());
+    }
+    #[test]
+    fn uses_newest_revision_only_with_shared_recording_ids_and_prefers_album() {
+        let first = song(1);
+        let mut newest = song(2);
+        newest.created_at = 2;
+        assert_eq!(
+            choose(vec![first.clone(), newest.clone()], &track())
+                .unwrap()
+                .id,
+            2
+        );
+        newest.ncm_music_ids = vec!["200".into()];
+        assert!(choose(vec![first.clone(), newest.clone()], &track()).is_none());
+        newest.album_names = vec!["另一个专辑".into()];
+        assert_eq!(choose(vec![first, newest], &track()).unwrap().id, 1);
+    }
+    #[test]
+    fn missing_identity_and_untimed_lyrics_are_never_accepted() {
+        let mut unknown = track();
+        unknown.artist.clear();
+        assert!(choose(vec![song(1)], &unknown).is_none());
+        let mut invalid = song(1);
+        invalid.lyrics = Some("没有时间标签".into());
+        assert!(lines(&invalid, &track()).is_none());
+    }
+    #[test]
+    fn amll_http_contract_decodes_ttml() {
+        use std::{
+            io::{Read, Write},
+            net::TcpListener,
+            thread,
         };
-        assert!(choose(vec![song("测试歌曲", "另一个歌手", 200.0)], &info).is_none());
-        assert!(choose(vec![song("测试歌曲 (Live)", "测试歌手", 200.0)], &info).is_none());
-        assert!(choose(vec![song("测试歌曲", "测试歌手", 220.0)], &info).is_none());
-        assert!(choose(vec![song("测试歌曲", "测试歌手", 200.0)], &info).is_some());
+        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        let base = format!("http://{}", listener.local_addr().unwrap());
+        let server = thread::spawn(move || {
+            for step in 0..2 {
+                let (mut stream, _) = listener.accept().unwrap();
+                stream
+                    .set_read_timeout(Some(Duration::from_secs(3)))
+                    .unwrap();
+                let mut bytes = Vec::new();
+                let mut buffer = [0; 4096];
+                while !bytes.windows(4).any(|w| w == b"\r\n\r\n") {
+                    let n = stream.read(&mut buffer).unwrap();
+                    assert!(n > 0);
+                    bytes.extend_from_slice(&buffer[..n]);
+                }
+                let request = String::from_utf8(bytes).unwrap();
+                let body = if step == 0 {
+                    assert!(request.starts_with("GET /v1/lyrics/search?"));
+                    assert!(request.contains("musicName=") && request.contains("artistName="));
+                    serde_json::json!({"status":200,"data":{"items":[song(1)],"pagination":{"hasMore":false}}})
+                } else {
+                    assert!(request.starts_with("GET /v1/lyrics/get?id=1 "));
+                    serde_json::json!({"status":200,"data":song(1)})
+                }.to_string();
+                write!(
+                    stream,
+                    "HTTP/1.1 200 OK\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{body}",
+                    body.len()
+                )
+                .unwrap();
+            }
+        });
+        let runtime = tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build()
+            .unwrap();
+        runtime.block_on(async {
+            let client = Client::builder()
+                .no_proxy()
+                .timeout(Duration::from_secs(3))
+                .build()
+                .unwrap();
+            let found = fetch_from(&client, &base, &track()).await.unwrap().unwrap();
+            assert_eq!(lines(&found, &track()).unwrap()[0].start, 1000);
+        });
+        server.join().unwrap();
     }
     #[test]
     fn local_winner_closes_an_unfinished_http_body_instead_of_only_ignoring_it() {
@@ -336,23 +476,35 @@ mod tests {
         server.join().unwrap();
     }
     #[test]
-    #[ignore = "External provider availability; no user data"]
+    #[ignore = "External AMLL availability; uses public metadata only"]
     fn public_lyric_service() {
         let info = NowPlaying {
-            title: "起风了".into(),
-            artist: "冯沁苑(买辣椒也用券)".into(),
-            album: "起风了".into(),
-            duration: 325.868,
+            title: "ME!".into(),
+            artist: "Taylor Swift / Brendon Urie".into(),
+            album: "Lover".into(),
+            duration: 185.8,
             ..Default::default()
         };
         let runtime = tokio::runtime::Builder::new_current_thread()
             .enable_all()
             .build()
             .unwrap();
-        let found = runtime
-            .block_on(fetch(&info))
-            .unwrap()
-            .expect("Known public track should resolve");
-        assert!(found.1.len() > 5);
+        runtime.block_on(async {
+            let client = Client::builder()
+                .timeout(Duration::from_secs(8))
+                .build()
+                .unwrap();
+            let found = fetch_from(&client, API, &info)
+                .await
+                .unwrap()
+                .expect("Public AMLL sample should resolve");
+            let lines = lines(&found, &info).unwrap();
+            assert!(lines.len() > 5);
+            assert!(lines.iter().any(|line| !line.words.is_empty()));
+            eprintln!(
+                "AMLL live response: {} lines; metadata and word timing validated",
+                lines.len()
+            );
+        });
     }
 }
