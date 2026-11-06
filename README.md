@@ -3,7 +3,7 @@
   <h1>SoundSpectra · 声谱</h1>
   <p>让音乐成为桌面的一部分。</p>
   <p>音乐灯效 · 动态歌词 · 音乐卡片 · 拾光绳 · 壁纸视差</p>
-  <p><strong>1.0.3</strong> · Windows x64 / macOS Universal · React / Three.js / Tauri / Rust</p>
+  <p><strong>1.0.4</strong> · Windows x64 / macOS Universal · React / Three.js / Tauri / Rust</p>
   <p><a href="https://github.com/SexyAhri/SoundSpectra/releases">下载安装包</a> · <a href="#项目展示">项目展示</a> · <a href="#开发运行">开发运行</a> · <a href="https://github.com/SexyAhri/SoundSpectra/issues">反馈问题</a></p>
 </div>
 

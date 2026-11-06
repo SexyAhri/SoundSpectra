@@ -44,6 +44,11 @@ fn application_origin(dev_url: Option<&tauri::Url>, packaged: bool) -> tauri::Ur
     }
     tauri::Url::parse("http://tauri.localhost").expect("constant Windows app origin")
 }
+fn configured_origin(dev_url: Option<&tauri::Url>) -> tauri::Url {
+    // The CLI enables the dependency feature `tauri/custom-protocol`
+    // directly; the similarly named application feature can stay off.
+    application_origin(dev_url, !tauri::is_dev())
+}
 fn read_string(
     read: impl FnOnce(*mut PWSTR) -> windows::core::Result<()>,
 ) -> Result<String, String> {
@@ -113,10 +118,7 @@ fn decode(
 
 pub fn install(window: &WebviewWindow) -> Result<(), String> {
     let root = window.hwnd().map_err(|e| e.to_string())?.0 as usize;
-    let source = application_origin(
-        window.app_handle().config().build.dev_url.as_ref(),
-        cfg!(feature = "custom-protocol"),
-    );
+    let source = configured_origin(window.app_handle().config().build.dev_url.as_ref());
     let target = window.clone();
     window
         .with_webview(move |webview| {
@@ -215,5 +217,16 @@ mod tests {
             "http://tauri.localhost/index.html"
         ));
         assert!(!trusted_source(&packaged, dev.as_str()));
+    }
+    #[test]
+    fn origin_uses_tauris_mode_when_cli_enables_the_dependency_feature() {
+        let dev = tauri::Url::parse("http://127.0.0.1:1420").unwrap();
+        let expected = configured_origin(Some(&dev));
+        let actual = if tauri::is_dev() {
+            "http://127.0.0.1:1420/index.html?window=rail"
+        } else {
+            "http://tauri.localhost/index.html?window=rail"
+        };
+        assert!(trusted_source(&expected, actual));
     }
 }

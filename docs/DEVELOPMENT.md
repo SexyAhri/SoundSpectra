@@ -70,6 +70,8 @@ Mac 歌曲信息通过播放器的公开脚本接口读取。播放器没有脚�
 
 Windows 实机脚本位于 `scripts/native-*-smoke.mjs`。以进程环境变量 `WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS=--remote-debugging-port=9223` 启动待测客户端；脚本可能临时调整配置，运行前阅读恢复逻辑，不要同时编辑设置。报告写入忽略的 `artifacts/`。
 
+Windows 文件拖入桥的来源地址使用 `tauri::is_dev()` 区分开发服务器和安装版。Tauri CLI 直接启用依赖特性 `tauri/custom-protocol`，不能用项目自身的 `cfg!(feature = "custom-protocol")` 判断，否则安装版会错误地按开发服务器地址拒绝拖入消息。定向回归需同时覆盖默认特性和 `--features tauri/custom-protocol`，无需运行全量检查。挂载公共桌面项目时，独立的图标属性权限助手可能触发 UAC 确认。
+
 已有 QQ 音乐与桌面层级的实机记录，以及歌词解析、目录记忆、查询竞争和请求取消的自动化回归。仍需逐项验证其他播放器、受保护内容、设备切换、Explorer 重启、休眠、多显示器 / DPI、长时间性能和真实签名升级。浏览器模拟、测试 IPC 和旧构建截图不能替代这些验收。
 
 ## 提交文件
