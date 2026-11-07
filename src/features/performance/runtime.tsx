@@ -109,9 +109,13 @@ export class PerformanceFrame {
       // A late enable or a seek reconstructs directly; do not replay a historical entrance.
       if(state.sceneTime!==undefined&&time-state.sceneTime>transition.durationMs+500)animate=false
     }else{this.signature='';this.manual.clear();this.lastShow=undefined;this.lastCamera=false}
-    this.previousBase=base
     const mapping:Mapping=cfg.mappings[`${region}--${settings.effect}`]??originalMapping
-    const changed=settings!==this.lastSettings||mapping!==this.lastMapping
+    // Ordinary props already invalidate via the canvas's visual signature.
+    // Media polls can recreate base without changing any visual value; only a
+    // performance projection (including its removal) needs this extra redraw.
+    const wasProjected=this.lastSettings!==undefined&&this.lastSettings!==this.previousBase
+    const changed=(settings!==base||wasProjected)&&settings!==this.lastSettings||mapping!==this.lastMapping
+    this.previousBase=base
     this.lastSettings=settings;this.lastMapping=mapping
     return {settings,transition,animate,mapping,changed}
   }
