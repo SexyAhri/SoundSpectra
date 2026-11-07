@@ -9,6 +9,9 @@ export default defineConfig({
   clearScreen: false,
   server: {
     port: 1420, strictPort: true,
+    // Playwright captures browser errors directly. Vite's console forwarding
+    // can race its WebSocket connection during standalone renderer probes.
+    forwardConsole: process.env.CI ? false : undefined,
     // Downloads, traces and native outputs can be locked while tests/builds write them.
     watch: { ignored: ['**/src-tauri/**', '**/artifacts/**', '**/test-results/**', '**/playwright-report/**', '**/.tools/**', '**/releases/**', '**/dist/**'] },
   },

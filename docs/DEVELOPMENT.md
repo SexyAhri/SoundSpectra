@@ -30,6 +30,8 @@ node scripts/desktop.mjs --cargo test --manifest-path src-tauri/Cargo.toml --loc
 
 `npm run test:smoke` 手动运行应用、工作区和歌词回归；`npm test` 手动运行完整前端回归集。Checks 仅由手动操作或显式工作流调用触发，不随分支推送自动执行；勾选 `full` 时追加浏览器回归。自动发布仅执行构建与发布必需步骤，不运行 Rust 格式、单元测试、发布脚本测试或浏览器回归，前端由 Tauri 构建钩子执行一次构建。本地和手动 Windows CI 均使用稳定版 Chrome。前端测试采用软件 WebGL，不代表真实显卡性能；CI 对软件光栅化设置较长等待上限，断言与本地一致。安装包与签名配置见 [发布指南](RELEASING.md)。
 
+浏览器回归默认使用 1420 端口，可通过 `PLAYWRIGHT_PORT` 为独立检出指定其他端口。设置 `CI=true` 时必须启动本次检查自己的服务；端口已占用会直接报错，避免误用其他开发窗口的页面。工作台冻结构建检查 `npm run test:ui` 默认使用 1422 / 1423 端口，分别可通过 `PLAYWRIGHT_UI_PORT` / `PLAYWRIGHT_FIXTURES_PORT` 调整，也遵守此规则。
+
 ## 模块边界
 
 | 模块 | 职责 |
