@@ -11,12 +11,14 @@ test('R3F quality and layer changes reuse one context and release every owned GP
       import('/src/features/spectrum/model.ts'),import('/src/features/spectrum/music-analysis.ts'),
     ])
     const canvas=document.createElement('canvas');canvas.style.cssText='width:240px;height:135px';document.body.append(canvas)
-    const world=new FiberSceneRenderer(canvas),motion=new SceneMotion(),gl=world.renderer.getContext(),memory=[]
+    const world=new FiberSceneRenderer(canvas),motion=new SceneMotion(),gl=world.renderer.getContext(),memory=[],frames=[]
     const config={...structuredClone(defaults),effect:'aurora_flow' as const,sceneMode:'immersive' as const,bounds:{x:0,y:0,width:1,height:1}}
     for(let i=0;i<8;i++){
       const settings={...config,quality:i%2?'balanced' as const:'eco' as const,music:{...config.music,ambientDensity:i%2?1.4:.5}}
       await world.resize(settings,i%2?4:1)
+      const framesBefore=Number(canvas.dataset.frames??0)
       for(let frame=0;frame<3;frame++){motion.step(demoAnalysis(2+frame/60),1/60,settings.music,false);world.draw(motion,settings,false)}
+      frames.push(Number(canvas.dataset.frames)-framesBefore)
       memory.push({...world.renderer.info.memory,bloom:Number(canvas.dataset.bloomLevels),sameContext:gl===world.renderer.getContext(),error:gl.getError()})
     }
     const restored={...config,effect:'rhythm_rain' as const,view:{...config.view,x:17,y:-9}}
@@ -32,7 +34,7 @@ test('R3F quality and layer changes reuse one context and release every owned GP
     const after={...world.renderer.info.memory}
     await new Promise(resolve=>setTimeout(resolve,0))
     const lost=gl.isContextLost();canvas.remove()
-    return {memory,after,lost,viewError,manualFrames,idleFrames,framework:canvas.dataset.framework}
+    return {memory,frames,after,lost,viewError,manualFrames,idleFrames,framework:canvas.dataset.framework}
   })
   expect(result.framework).toBe('r3f')
   for(const frame of result.memory){expect(frame.sameContext).toBe(true);expect(frame.error).toBe(0)}
@@ -42,7 +44,10 @@ test('R3F quality and layer changes reuse one context and release every owned GP
   expect(result.after).toEqual({geometries:0,textures:0})
   expect(result.lost).toBe(true);expect(errors).toEqual([])
   expect(result.viewError).toBe(0)
-  expect(result.manualFrames).toBe(26)
+  // The compositor counter restarts on an effect change. Check each batch of
+  // requested frames as well as the two frames in the final mounted scene.
+  expect(result.frames).toEqual(Array(8).fill(3))
+  expect(result.manualFrames).toBe(2)
   expect(result.idleFrames).toBe(0)
 })
 

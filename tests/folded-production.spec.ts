@@ -36,7 +36,7 @@ test('production renderer reconstructs seeks, idles paused and bounds resources 
   expect(await canvas.getAttribute('data-frames')).toBe(frames)
   await set({ time: 18200 }); await expect(canvas).toHaveAttribute('data-time', '18200')
   await set({ time: 2600 }); await expect(canvas).toHaveAttribute('data-time', '2600')
-  expect(await canvas.screenshot()).toEqual(original)
+  expect((await canvas.screenshot()).equals(original), 'seeking back must reproduce the same image').toBe(true)
   const lines = Array.from({ length: 500 }, (_, i) => ({ text: `${i} 微光 stays with you 等风经过这片很长很长的夜色`, start: i * 4000, end: i * 4000 + 3800, words: [] }))
   await set({ lines, time: 1200200 }); await expect(canvas).toHaveAttribute('data-line', '300')
   await expect(canvas).toHaveAttribute('data-resources', '3')
@@ -95,7 +95,7 @@ test('compact region retains readable type, visible hinges and clean contiguous 
     expect(Math.abs(next[4] - previous[4])).toBeLessThan(.45)
     expect(next[5]).toBeCloseTo(previous[5] - Math.sin(previous[6]) * width, 5)
   }
-  expect(await canvas.screenshot()).not.toEqual(reading)
+  expect((await canvas.screenshot()).equals(reading), 'the held line must transition away').toBe(false)
   await set({ lines: [{ text: '第一句', start: 0, end: 4000, words: [] }, { text: '第二句', start: 4000, end: 8000, words: [] }], time: 4000 })
   await expect(canvas).toHaveAttribute('data-visible', '1')
   await set({ reduced: true, time: 4500 }); await expect(canvas).toHaveAttribute('data-time', '4500')

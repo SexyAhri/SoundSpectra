@@ -11,7 +11,7 @@ const parameters = {
   volume_rain: ['meteorDensity', 90], dream_stars: ['starDensity', 4000],
   vortex: ['vortexArms', 5],
   butterfly_flock: ['fieldHeight', 1.5],
-  ginkgo_leaves: ['fieldHeight', 1.5], cosmic_web: ['fieldHeight', 1.5], caustic_light: ['fieldHeight',1.5],
+  ginkgo_leaves: ['fieldHeight', 1.5], cosmic_web: ['ambientSpread', 1.5], caustic_light: ['fieldHeight',1.5],
 } as const
 
 async function probePage(page: Page) {

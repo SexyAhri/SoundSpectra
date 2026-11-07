@@ -67,29 +67,29 @@ for (const effect of classicMusicEffects) {
   })
 }
 
-test('repeated spatial effect switches release prior Three contexts; effect parameters persist', async ({ page }) => {
+test('repeated spatial effect switches release prior buffers and reuse one context; effect parameters persist', async ({ page }) => {
   test.setTimeout(60000)
   const errors: string[] = []
   page.on('pageerror', error => errors.push(error.message))
   await page.goto('/')
   const canvas = page.locator('.three-scene-surface canvas').first()
   await expect(canvas).toHaveAttribute('data-renderer', 'three')
-  const rememberContext = () => canvas.evaluate((node: HTMLCanvasElement) => {
-    const store = window as unknown as { __spatialContexts?: WebGL2RenderingContext[] }
-    const contexts = store.__spatialContexts ??= []
-    const context = node.getContext('webgl2')!
-    if (!contexts.includes(context)) contexts.push(context)
-    return contexts.indexOf(context)
+  await expect(canvas).toHaveAttribute('data-preparing', 'false')
+  await canvas.evaluate((node: HTMLCanvasElement) => {
+    const gl = node.getContext('webgl2')!, remove = gl.deleteBuffer.bind(gl)
+    const probe = { gl, deleted: 0 }
+    ;(window as any).__spatialResources = probe
+    gl.deleteBuffer = buffer => { if (buffer) probe.deleted++; remove(buffer) }
   })
-  const liveContexts = () => page.evaluate(() => (window as unknown as { __spatialContexts: WebGL2RenderingContext[] }).__spatialContexts.filter(context => !context.isContextLost()).length)
-  let previous = await rememberContext()
   for (let i = 0; i < 3; i++) {
     for (const [id, label] of [['volume_rain', '晴空浮游'], ['rhythm_balls', '浮光水母']]) {
+      const deleted = await page.evaluate(() => (window as any).__spatialResources.deleted)
       await chooseStyle(page, '灯效', label)
       await expect(canvas).toHaveAttribute('data-scene', id)
-      await expect.poll(() => page.evaluate(index => (window as unknown as { __spatialContexts: WebGL2RenderingContext[] }).__spatialContexts[index].isContextLost(), previous)).toBe(true)
-      previous = await rememberContext()
-      await expect.poll(liveContexts).toBe(1)
+      await expect(canvas).toHaveAttribute('data-preparing', 'false')
+      await expect.poll(() => page.evaluate(() => (window as any).__spatialResources.deleted)).toBeGreaterThan(deleted)
+      expect(await canvas.evaluate(node => (node as HTMLCanvasElement).getContext('webgl2') === (window as any).__spatialResources.gl)).toBe(true)
+      await expect(page.locator('canvas')).toHaveCount(1)
       const before = Number(await canvas.getAttribute('data-frames'))
       await expect.poll(async () => Number(await canvas.getAttribute('data-frames'))).toBeGreaterThan(before)
       await expect.poll(async () => (await pixels(page)).visible).toBeGreaterThan(30)

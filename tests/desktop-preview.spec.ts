@@ -52,7 +52,7 @@ async function mockDesktop(page: Page) {
           case 'plugin:autostart|is_enabled': case 'plugin:window|is_maximized': return false
           case 'plugin:window|is_visible': return true
           case 'plugin:event|listen': return 1
-          case 'plugin:event|unlisten': case 'sync_scene_shortcuts': return
+          case 'plugin:event|unlisten': case 'plugin:event|emit': case 'sync_scene_shortcuts': return
           case 'get_desktop_background': {
             app.__wallpaperCalls.push(args.knownRevision)
             const canvas = document.createElement('canvas'); canvas.width = 1000; canvas.height = 1000

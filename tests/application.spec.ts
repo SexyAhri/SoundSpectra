@@ -86,7 +86,7 @@ async function nativeFixture(page: Page, failure: 'check' | 'download' | 'backup
           case 'get_audio_sources': return { selection: { mode: 'auto' }, error: null, catalog: [], discovery: { targets: [], warning: null } }
           case 'plugin:autostart|is_enabled': case 'plugin:window|is_maximized': return false
           case 'plugin:event|listen': return 1
-          case 'plugin:event|unlisten': return
+          case 'plugin:event|unlisten': case 'plugin:event|emit': return
           case 'plugin:resources|close': app.__closedResources.push(args.rid); return
           case 'plugin:updater|check':
             app.__checks++

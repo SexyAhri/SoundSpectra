@@ -78,7 +78,7 @@ async function nativeFixture(page: Page, failFirst = false) {
           case 'get_preferences': return { closeToTray: true, autoCheckUpdates: false, showUpdateButton: true }
           case 'plugin:event|listen': return 1
           case 'plugin:autostart|is_enabled': case 'plugin:window|is_maximized': return false
-          case 'plugin:event|unlisten': case 'sync_scene_shortcuts': return
+          case 'plugin:event|unlisten': case 'plugin:event|emit': case 'sync_scene_shortcuts': return
           default: throw new Error(`Unexpected IPC: ${command}`)
         }
       },

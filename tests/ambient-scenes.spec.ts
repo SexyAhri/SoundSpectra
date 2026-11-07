@@ -79,19 +79,29 @@ for (const [effect, label] of scenes) test(`${effect}: real geometry moves, pers
   await expect(page.getByRole('alert')).toHaveCount(0); expect(errors).toEqual([])
 })
 
-test('switching 3D themes releases the previous context; a hard mask hides the whole composite', async ({ page }) => {
+test('switching 3D themes releases old buffers while retaining the context; a hard mask hides the whole composite', async ({ page }) => {
   const errors: string[] = []; page.on('pageerror', error => errors.push(error.message))
   await page.addInitScript(settings => localStorage.setItem('soundspectra.settings.v1', JSON.stringify(settings)), {
     ...defaults, effect: 'petal_bloom', sceneMode: 'immersive', bounds: { x: 0, y: 0, width: 1, height: 1 }, masks: [{ id: 'all', bounds: { x: 0, y: 0, width: 1, height: 1 }, feather: 0 }],
   })
   await page.goto('/')
   const canvas = page.locator('.three-scene-surface canvas')
+  await expect(canvas).toHaveAttribute('data-preparing', 'false')
+  await canvas.evaluate(node => {
+    const gl = (node as HTMLCanvasElement).getContext('webgl2')!
+    const probe = { gl, deleted: 0 }, remove = gl.deleteBuffer.bind(gl)
+    ;(window as any).__sceneResources = probe
+    gl.deleteBuffer = buffer => { if (buffer) probe.deleted++; remove(buffer) }
+  })
   for (const [effect, label] of [...scenes, ['sound_field', '频谱回响']] as const) {
-    await canvas.evaluate(node => { (window as any).__oldSceneGL = (node as HTMLCanvasElement).getContext('webgl2') })
+    const deleted = await page.evaluate(() => (window as any).__sceneResources.deleted)
     const previous = await page.evaluate(() => JSON.parse(localStorage.getItem('soundspectra.settings.v1')!).effect)
     await chooseStyle(page, '灯效', label)
     await expect(canvas).toHaveAttribute('data-renderer', 'three')
-    if (previous !== effect) await expect.poll(() => page.evaluate(() => (window as any).__oldSceneGL.isContextLost())).toBe(true)
+    await expect(canvas).toHaveAttribute('data-scene', effect)
+    await expect(canvas).toHaveAttribute('data-preparing', 'false')
+    if (previous !== effect) await expect.poll(() => page.evaluate(() => (window as any).__sceneResources.deleted)).toBeGreaterThan(deleted)
+    expect(await canvas.evaluate(node => (node as HTMLCanvasElement).getContext('webgl2') === (window as any).__sceneResources.gl)).toBe(true)
     expect((await pixels(canvas)).visible).toBe(0)
   }
   expect(errors).toEqual([])

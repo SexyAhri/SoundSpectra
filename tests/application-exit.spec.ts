@@ -41,6 +41,9 @@ async function setup(page: Page, closeToTray = true) {
             (app.listeners[args.event] ??= {})[args.handler] = app.callbacks[args.handler]
             return args.handler
           case 'plugin:event|unlisten': delete app.listeners[args.event]?.[args.eventId]; return
+          case 'plugin:event|emit':
+            for (const handler of Object.values(app.listeners[args.event] ?? {})) (handler as any)({ event: args.event, payload: args.payload })
+            return
           case 'plugin:window|close': return
           case 'quit_application':
             if (app.holdQuit) await new Promise<void>(resolve => { app.finishQuit = resolve })

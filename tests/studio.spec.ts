@@ -119,7 +119,7 @@ test('native media card renders supplied metadata and clears a previous song whe
           case 'get_preferences': return { closeToTray: true, autoCheckUpdates: false, showUpdateButton: true }
           case 'plugin:event|listen': return 1
           case 'plugin:autostart|is_enabled': case 'plugin:window|is_maximized': return false
-          case 'plugin:event|unlisten': return
+          case 'plugin:event|unlisten': case 'plugin:event|emit': return
           default: throw new Error(`Unexpected fixture IPC: ${command}`)
         }
       },

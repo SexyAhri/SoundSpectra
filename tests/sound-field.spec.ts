@@ -227,7 +227,7 @@ test('3D scene fills preview, stays soft, responds to interaction and persists c
   await expect(page.getByRole('alert')).toHaveCount(0); expect(errors).toEqual([])
 })
 
-test('3D desktop masks clip in scene coordinates; switching releases the Three context', async ({ page }) => {
+test('3D desktop masks clip in scene coordinates; switching releases old buffers and keeps the context', async ({ page }) => {
   test.setTimeout(45000)
   await page.addInitScript(settings => localStorage.setItem('soundspectra.settings.v1', JSON.stringify(settings)), {
     ...defaults, effect: 'sound_field', bounds: { x: 0, y: 0, width: 1, height: 1 },
@@ -238,9 +238,17 @@ test('3D desktop masks clip in scene coordinates; switching releases the Three c
   await expect(canvas).toHaveAttribute('data-renderer', 'three')
   const image = await pixels(canvas)
   expect(image.left).toBe(0); expect(image.right).toBeGreaterThan(500)
-  await canvas.evaluate(node => { (window as unknown as { __oldField: WebGL2RenderingContext }).__oldField = (node as HTMLCanvasElement).getContext('webgl2')! })
+  await canvas.evaluate(node => {
+    const gl = (node as HTMLCanvasElement).getContext('webgl2')!, remove = gl.deleteBuffer.bind(gl)
+    const probe = { gl, deleted: 0 }
+    ;(window as any).__fieldResources = probe
+    gl.deleteBuffer = buffer => { if (buffer) probe.deleted++; remove(buffer) }
+  })
   await chooseStyle(page, '灯效', '浮光水母')
-  await expect.poll(() => page.evaluate(() => (window as unknown as { __oldField: WebGL2RenderingContext }).__oldField.isContextLost())).toBe(true)
+  const next = page.locator('.three-scene-surface canvas')
+  await expect(next).toHaveAttribute('data-scene', 'rhythm_balls')
+  await expect.poll(() => page.evaluate(() => (window as any).__fieldResources.deleted)).toBeGreaterThan(0)
+  expect(await next.evaluate(node => (node as HTMLCanvasElement).getContext('webgl2') === (window as any).__fieldResources.gl)).toBe(true)
   await expect(page.locator('.sound-field-surface')).toHaveCount(0)
 })
 

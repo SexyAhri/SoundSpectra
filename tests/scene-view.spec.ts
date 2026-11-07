@@ -105,7 +105,8 @@ test('preview drag saves while held, supports controlled rotation, pan, roll, do
   await expect.poll(async () => (await saved(page)).view).toEqual(defaultSceneView)
   await page.setViewportSize({width:390,height:844})
   await expect(page.getByRole('slider',{name:'左右旋转',exact:true})).toBeVisible()
-  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
+  // ResizeObserver and the responsive workspace layout settle after viewport changes.
+  await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(390)
 })
 
 test('camera matrices are deterministic through all axes and a full turn', async ({ page }) => {

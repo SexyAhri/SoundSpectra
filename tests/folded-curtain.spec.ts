@@ -15,7 +15,12 @@ test('bidirectional seek reconstructs the actual frame; pause is idle',async({pa
   const pose=await page.evaluate(()=>window.foldStudy!.diagnostics.panels)
   await seek(page,20400);await seek(page,300);await seek(page,6150)
   expect(await page.evaluate(()=>window.foldStudy!.diagnostics.panels)).toEqual(pose)
-  expect(await page.locator('canvas').screenshot()).toEqual(before)
+  const after = await page.locator('canvas').screenshot()
+  if (!after.equals(before)) {
+    await test.info().attach('seek-before', { body: before, contentType: 'image/png' })
+    await test.info().attach('seek-after', { body: after, contentType: 'image/png' })
+  }
+  expect(after.equals(before), 'seeking back must reproduce the same image').toBe(true)
   await page.waitForTimeout(100)
   const frames=await page.evaluate(()=>window.foldStudy!.diagnostics.frames)
   await page.waitForTimeout(450)

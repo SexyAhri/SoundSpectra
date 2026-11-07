@@ -165,8 +165,7 @@ test('mask shader uses global top-left coordinates and produces real alpha feath
   expect(result.whole.feather[3]).toBeGreaterThan(0); expect(result.whole.feather[3]).toBeLessThan(255)
 })
 
-test('all effects disappear under a hard mask and recover when removed', async ({ page }) => {
-  test.setTimeout(90000)
+for (const effect of effectIds) test(`${effect}: disappears under a hard mask and recovers when removed`, async ({ page }) => {
   const sample = () => page.locator('canvas').evaluate((canvas: HTMLCanvasElement) => new Promise<number>((resolve, reject) => {
     const gl = canvas.getContext('webgl2')!, draw = gl.drawArrays, instances = gl.drawElementsInstanced
     const restore = () => { gl.drawArrays = draw; gl.drawElementsInstanced = instances }
@@ -186,14 +185,11 @@ test('all effects disappear under a hard mask and recover when removed', async (
     gl.drawArrays = function (...args) { draw.apply(this, args); read() }
     gl.drawElementsInstanced = function (...args) { instances.apply(this, args); read() }
   }))
-  await page.goto('/')
-  for (const effect of effectIds) {
-    await page.evaluate(settings => localStorage.setItem('soundspectra.settings.v1', JSON.stringify(settings)), { ...defaults, effect, masks: [{ id: 'full', bounds: { x: 0, y: 0, width: 1, height: 1 }, feather: 0 }] })
-    await page.reload(); await settled(page)
-    expect(await sample(), effect).toBe(0)
-    await page.getByRole('button', { name: '遮罩', exact: true }).click(); await page.getByLabel('删除当前遮罩').click(); await settled(page)
-    await expect.poll(sample, { timeout: 5000 }).toBeGreaterThan(0)
-  }
+  await page.addInitScript(settings => localStorage.setItem('soundspectra.settings.v1', JSON.stringify(settings)), { ...defaults, effect, masks: [{ id: 'full', bounds: { x: 0, y: 0, width: 1, height: 1 }, feather: 0 }] })
+  await page.goto('/'); await settled(page)
+  expect(await sample(), effect).toBe(0)
+  await page.getByRole('button', { name: '遮罩', exact: true }).click(); await page.getByLabel('删除当前遮罩').click(); await settled(page)
+  await expect.poll(sample, { timeout: 5000 }).toBeGreaterThan(0)
 })
 
 test('repeated expanded previews release detached contexts and keep every region rendering', async ({ page }) => {

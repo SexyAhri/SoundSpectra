@@ -95,8 +95,10 @@ test('main picker saves all three compositions with thumbnails and remembers eac
   if(await demo.getAttribute('aria-checked')!=='true')await demo.click()
   let phase=0
   for(const [name,id] of [['潮汐之结','tidal_knot'],['层海','layered_tides'],['回声廊道','echo_corridor']]){
-    const card=page.getByRole('button',{name,exact:true});await card.click()
-    expect(await card.locator('img').evaluate((img:HTMLImageElement)=>img.complete&&img.naturalWidth>0)).toBe(true)
+    await page.getByRole('button',{name:'更换灯效',exact:true}).click()
+    const card=page.getByRole('dialog').getByRole('button',{name,exact:true})
+    await expect.poll(()=>card.locator('img').evaluate((img:HTMLImageElement)=>img.complete&&img.naturalWidth>0)).toBe(true)
+    await card.click()
     await expect.poll(saved).toMatchObject({effect:id,view:{yaw:0,pitch:0,distance:1}})
     const canvas=page.locator('.three-scene-surface canvas').first()
     await expect(canvas).toHaveAttribute('data-scene',id)
@@ -143,7 +145,8 @@ test('compositions preserve paths through switching, freeze reduced motion, and 
   expect(result.duplicate).toEqual(result.first)
   expect(result.switched.map(s=>s.count)).toEqual([2,6,2])
   expect(result.switched.map(s=>s.samples)).toEqual([0,2,0])
-  expect(result.switched.map(s=>s.calls)).toEqual([3,13,3])
+  // Every composition now includes the linear blend and final presentation passes.
+  expect(result.switched.map(s=>s.calls)).toEqual([5,15,5])
   expect(result.focused.camera).toEqual(result.before.camera)
   expect(result.unfocused.camera).toEqual(result.before.camera)
   expect(result.switched.every(s=>s.phase>result.first.phase)).toBe(true)
