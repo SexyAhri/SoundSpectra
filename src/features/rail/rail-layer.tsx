@@ -1,10 +1,10 @@
-import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type PointerEvent } from 'react'
+import { memo, useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type PointerEvent } from 'react'
 import { RailSurface } from './rail-surface'
 import type { RailGroup } from './model'
 import type { RailController } from './use-rail'
 
 type Placement = Pick<RailGroup, 'x' | 'y' | 'width'>
-export function RailLayer({ controller, selected, editing, arranging = false, interactive = true, onSelect, desktopWidth }: {
+function RailLayerContent({ controller, selected, editing, arranging = false, interactive = true, onSelect, desktopWidth }: {
   controller: RailController; selected: string | null; editing: boolean; arranging?: boolean; interactive?: boolean;
   onSelect: (groupId: string, itemId?: string) => void; desktopWidth?: number;
 }) {
@@ -85,3 +85,5 @@ export function RailLayer({ controller, selected, editing, arranging = false, in
     })}
   </div>
 }
+
+export const RailLayer = memo(RailLayerContent)

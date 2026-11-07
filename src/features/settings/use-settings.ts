@@ -155,7 +155,7 @@ export function useSettings() {
       setBusy(false);
     }
   };
-  const flush = async () => {
+  const flush = useCallback(async () => {
     if (!loaded) throw new Error("设置尚未成功读取，请先处理设置错误。");
     const task = queue.current.then(async () => {
       const version = revision.current;
@@ -169,7 +169,7 @@ export function useSettings() {
     });
     queue.current = task.catch(() => {});
     await task;
-  };
+  }, [loaded]);
   const commitScene = async (patch: Partial<SceneLayout>) => {
     if (!loaded || committing.current) throw new Error("设置正在处理，请稍后重试。");
     committing.current = true;

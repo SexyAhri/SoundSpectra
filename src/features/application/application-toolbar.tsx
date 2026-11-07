@@ -1,5 +1,5 @@
 import { IconButton } from '@/components/ui/icon-button'
-import { useEffect, useRef, useState } from 'react'
+import { memo, useEffect, useRef, useState } from 'react'
 import { ArrowDownToLine, Copy, LoaderCircle, Maximize2, Minus, Settings2, X } from 'lucide-react'
 import { getCurrentWindow } from '@tauri-apps/api/window'
 import { invoke } from '@tauri-apps/api/core'
@@ -12,7 +12,7 @@ import { QuitDialog } from './quit-dialog'
 import githubMark from '../../assets/github-mark.svg'
 
 interface Props { beforeClose: () => Promise<void>; open: boolean; onOpenChange: (open: boolean) => void }
-export function ApplicationToolbar({ beforeClose, open, onOpenChange: setOpen }: Props) {
+function ApplicationToolbarContent({ beforeClose, open, onOpenChange: setOpen }: Props) {
   const [info, setInfo] = useState<ApplicationInfo | null>(null)
   const [preferences, setPreferences] = useState(defaultPreferences)
   const [loaded, setLoaded] = useState(false)
@@ -115,3 +115,5 @@ export function ApplicationToolbar({ beforeClose, open, onOpenChange: setOpen }:
     <QuitDialog open={quitOpen} onOpenChange={setQuitOpen} pending={quitPending} installing={updater.state.phase === 'installing'} error={quitError} onConfirm={() => void confirmQuit()} />
   </>
 }
+
+export const ApplicationToolbar = memo(ApplicationToolbarContent)

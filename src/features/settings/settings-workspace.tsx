@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { AudioLines, Check, Settings2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { SceneInspector } from "./scene-inspector";
@@ -35,19 +35,19 @@ export function SettingsWorkspace() {
     flush,
     commitScene,
   } = useSettings();
-  const updateScene: SettingsUpdate = change => persistScene(current => {
+  const updateScene: SettingsUpdate = useCallback(change => persistScene(current => {
     const patch = typeof change === 'function' ? change(current) : change;
     return 'color' in patch && !('followCover' in patch) ? { ...patch, followCover: false } : patch;
-  });
+  }), [persistScene]);
   const [selectedRegion, selectRegion] = useState("primary");
   const selected =
     selectedRegion === "primary" ||
     sceneSettings.regions.some((region) => region.id === selectedRegion)
       ? selectedRegion
       : "primary";
-  const settings = settingsForRegion(sceneSettings, selected);
-  const update = (patch: Partial<SpectrumSettings>) =>
-    updateScene((current) => regionPatch(current, selected, 'color' in patch && !('followCover' in patch) ? { ...patch, followCover: false } : patch));
+  const settings = useMemo(() => settingsForRegion(sceneSettings, selected), [sceneSettings, selected]);
+  const update = useCallback((patch: Partial<SpectrumSettings>) =>
+    updateScene((current) => regionPatch(current, selected, 'color' in patch && !('followCover' in patch) ? { ...patch, followCover: false } : patch)), [updateScene, selected]);
   const [arrangeRequest, requestArrange] = useState(0);
   const [demo, setDemo] = useState(!native);
   const [applicationOpen, setApplicationOpen] = useState(false);
@@ -56,12 +56,13 @@ export function SettingsWorkspace() {
   const [selectedRail, selectRail] = useState<string | null>("apps");
   const [selectedRailItem, selectRailItem] = useState<string | null>(null);
   const [railSelectionRevision, setRailSelectionRevision] = useState(0);
-  const onSelectRail = (groupId: string, itemId?: string) => {
+  const onSelectRail = useCallback((groupId: string, itemId?: string) => {
     selectRail(groupId);
     selectRailItem(itemId ?? null);
     if (itemId) setRailSelectionRevision(value => value + 1);
     navigation.selectPanel("rail");
-  };
+  }, [navigation.selectPanel]);
+  const beforeClose = useCallback(async () => { await flush(); await rail.flush(); }, [flush, rail.flush]);
   const railDropError = useRailDrop(rail, selectedRail, navigation.panel === "rail" && !applicationOpen);
   useRailPaste(
     rail,
@@ -133,10 +134,7 @@ export function SettingsWorkspace() {
                       : "已保存到此浏览器"}
             </div>
             <ApplicationToolbar
-              beforeClose={async () => {
-                await flush();
-                await rail.flush();
-              }}
+              beforeClose={beforeClose}
               open={applicationOpen}
               onOpenChange={setApplicationOpen}
             />

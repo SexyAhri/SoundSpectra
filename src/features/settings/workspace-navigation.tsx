@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import {
   Disc3,
   Image,
@@ -33,7 +33,7 @@ export function useWorkspaceNavigation() {
     window.addEventListener("hashchange", change);
     return () => window.removeEventListener("hashchange", change);
   }, []);
-  const navigate = (panel: WorkspacePanel, tab = view.tab) => {
+  const navigate = useCallback((panel: WorkspacePanel, tab = view.tab) => {
     const next = { panel, tab },
       hash = `#${panel}${panel === "scene" ? `/${tab}` : ""}`;
     if (location.hash !== hash)
@@ -43,12 +43,14 @@ export function useWorkspaceNavigation() {
         hash,
       );
     setView(next);
-  };
+  }, [view.panel, view.tab]);
+  const selectPanel = useCallback((panel: WorkspacePanel) => navigate(panel), [navigate]);
+  const selectTab = useCallback((tab: string) => navigate("scene", tab), [navigate]);
   return {
     panel: view.panel,
     tab: view.tab,
-    selectPanel: (panel: WorkspacePanel) => navigate(panel),
-    selectTab: (tab: string) => navigate("scene", tab),
+    selectPanel,
+    selectTab,
   };
 }
 

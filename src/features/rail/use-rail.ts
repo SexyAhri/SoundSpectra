@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   addRailPaths,
   detachRailItem,
@@ -129,7 +129,7 @@ export function useRail() {
   const flush = useCallback(async () => {
     await queue.current;
   }, []);
-  return {
+  return useMemo(() => ({
     ...snapshot,
     loaded,
     pending,
@@ -141,6 +141,6 @@ export function useRail() {
     pick,
     refresh,
     flush,
-  };
+  }), [snapshot, loaded, pending, error, change, add, pasteImage, detach, pick, refresh, flush]);
 }
 export type RailController = ReturnType<typeof useRail>;

@@ -1,3 +1,4 @@
+import { memo } from 'react';
 import {
   Move,
   Palette,
@@ -42,7 +43,7 @@ interface Props {
   onSelectRail: (groupId: string, itemId?: string) => void;
 }
 
-export function SceneInspector({
+function SceneInspectorContent({
   sceneSettings,
   settings,
   lyricDocument,
@@ -176,3 +177,5 @@ export function SceneInspector({
     </aside>
   );
 }
+
+export const SceneInspector = memo(SceneInspectorContent);
