@@ -15,19 +15,21 @@ varying float vEnergy;
 void main() {
   float t=uv.x, layer=aLayer, flow=uAuroraPhase;
   float bin=t*47.; int k=int(floor(bin));
-  float energy=mix(uSpectrum[k],uSpectrum[min(k+1,47)],fract(bin))*uVolume;
+  float energy=mix(uSpectrum[k],uSpectrum[min(k+1,47)],fract(bin));
   float bend=t*6.2831853+layer*.8-flow*.28;
   float x=((t-.5)*(46.-layer*4.)+sin(bend)*7.)*uSpread;
   // Broad folds travel across the entire curtain, with a smaller wave following them.
   float sweep=sin(t*6.1+layer*1.55-flow*.55)*3.2
     +sin(t*13.+layer*2.-flow*1.1)*(.45+uBands.y*.35);
   float travellingLift=sin(t*9.-flow*.9+layer*1.7)*(.4+uBands.x*.35);
-  float height=(8.5+uVolume*2.5+uBands.x+energy+uTouch*.5)
+  float trailing=mix(uBodyBands.x,uDragBands.x,uv.y);
+  float height=(8.5+trailing*3.4+uDragBands.y*1.6+uTouch*.5)
     *(.85+.15*sin(t*5.+layer-flow*.32));
   vec3 p=vec3(x,-2.3+layer*.5+sweep+uv.y*(height+travellingLift),
     -18.+layer*8.+cos(bend)*7.);
   p.x+=pow(uv.y,1.7)*sin(t*4.-flow*.4+layer)*1.8;
-  p.z+=sin(t*12.-flow*.75+layer)*uv.y*(.8+uBands.y*.5);
+  p.z+=sin(t*12.-flow*.75+layer)*uv.y*(.8+uDragBands.y*.8);
+  p.y+=musicFront(t,.48,.055,vec3(1.,.8,.35))*.38*(1.-uv.y)*(1.-uv.y);
   p.xy+=uPointer*(.1+layer*.06)*(.3+uv.y*.7);
   vUv=uv; vLayer=layer; vEnergy=energy;
   gl_Position=projectionMatrix*modelViewMatrix*vec4(p,1.);
@@ -65,10 +67,11 @@ void main() {
   // its slow transport while captured transients briefly illuminate individual folds.
   float filamentDistance=(y-.042)/.018;
   float filament=exp(-filamentDistance*filamentDistance)*smoothstep(0.,.018,y);
-  float spectralLight=clamp(vEnergy*1.6+uImpulse*.65*bundles,0.,.9);
+  float local=musicFront(x,.48,.055,vec3(1.,.8,.35));
+  float spectralLight=clamp(vEnergy*.8+local*.9*bundles+uGesture.z*.18*fine,0.,1.2);
   float ends=smoothstep(0.,.16,x)*smoothstep(0.,.16,1.-x);
   float layerWeight=vLayer<.5?.3:vLayer<1.5?1.15:.48;
-  float alpha=ends*bundles*(veil*rays*.4+hem*.11+filament*(.045+spectralLight*.28))*layerWeight*(.9+uBands.y*.35+vEnergy*.3);
+  float alpha=ends*bundles*(veil*rays*.4+hem*(.11+local*.055)+filament*(.045+spectralLight*.28))*layerWeight*(.9+uBodyBands.y*.35);
   vec3 color=mix(uWarm,uMid,smoothstep(.04,.65,y));
   color=mix(color,uHigh,smoothstep(.35,.95,y)*.35);
   color=mix(color,uHigh,filament*(.16+spectralLight*.32));

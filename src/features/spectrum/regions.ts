@@ -1,4 +1,5 @@
 import { type SpectrumSettings, type SpectrumRegion, type RegionStyle, type SceneBounds } from './model'
+import { wallpaperNeedsSurface } from '../wallpaper-depth/wallpaper-layout'
 
 export const styleKeys = ['effect', 'sceneMode', 'view', 'color', 'opacity', 'sensitivity', 'decay', 'reflection', 'glow', 'bounds', 'atmosphere', 'music'] as const
 export const regionStyle = (settings: RegionStyle): RegionStyle => Object.fromEntries(styleKeys.map(key => [key, settings[key]])) as RegionStyle
@@ -18,7 +19,7 @@ export function regionPatch(settings: SpectrumSettings, id: string, patch: Parti
   return { ...global, regions: settings.regions.map(region => region.id === id ? { ...region, ...style } : region) }
 }
 export function displayBounds(settings: SpectrumSettings): SceneBounds {
-  if(settings.wallpaperDepth.enabled || settings.lyrics.enabled)return {x:0,y:0,width:1,height:1}
+  if(wallpaperNeedsSurface(settings.wallpaperDepth) || settings.lyrics.enabled)return {x:0,y:0,width:1,height:1}
   const visible = sceneRegions(settings).filter(region => region.visible)
   if (settings.desktopCard.enabled) visible.push({ ...sceneRegions(settings)[0], bounds: settings.desktopCard.bounds })
   if (settings.lyrics.enabled) visible.push({ ...sceneRegions(settings)[0], bounds: settings.lyrics.bounds })

@@ -2,16 +2,18 @@ import type { SpectrumSettings } from '../spectrum/model'
 import { musicEffects, normalizeMusicSettings, type MusicEffect, type MusicSettings } from '../spectrum/music-engine/catalog'
 import { neutralEffectColor } from '../spectrum/effect-palette'
 import { recommendedMusic } from '../spectrum/effect-presets'
+import { defaultSceneView, normalizeSceneView, type SceneView } from '../spectrum/three/view'
+import { compositionForEffect } from '../spectrum/three/compositions/presets'
 
 const key = 'soundspectra.effect-looks.v1'
-interface Look { scope: string; effect: MusicEffect; color: string; music: MusicSettings }
+interface Look { scope: string; effect: MusicEffect; color: string; music: MusicSettings; view?: SceneView }
 function read(): Look[] {
   try {
     const data: unknown = JSON.parse(localStorage.getItem(key) ?? '[]')
     return (Array.isArray(data) ? data : []).filter(item => item && typeof item.scope === 'string' && item.scope.length <= 64
       && musicEffects.some(effect => effect.value === item.effect) && /^#[0-9a-f]{6}$/i.test(item.color)
       && item.music && typeof item.music === 'object').slice(0, 80)
-      .map(item => ({ scope: item.scope, effect: item.effect, color: item.color, music: normalizeMusicSettings(item.music) }))
+      .map(item => ({ scope: item.scope, effect: item.effect, color: item.color, music: normalizeMusicSettings(item.music), view:item.view?normalizeSceneView(item.view):undefined }))
   } catch { return [] }
 }
 
@@ -21,8 +23,9 @@ export function selectEffect(current: SpectrumSettings, effect: MusicEffect, sco
   if (current.effect === effect) return {}
   const previous = read(), remembered = previous.find(item => item.scope === scope && item.effect === effect)
   try {
-    localStorage.setItem(key, JSON.stringify([{ scope, effect: current.effect, color: current.color, music: current.music },
+    localStorage.setItem(key, JSON.stringify([{ scope, effect: current.effect, color: current.color, music: current.music, view:current.view },
       ...previous.filter(item => item.scope !== scope || item.effect !== current.effect)].slice(0, 80)))
   } catch { /* Optional history must not prevent selecting or saving an effect. */ }
-  return { effect, music: remembered?.music ?? recommendedMusic(effect), color: remembered?.color ?? neutralEffectColor, followCover: current.followCover }
+  return { effect, music: remembered?.music ?? recommendedMusic(effect), color: remembered?.color ?? neutralEffectColor, followCover: current.followCover,
+    ...(remembered?.view?{view:remembered.view}:compositionForEffect(effect)?{view:{...defaultSceneView}}:{}) }
 }

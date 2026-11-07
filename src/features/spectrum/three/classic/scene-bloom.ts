@@ -7,6 +7,11 @@ const profiles: Partial<Record<SpectrumSettings["effect"], [number, number]>> =
   {
     dream_stars: [0.55, 0.6],
     rhythm_balls: [0.6, 0.35],
+    butterfly_flock: [.8, .08],
+
+    caustic_light: [.4, .3],
+    ginkgo_leaves: [.75, .1],
+    cosmic_web: [.45, .26],
   };
 export const bloomProfile = (
   effect: SpectrumSettings["effect"],
@@ -57,6 +62,11 @@ export class SceneBloom {
   count = 1;
   constructor() {
     this.scene.add(new T.Mesh(this.geometry, this.material));
+  }
+  prepare(renderer:T.WebGLRenderer){
+    const previous=renderer.getRenderTarget();
+    try{renderer.setRenderTarget(this.levels[0][0]);return renderer.compileAsync(this.scene,this.camera)}
+    finally{renderer.setRenderTarget(previous)}
   }
   resize(
     width: number,

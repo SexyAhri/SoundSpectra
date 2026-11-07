@@ -29,44 +29,13 @@ export function createTerrainGrid(grid: number) {
     T.FloatType,
   );
   texture.needsUpdate = true;
-  const s = step / 2,
-    geometry = new T.InstancedBufferGeometry();
-  geometry.setAttribute(
-    "position",
-    new T.Float32BufferAttribute(
-      [
-        -s,
-        0,
-        -s,
-        s,
-        0,
-        -s,
-        s,
-        0,
-        s,
-        -s,
-        0,
-        s,
-        -s,
-        1,
-        -s,
-        s,
-        1,
-        -s,
-        s,
-        1,
-        s,
-        -s,
-        1,
-        s,
-      ],
-      3,
-    ),
-  );
-  geometry.setIndex([
-    4, 7, 6, 4, 6, 5, 3, 2, 6, 3, 6, 7, 0, 4, 5, 0, 5, 1, 1, 5, 6, 1, 6, 2, 0,
-    3, 7, 0, 7, 4, 0, 1, 2, 0, 2, 3,
-  ]);
+  // Shared corner positions sample the same height on both neighboring patches.
+  // Six vertices per patch replace the thirty-six vertices of disconnected boxes.
+  const s = step / 2, geometry = new T.InstancedBufferGeometry();
+  geometry.setAttribute('position', new T.Float32BufferAttribute([
+    -s, 0, -s, -s, 0, s, s, 0, s, s, 0, -s,
+  ], 3));
+  geometry.setIndex([0, 1, 2, 0, 2, 3]);
   geometry.setAttribute("aOffset", new T.InstancedBufferAttribute(offsets, 2));
   geometry.setAttribute("aSample", new T.InstancedBufferAttribute(uv, 2));
   geometry.setAttribute("aSeed", new T.InstancedBufferAttribute(seeds, 1));

@@ -5,12 +5,19 @@ import type { SpectrumSettings } from "../../model";
 import type { SceneMotion } from "../motion";
 import type { SceneBloom } from "../classic/scene-bloom";
 import type { SceneFocus } from '../../scene-focus';
+import type { CompositionId } from '../compositions/presets';
+import type { TransitionFrame } from '../../../performance/transition';
+import type { MappingValues } from '../../../performance/mapping';
 
 /** Mutable frame state: audio and animation never cause React reconciliation. */
 export interface VisualRuntime {
+  transition?: TransitionFrame;
+  mapping?: MappingValues;
+  composition?: CompositionId;
   settings: SpectrumSettings;
   motion: SceneMotion;
   reduced: boolean;
+  presentationPaused?: boolean;
   dt: number;
   regions: number;
   pointer: Vector2;
@@ -18,6 +25,8 @@ export interface VisualRuntime {
   focus?: SceneFocus;
 }
 export interface VisualDiagnostics {
+  capture?: () => void;
+  preparations?: Set<() => Promise<unknown>>;
   image?: WebGLRenderTarget;
   heightTarget?: WebGLRenderTarget;
   grid?: number;

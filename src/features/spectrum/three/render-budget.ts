@@ -13,3 +13,10 @@ export function threeDrawingSize(width: number, height: number, dpr: number, qua
     4096 / Math.max(1, width), 4096 / Math.max(1, height))
   return { width: Math.max(1, Math.floor(width * scale)), height: Math.max(1, Math.floor(height * scale)) }
 }
+
+/** The editor needs a sharp preview, not an oversized desktop render target.
+ * Actual overlays and direct/export renders retain their full quality budget. */
+export function previewDrawingSize(size: { width: number; height: number }, regions: number) {
+  const scale=Math.min(1,Math.sqrt(1920*1080/Math.max(1,regions)/(size.width*size.height)))
+  return {width:Math.max(1,Math.floor(size.width*scale)),height:Math.max(1,Math.floor(size.height*scale))}
+}

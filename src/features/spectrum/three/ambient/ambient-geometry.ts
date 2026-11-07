@@ -4,35 +4,32 @@ function randomStream(seed = 41871) {
   return () => { seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0; return seed / 4294967296 }
 }
 
-const flowers = [[-3.1, -.6, -3, 1.2], [6.1, 2.2, -11, .82], [-8.2, 4.3, -19, .65]]
+const flowers = [[-2.8, -.5, -3, 1.06], [5.8, 2.2, -10, .78], [-9.7, 7.1, -12, .6]]
 
 export function petalGeometry(density: number) {
-  const plane = new T.PlaneGeometry(1, 1, 20, 40), geometry = new T.InstancedBufferGeometry()
+  const plane = new T.PlaneGeometry(1, 1, 24, 44), geometry = new T.InstancedBufferGeometry()
   geometry.setIndex(plane.getIndex()); geometry.setAttribute('position', plane.getAttribute('position')); geometry.setAttribute('uv', plane.getAttribute('uv'))
-  const perRing = Math.round(7 + Math.min(density,1.7) * 2), attached = flowers.length * perRing * 3, count = attached + 18
-  const petals = new Float32Array(count * 4), origins = new Float32Array(count * 4), random = randomStream()
-  for (let i = 0; i < count; i++) {
-    const flower = Math.floor(i / (perRing * 3)), ring = Math.floor(i / perRing) % 3
-    if(i<attached){
-      petals.set([(i % perRing) / perRing * Math.PI * 2 + ring * .37 + random()*.09, ring, random(), flower], i * 4)
-      origins.set(flowers[flower], i * 4)
-    }else{
-      petals.set([random()*Math.PI*2,-1,random(),random()*3],i*4)
-      origins.set([(random()-.5)*34,(random()-.5)*22,-6-random()*30,.18+random()*.15],i*4)
+  const petals:number[]=[],origins:number[]=[],random=randomStream()
+  // Back to front, with fewer, broader petals and distinct bud openings.
+  for(let flower=flowers.length-1;flower>=0;flower--)for(let ring=0;ring<(flower===0?4:3);ring++){
+    const count=Math.max(5,Math.round((8-ring*.7)*(.9+Math.min(density,1.5)*.15)))
+    for(let i=0;i<count;i++){
+      petals.push(i/count*Math.PI*2+ring*.43+(random()-.5)*.18,ring,random(),flower)
+      origins.push(...flowers[flower])
     }
   }
-  geometry.setAttribute('aPetal', new T.InstancedBufferAttribute(petals, 4))
-  geometry.setAttribute('aOrigin', new T.InstancedBufferAttribute(origins, 4)); geometry.instanceCount = count
+  geometry.setAttribute('aPetal', new T.InstancedBufferAttribute(new Float32Array(petals), 4))
+  geometry.setAttribute('aOrigin', new T.InstancedBufferAttribute(new Float32Array(origins), 4)); geometry.instanceCount = petals.length/4
   plane.dispose()
   return geometry
 }
 
 export function petalCoreGeometry() {
   const positions:number[]=[],origins:number[]=[]
-  for(let flower=0;flower<flowers.length;flower++)for(let i=0;i<129;i++){
-    const angle=i*2.399963, radius=Math.sqrt(i/128)*.30
-    positions.push(Math.cos(angle)*radius,Math.sin(angle)*radius,.52+(1.-i/128)*.12+Math.sin(i*1.7)*.025)
-    origins.push(...flowers[flower])
+  for(let i=0;i<81;i++){
+    const angle=i*2.399963, radius=Math.sqrt(i/80)*.34
+    positions.push(Math.cos(angle)*radius,Math.sin(angle)*radius,.72+(1.-i/80)*.16+Math.sin(i*1.7)*.025)
+    origins.push(...flowers[0])
   }
   return new T.BufferGeometry().setAttribute('position',new T.Float32BufferAttribute(positions,3)).setAttribute('aOrigin',new T.Float32BufferAttribute(origins,4))
 }

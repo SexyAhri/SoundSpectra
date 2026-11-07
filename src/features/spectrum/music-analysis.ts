@@ -26,6 +26,8 @@ export function demoAnalysis(seconds: number): MusicAnalysis {
   const rms = 0.08 + beat * 0.22 + (Math.sin(seconds * 2.3) + 1) * 0.035;
   return {
     rms,
+    // Explicit synthetic physical bands for mapping previews; never used for live capture.
+    bandRms: Array.from({length:6},(_,i)=>rms*(.68-i*.075)*( .72+.28*Math.sin(seconds*2.3+i)**2)),
     sourceRevision: 0,
     streamId: 0,
     sequence: Math.floor((seconds * 48000) / 1024),

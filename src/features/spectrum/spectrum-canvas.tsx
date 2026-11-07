@@ -20,6 +20,7 @@ export interface SpectrumCanvasProps {
   regionCount?: number;
   interactive?: boolean;
   onViewChange?: (view: SceneView) => void;
+  regionId?: string;
 }
 
 const ThreeSceneCanvas = lazy(() =>
@@ -38,7 +39,7 @@ export function SpectrumCanvas(props: SpectrumCanvasProps) {
         />
       }
     >
-      <ThreeSceneCanvas key={props.settings.effect} {...props} />
+      <ThreeSceneCanvas {...props} />
     </Suspense>
   );
 }

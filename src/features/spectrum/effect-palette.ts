@@ -7,18 +7,53 @@ const palette = (name: string, low: string, main: string, accent: string, high: 
 // Retain the saved identifiers. Their colors belong to the effect's material,
 // rather than forcing every scene into the same cyan/purple gradient.
 export const effectPalettes: Record<MusicEffect, Record<PaletteId, EffectPalette>> = {
+  butterfly_flock: {
+    iris: palette('蓝闪蝶翼', '#17262b', '#398fa7', '#bf955e', '#d7e6ce'),
+    ember: palette('琥珀蝶影', '#2a201d', '#c08041', '#779c96', '#efdbb2'),
+    lake: palette('青玉鳞翅', '#152b28', '#69a68b', '#8f9cb9', '#e0e5c9'),
+  },
+  caustic_light: {
+    iris: palette('碧水折光', '#0a222a', '#5cabb2', '#8db5a5', '#e1f0dc'),
+    ember: palette('浅湾暖光', '#1f2927', '#99ad9c', '#b9aa70', '#f1e8c8'),
+    lake: palette('深蓝水光', '#091a2e', '#508cbb', '#6eb8c4', '#d6ebf4'),
+  },
+  ginkgo_leaves: {
+    iris: palette('秋日银杏', '#2c2918', '#d6b544', '#ad742a', '#f5e7a7'),
+    ember: palette('晚照金叶', '#322316', '#cd9837', '#b65d27', '#f6d891'),
+    lake: palette('初秋青杏', '#192b21', '#a5b553', '#c1a44a', '#e5e8b0'),
+  },
+  cosmic_web: {
+    iris: palette('深空银脉', '#080f21', '#688fba', '#cfaa7d', '#dceafb'),
+    ember: palette('紫夜星脉', '#170e24', '#8c80b6', '#c89178', '#e7e1f2'),
+    lake: palette('冷青星脉', '#071c26', '#62a5b2', '#bcb497', '#d8f0ef'),
+  },
+  tidal_knot: {
+    iris: palette('青铜潮汐', '#213533', '#3a9d9e', '#d79c68', '#c2e8e0'),
+    ember: palette('赤陶折光', '#30242a', '#b96d57', '#cca3b6', '#f0dbcd'),
+    lake: palette('冰瓷流光', '#142a39', '#518db0', '#89b4c5', '#d6ecef'),
+  },
+  layered_tides: {
+    iris: palette('雾蓝层海', '#293941', '#527f9e', '#aa83af', '#cfdee9'),
+    ember: palette('暮色绸浪', '#38242c', '#b78873', '#aa697d', '#ecdad3'),
+    lake: palette('青海层波', '#173331', '#488d88', '#9bbba1', '#d4e7d9'),
+  },
+  echo_corridor: {
+    iris: palette('孔雀回声', '#13232c', '#448d85', '#d09d59', '#dbdfc6'),
+    ember: palette('铜金廊道', '#332126', '#ba7759', '#d7ab70', '#eddbc6'),
+    lake: palette('冰蓝航廊', '#132b3c', '#4f93b3', '#8e9dd0', '#d8e6f2'),
+  },
   rhythm_balls: {
     iris: palette('海盐微光', '#0c1d24', '#7fc3c9', '#b3a9d6', '#eaf7f3'),
     ember: palette('珊瑚浅梦', '#2c202b', '#d9a7b3', '#b3accf', '#f3e2df'),
     lake: palette('深蓝浮游', '#102333', '#82b1d6', '#79c5bb', '#dceff5'),
   },
   rhythm_rain: {
-    iris: palette('青石细雨', '#111e27', '#7895a7', '#42676b', '#cdd5d7'),
+    iris: palette('青石灯雨', '#111c23', '#849ea8', '#c6a77b', '#dce8e6'),
     ember: palette('檐下灯雨', '#211d1b', '#bba486', '#7b8b91', '#e3d5bd'),
     lake: palette('雨后竹青', '#132622', '#88aa9e', '#607f8b', '#d2e2da'),
   },
   rhythm_skin: {
-    iris: palette('鼠尾草亚麻', '#303b32', '#8d9b87', '#c7b69a', '#e8dfcf'),
+    iris: palette('烟青银缎', '#14272c', '#719c9d', '#b9b6a8', '#e8e6dc'),
     ember: palette('玫瑰绢', '#3c3033', '#b49097', '#c4aa98', '#ece0d5'),
     lake: palette('雾蓝缎', '#293941', '#859eaa', '#adb9b2', '#e1e7e5'),
   },
@@ -48,7 +83,7 @@ export const effectPalettes: Record<MusicEffect, Record<PaletteId, EffectPalette
     lake: palette('青石山脊', '#20343a', '#5b838b', '#94afa1', '#d0ddd2'),
   },
   petal_bloom: {
-    iris: palette('豆沙花笺', '#2c2529', '#ba929c', '#899d8f', '#e8ddd4'),
+    iris: palette('藕白花冠', '#261f29', '#d7aeb8', '#a66b80', '#f8e8df'),
     ember: palette('杏花暖白', '#34291f', '#d1ad8b', '#a7aa8b', '#eee2cc'),
     lake: palette('青瓷白花', '#213533', '#9bb8ae', '#91a2b6', '#e4ece2'),
   },

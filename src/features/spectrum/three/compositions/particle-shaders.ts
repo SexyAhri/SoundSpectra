@@ -1,0 +1,80 @@
+import { audioShader } from './audio'
+
+export const particleVertex = /* glsl */`
+${audioShader}
+uniform float uTime,uKind,uLayer,uBass,uMiddle,uShape,uPixelHeight;
+uniform float uMapBend,uMapUnfold,uScatter;
+attribute float aSeed;
+varying vec2 vUv;
+varying float vSeed,vLight,vFade,vMusic;
+const float PI=3.14159265359;
+void main(){
+  float t=uTime,seed=aSeed;
+  vUv=uv;vSeed=seed;
+  vec3 p;
+  if(uKind<.5){
+    // Advect particles through one persistent surface coordinate. Independent
+    // time signs in the old folds made neighbouring streams visibly reverse.
+    float a=uv.x*2.*PI+t*.12,b=acos(uv.y*2.-1.);
+    float fold=sin(a*3.+b*2.2);
+    float r=3.3+.40*fold+.18*sin(b*5.-a*2.);
+    float lobe=fold;
+    float front=onsetWave(b+uLayer*.35,1.9,.27);
+    r+=(lobe*uBass*.85+sin(a*7.+b*3.)*(.06+uMiddle*.28)+front*.85)*uShape;
+    r*=mix(1.,.73,uLayer);
+    float twist=a+(.28+uMiddle*.16)*sin(b*2.);
+    p=vec3(r*sin(b)*cos(twist),r*cos(b)*1.12,r*sin(b)*sin(twist));
+    p.x+=.32*sin(b*3.);p.z+=.2*cos(a*2.+b);
+    vec3 normal=normalize(normalMatrix*normalize(p));
+    vec3 eye=normalize(-(modelViewMatrix*vec4(p,1.)).xyz);
+    vLight=.24+.76*pow(max(0.,dot(normal,eye)),.65);
+    vFade=(.42+.58*pow(.5+.5*sin(a*11.+b*4.),2.))*(1.-uLayer*.28);
+    vMusic=front*.8+uAccents.x*max(0.,lobe)*.35;
+  }else{
+    float x=(uv.x-.5)*32.,z=(uv.y-.5)*25.,flow=z-t*1.8;
+    float radius=length(vec2(x*.74,z));
+    float front=onsetWave(length(vec2(x*.65,z+6.))+uLayer,9.,1.1);
+    float y=sin(x*.22+flow*.25)*(1.15+uBass*2.1)*uShape;
+    y+=cos(flow*.28-x*.12)*1.0;
+    y+=sin(x*.38+flow*.54)*exp(-radius*.065)*(.65+uMiddle*.9);
+    y+=front*2.2*uShape;
+    y+=pow(abs(x)/16.,3.)*1.7*sin(flow*.19);
+    y-=uLayer*1.65;
+    p=vec3(x,y,z-3.);
+    vLight=.48+.52*pow(.5+.5*sin(x*.22+flow*.25),2.);
+    vFade=smoothstep(0.,.045,uv.x)*smoothstep(0.,.045,1.-uv.x)*smoothstep(0.,.06,uv.y)*smoothstep(0.,.06,1.-uv.y);
+    vFade*=1.-uLayer*.60;
+    vMusic=front*.75+uAccents.y*max(0.,sin(x*.32-z*.41))*.35;
+  }
+  if(uKind<.5){
+    float theta=uMapBend*.7*sin(uv.y*PI*2.);p.xz=mat2(cos(theta),-sin(theta),sin(theta),cos(theta))*p.xz;
+    p+=normalize(p)*uMapUnfold*1.6*(uLayer<.5?1.:-.45);
+  }else{p.x+=sin(p.z*.19)*uMapBend*1.8;p.y+=uMapUnfold*2.4*(uLayer<.5?1.:-.65)*sin(uv.x*PI);}
+  // Move the actual surface particles along persistent per-particle directions.
+  vec3 scatter=normalize(vec3(sin(seed*781.),cos(seed*343.),sin(seed*127.+2.)));
+  p+=scatter*uScatter*(3.+seed*5.);vFade*=1.-uScatter*.72;
+  vec4 view=modelViewMatrix*vec4(p,1.);
+  gl_Position=projectionMatrix*view;
+  gl_PointSize=clamp(uPixelHeight*.043/max(1.,-view.z)*(.62+seed*.65),.7,3.8);
+}
+`
+export const particleFragment = /* glsl */`
+${audioShader}
+uniform float uTime,uKind,uLayer,uTreble,uDaily;
+uniform vec3 uMain,uAccent,uHigh;
+varying vec2 vUv;
+varying float vSeed,vLight,vFade,vMusic;
+void main(){
+  float distance=length(gl_PointCoord-.5)*2.;
+  float dotAlpha=1.-smoothstep(.42,1.,distance);
+  float warm=uKind<.5?1.-smoothstep(.10,.78,vUv.y):smoothstep(.1,.94,abs(vUv.x-.5)*2.);
+  vec3 color=mix(uMain,uAccent,warm);
+  float stream=pow(.5+.5*sin(vUv.x*36.+vUv.y*15.-uTime*.85),14.);
+  float sparkle=(uTreble*.5+uAccents.z*1.4)*step(.82,vSeed)*stream;
+  color=mix(color,uHigh,clamp(stream*.42+vLight*.18+vMusic*.5+sparkle*.5,0.,.9));
+  float light=(.45+vLight*.55)*(1.+vMusic*.85+sparkle);
+  float alpha=dotAlpha*vFade*(.55+vSeed*.35)*(1.-uDaily*.12);
+  if(alpha<.015)discard;
+  gl_FragColor=vec4(color*light,alpha);
+}
+`

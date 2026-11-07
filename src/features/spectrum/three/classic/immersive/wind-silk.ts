@@ -1,71 +1,97 @@
 import * as T from 'three'
-import { flowDriver,surfaceGeometry,surfaceVertex,uniformSource,type FlowEffect } from '../flow/shared'
-import { daylightSky,daylightUniforms } from './daylight'
+import { commonUniforms, flowDriver, surfaceGeometry, surfaceVertex, uniformSource, type FlowEffect } from '../flow/shared'
+import { reactiveUniforms, reactiveSource, updateReactiveUniforms } from '../../reactive-motion'
 
+const path = `${reactiveSource}
+vec3 silkCurve(vec3 a,vec3 b,vec3 c,vec3 d,float t){
+  float s=1.-t;return a*s*s*s+3.*b*s*s*t+3.*c*s*t*t+d*t*t*t;
+}
+vec3 silkPath(float t,float lane){
+  float tail=smoothstep(.12,.95,t);
+  float carried=mix(uBodyBands.y,uDragBands.y,tail);
+  float lift=sin(t*5.4-uPhase*.27+lane)*(.25+carried*.9);
+  vec3 p=t<.5?
+    silkCurve(vec3(-24.,5.,-8.),vec3(-15.,-12.,3.),vec3(21.,-11.,-3.),vec3(13.,5.,-9.),t*2.):
+    silkCurve(vec3(13.,5.,-9.),vec3(7.,18.,-14.),vec3(-13.,3.,-1.),vec3(22.,-9.,0.),(t-.5)*2.);
+  p.y+=lift;
+  p+=vec3(sin(t*7.+1.)*2.,cos(t*8.)*3.-1.,-4.)*lane;
+  return p;
+}
+`
 const vertex=surfaceVertex(`
- float x=(t-.5)*uRange,across=(uv.y-.5)*mix(17.,12.,uDepth)*uWidth;
- across*=mix(1.,.35+.65*pow(max(0.,sin(t*PI)),.35),uDepth);
- float materialX=x-uPhase*16.;
- float fold=sin(materialX*.065+lane*1.8)*5.8+sin(materialX*.115+lane*.8)*1.2;
- float twist=x*.035+lane+sin(x*.025-uPhase*.32)*.12;
- float ripple=0.;
- for(int i=0;i<6;i++){
-   vec4 wave=uSilkWaves[i];
-   float front=abs(t-wave.z)-wave.x*.42;
-   float attack=1.-exp(-wave.w*18.);
-   ripple+=exp(-front*front*720.)*attack*attack*exp(-wave.w*2.)
-     *(1.-smoothstep(2.5,3.5,wave.w))*wave.y;
- }
- p=vec3(x,(-12.+lane*mix(17.,12.,uDepth))+fold*(1.+uSlowMid*.12)*mix(1.,.7,uDepth)+across*cos(twist),
-   -18.-lane*22.+across*sin(twist)+sin(x*.08+lane-uPhase*.3)*5.);
- p.y+=sin(across*.7+materialX*.12+lane)*(.35+uSlowMid*.45)+ripple*sin(uv.y*15.+lane)*4.5;
- p.z+=pow(.5+.5*sin(materialX*.18+lane),6.)*sin(across*.6)*uAccents.y*.8;
- p.z+=sin(across*.9+materialX*.19)*.18;
- p.y+=sin(across*2.8+materialX*.32+lane)*.1;
- vLight=ripple;
-`, 'uniform float uSlowMid; uniform vec4 uSilkWaves[6];')
+  float s=(uv.y-.5)*2.;
+  vec3 center=silkPath(t,lane);
+  vec3 tangent=silkPath(t+.001,lane)-silkPath(t-.001,lane);
+  tangent/=max(length(tangent),.00001);
+  vec3 side=vec3(-tangent.y,tangent.x,0.);side/=max(length(side),.00001);
+  vec3 normal=cross(tangent,side);
+  float lag=mix(uBodyBands.y,uDragBands.y,clamp(t*.6+abs(s)*.4,0.,1.));
+  float twist=-.65+t*4.2+lane*.8+sin(t*7.-uPhase*.18)*(.17+lag*.3);
+  vec3 across=side*cos(twist)+normal*sin(twist);
+  vec3 face=cross(tangent,across);
+  float taper=.03+.97*pow(max(0.,sin(t*PI)),.55);
+  float width=mix(3.6,1.25,lane)*uWidth*taper;
+  float wave=0.;
+  for(int i=0;i<8;i++){
+    if(i>=uMusicWaveCount)break;
+    vec4 event=uMusicWaves[i];
+    float age=max(0.,event.x-abs(s)*.075-lane*.09);
+    float front=t-event.z-age*.48;
+    float attack=1.-exp(-age*24.);
+    float weight=event.w<.5?1.:event.w<1.5?.8:.12;
+    wave+=exp(-front*front*140.)*attack*attack*exp(-age*1.8)*event.y*weight;
+  }
+  float material=t*25.-uPhase*1.25;
+  float folds=sin(material+s*2.1)*(.34+lag*.3)*s*s;
+  folds+=sin(s*4.4+t*6.-uPhase*.8)*.42*(.4+.6*sin(t*PI));
+  folds+=sin(t*13.-uPhase*.75+s*.8)*sin(s*1.57)*.32+s*s*.22;
+  folds+=sin(t*69.-uPhase*2.6+s*4.)*.025*s*s;
+  float body=mix(uBodyBands.x,uDragBands.x,abs(s));
+  p=center+across*(s*width)+face*(folds+sin(s*2.4+material*.5)*body*.4+wave*(.65+s*.32));
+  p+=side*sin(t*9.-uPhase*.21+lane)*(lag*.28*s*s);
+  vLight=wave;
+`,path)
+
 const fragment=`${uniformSource}
 varying vec3 vWorld;varying vec2 vUv;varying float vLane,vAlpha,vLight;
 void main(){
- vec3 n=cross(dFdx(vWorld),dFdy(vWorld));n/=max(length(n),.00001);if(!gl_FrontFacing)n=-n;
- vec3 light=normalize(vec3(-.5,.8,.8)),view=cameraPosition-vWorld;view/=max(length(view),.00001);
- float diffuse=.4+.6*abs(dot(n,light));
- float sheen=pow(max(0.,dot(reflect(-light,n),view)),28.);
- // Rounded face-on dot products must not feed a negative base to pow.
- float grazing=pow(clamp(1.-abs(dot(n,view)),0.,1.),2.5);
- float transmission=pow(max(0.,dot(-n,light)),2.);
- vec3 dye=mix(uColor,uAccent,clamp(vLane*.3+vUv.y*.25,0.,1.));
- float weave=vUv.y*1500.;
- float threads=.97+.03*sin(weave)*exp(-fwidth(weave)*fwidth(weave)*.3);
- vec3 color=dye*(diffuse*threads+grazing*.14)+mix(dye,vec3(.9,.8,.68),.5)*(sheen*.32+transmission*.08+vLight*.12);
- float hem=exp(-max(0.,min(vUv.y,1.-vUv.y))*160.);
- color+=dye*hem*(.05+uTrail*.01);
- float tip=mix(1.,smoothstep(0.,.07,vUv.x)*(1.-smoothstep(.93,1.,vUv.x)),uDepth);
- if(tip<.005)discard;
- gl_FragColor=vec4(color,tip);
+  vec3 dx=dFdx(vWorld),dy=dFdy(vWorld);
+  vec3 n=cross(dx,dy);n/=max(length(n),.00001);if(!gl_FrontFacing)n=-n;
+  vec3 view=cameraPosition-vWorld;view/=max(length(view),.00001);
+  vec3 light=normalize(vec3(-.55,.85,1.));
+  vec3 halfLight=light+view;halfLight/=max(length(halfLight),.00001);
+  vec3 tangent=dx*dFdy(vUv).y-dy*dFdx(vUv).y;tangent/=max(length(tangent),.00001);
+  float diffuse=.32+.7*max(0.,dot(n,light));
+  float grazing=pow(clamp(1.-abs(dot(n,view)),0.,1.),2.5);
+  float anisotropy=pow(clamp(1.-pow(dot(tangent,halfLight),2.),0.,1.),12.);
+  float sheen=pow(max(0.,dot(n,halfLight)),12.)*(.25+anisotropy*.75);
+  float backlight=pow(max(0.,dot(-n,light)),2.)*.15;
+  vec3 dye=mix(uColor,uAccent,clamp(vLane*.55+vUv.y*.16,0.,1.));
+  float thread=vUv.y*4200.;
+  float weave=1.+sin(thread)*.035*exp(-pow(fwidth(thread)*.7,2.));
+  vec3 color=dye*(diffuse*weave+backlight+grazing*.1);
+  color+=mix(dye,uHighlight,.8)*(sheen*(.38+uTrail*.075)+grazing*.12);
+  float hem=exp(-min(vUv.y,1.-vUv.y)*200.);
+  color+=mix(dye,uHighlight,.45)*(hem*.08+vLight*.045);
+  float ends=smoothstep(0.,.018,vUv.x)*(1.-smoothstep(.982,1.,vUv.x));
+  float edge=smoothstep(0.,max(.002,fwidth(vUv.y)),min(vUv.y,1.-vUv.y));
+  float alpha=ends*edge*(.94+grazing*.04);
+  if(alpha<.005)discard;
+  gl_FragColor=vec4(color,alpha);
 }`
 
-/** Broad suspended silk folds catch daylight; melody bends the fabric instead of flashing it. */
+/** Two suspended satin lengths: a broad open loop and a finer trailing ribbon. */
 export function createWindSilk(detail:number):FlowEffect{
- const group=new T.Group(),uniforms={...daylightUniforms(),uSilkWaves:{value:Array.from({length:6},()=>new T.Vector4(0,0,0,10))}},drive=flowDriver(uniforms)
- const waves:{age:number;life:number;strength:number;origin:number}[]=[]
- let beat=-1
- uniforms.uSkyHigh.value.set('#6b6665');uniforms.uSkyLow.value.set('#96877c');daylightSky(group,uniforms)
- const sheet=new T.Mesh(surfaceGeometry(Math.round(200*Math.max(.65,detail)),64,3),new T.ShaderMaterial({uniforms,vertexShader:vertex,fragmentShader:fragment,side:T.DoubleSide,transparent:true,toneMapped:false}));sheet.frustumCulled=false;group.add(sheet)
- return {group,update(motion,config,reduced){
-   const m=config.music,dt=drive(motion,config,reduced,m.skinFlowSpeedMultiplier*(.12+m.speed*.06))
-   for(const wave of waves){wave.life+=dt;if(!reduced)wave.age+=dt}
-   while(waves.length&&waves[0].life>3.5)waves.shift()
-   const frame=motion.frame
-   if(!reduced&&motion.transporting&&frame?.onset&&frame.beatIndex!==beat){
-     beat=frame.beatIndex;if(waves.length===6)waves.shift()
-     const regional=frame.bandOnsets[0]?1:frame.bandOnsets[1]?.75:.25
-     waves.push({age:0,life:0,strength:motion.onsetStrength*regional,origin:uniforms.uOnsetOrigin.value})
-   }
-   uniforms.uSilkWaves.value.forEach((value,i)=>{const wave=waves[i];value.set(wave?.age??0,wave?.strength??0,wave?.origin??0,wave?.life??10)})
-   uniforms.uWidth.value=m.dragonWidth;uniforms.uTrail.value=m.dragonTrail
-   uniforms.uRange.value=config.sceneMode==='daily'?78:180;uniforms.uDepth.value=Number(config.sceneMode==='daily')
-   uniforms.uSkyHigh.value.copy(uniforms.uShade.value).lerp(uniforms.uAccent.value,.3)
-   uniforms.uSkyLow.value.copy(uniforms.uHighlight.value).multiplyScalar(.6)
- }}
+  const group=new T.Group();group.name='suspended-silk'
+  const uniforms={...commonUniforms(),...reactiveUniforms()},drive=flowDriver(uniforms)
+  const geometry=surfaceGeometry(Math.round(260*Math.max(.65,Math.min(1.5,detail))),48,2)
+  const material=new T.ShaderMaterial({uniforms,vertexShader:vertex,fragmentShader:fragment,
+    side:T.DoubleSide,transparent:true,depthWrite:true,toneMapped:false})
+  const sheet=new T.Mesh(geometry,material);sheet.name='satin-loops';sheet.frustumCulled=false;group.add(sheet)
+  return {group,update(motion,config,reduced){
+    const m=config.music
+    drive(motion,config,reduced,m.skinFlowSpeedMultiplier*(.32+m.speed*.15))
+    updateReactiveUniforms(uniforms,motion,'rhythm_skin',reduced)
+    uniforms.uWidth.value=m.dragonWidth;uniforms.uTrail.value=m.dragonTrail
+  }}
 }

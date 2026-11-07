@@ -19,6 +19,8 @@ import {
 import { demoFeatures } from "../audio-feature-timeline";
 import { useSceneFocus } from '../scene-focus';
 import { regionStyle } from '../regions';
+import { previewResizePending, settlePreviewResize } from '../../preview/resize-settling';
+import { PerformanceFrame, usePerformance } from '../../performance/runtime';
 
 export function ThreeSceneCanvas({
   settings,
@@ -30,7 +32,11 @@ export function ThreeSceneCanvas({
   className,
   interactive = !desktop,
   onViewChange,
+  regionId = 'primary',
 }: SpectrumCanvasProps) {
+  const performanceController=usePerformance();
+  const performanceCurrent=useRef(performanceController);performanceCurrent.current=performanceController;
+  const regionCurrent=useRef(regionId);regionCurrent.current=regionId;
   const focus=useSceneFocus();
   // Media/status polling can recreate settings without changing the scene.
   // Compare visual values on prop updates, never serialize inside the RAF loop.
@@ -49,6 +55,9 @@ export function ThreeSceneCanvas({
   });
   const view = useRef(settings.view);
   const [error, setError] = useState<string | null>(null);
+  const fatalEffect=useRef<string|null>(null);
+  const [restart,setRestart]=useState(0);
+  useEffect(()=>{if(fatalEffect.current&&fatalEffect.current!==settings.effect){fatalEffect.current=null;setRestart(value=>value+1)}},[settings.effect]);
   useEffect(() => {
     current.current = {
       settings,
@@ -66,6 +75,7 @@ export function ThreeSceneCanvas({
   useEffect(() => {
     const canvas = ref.current!,
       motion = new SceneMotion(),
+      performanceFrame = new PerformanceFrame(),
       silence = silentAnalysis();
     let world: ThreeSceneRenderer | undefined,
       raf = 0,
@@ -80,6 +90,10 @@ export function ThreeSceneCanvas({
       frames = 0,
       dirty = true,
       wasSilent = false;
+    let resizePaused = false;
+    let recoveryNotice = '';
+    const windowResizing = () => { if (!desktop) settlePreviewResize(); };
+    if (!desktop) window.addEventListener('resize', windowResizing);
     let viewRaf = 0;
     let drag: {
       x: number;
@@ -104,6 +118,7 @@ export function ThreeSceneCanvas({
       if (!viewRaf) viewRaf = requestAnimationFrame(flushView);
     };
     const fail = (reason: unknown) => {
+      fatalEffect.current=current.current.settings.effect;
       stopped = true;
       cancelAnimationFrame(raf);
       clearTimeout(timer);
@@ -277,11 +292,17 @@ export function ThreeSceneCanvas({
           current.current.settings.effect,
           fail,
         );
-        const resize = () => {
+        const resize = (desired = current.current.settings) => {
+          if (!desktop && previewResizePending()) {
+            clearTimeout(resizeTimer);
+            resizeTimer = window.setTimeout(resize, 48);
+            return;
+          }
           try {
             void world?.resize(
-              current.current.settings,
+              desired,
               current.current.regionCount,
+              {preview:!desktop,deferSceneChange:true},
             ).then(() => { if (!stopped) dirty = true; });
             dirty = true;
           } catch (error) {
@@ -362,12 +383,15 @@ export function ThreeSceneCanvas({
               ? Math.min(0.1, (now - previous) / 1000)
               : 1 / 60;
             previous = now;
+            const performanceResult=performanceFrame.resolve(performanceCurrent.current,next.settings,regionCurrent.current,reduced.matches);
+            const effective=performanceResult.settings;
             if (
-              config.quality !== next.settings.quality ||
+              config.quality !== effective.quality ||
+              config.effect !== effective.effect ||
               count !== next.regionCount
             ) {
               count = next.regionCount;
-              resize();
+              resize(effective);
             }
             if (simulate !== next.demo) {
               simulate = next.demo;
@@ -382,7 +406,7 @@ export function ThreeSceneCanvas({
               focusRevision=focus?.current.revision??0;
               dirty=true;
             }
-            config = next.settings;
+            config = performanceResult.settings;
             const audio = next.demo
               ? demoAnalysis(reduced.matches ? 1 : now / 1000)
               : analysis &&
@@ -407,23 +431,34 @@ export function ThreeSceneCanvas({
                   ? timeline?.sample(now, config.music)
                   : null;
             motion.step(audio, dt, config.music, reduced.matches, shared);
+            // Do not clear or reset the scene: CSS retains the last frame while
+            // native presentation changes size, and transport still follows audio.
+            const paused = !desktop && previewResizePending(now);
+            if (resizePaused !== paused) dirty = true;
+            resizePaused = paused;
+            canvas.dataset.resizePaused = String(paused);
             const silent = motion.presence < 0.0001;
-            if (!silent || !wasSilent || dirty) {
-              world!.draw(
+            let rendered=true;
+            if (!silent || !wasSilent || dirty || canvas.dataset.transition !== 'idle' || performanceResult.changed) {
+              rendered=world!.draw(
                 motion,
-                view.current === config.view
+                performanceResult.settings !== next.settings || view.current === config.view
                   ? config
                   : { ...config, view: view.current },
                 reduced.matches,
                 dt,
                 focus?.current,
+                paused,
+                performanceResult,
               );
+              const notice=canvas.dataset.transitionError??'';
+              if(notice!==recoveryNotice){recoveryNotice=notice;setError(notice?`目标场景准备失败，已保留上一场景：${notice}`:null)}
               const signature = JSON.stringify(view.current);
               if (canvas.dataset.view !== signature)
                 canvas.dataset.view = signature;
             }
             wasSilent = silent;
-            dirty = false;
+            dirty = paused || !rendered;
             if (++frames % 6 === 0) {
               canvas.dataset.rms = audio.rms.toFixed(4);
               canvas.dataset.drops = String(motion.musicDropCount);
@@ -450,6 +485,7 @@ export function ThreeSceneCanvas({
       clearTimeout(timer);
       clearTimeout(resizeTimer);
       clearTimeout(visibilityTimer);
+      window.removeEventListener('resize', windowResizing);
       observer?.disconnect();
       intersection?.disconnect();
       motion.reset();
@@ -468,7 +504,7 @@ export function ThreeSceneCanvas({
         if (!canvas.isConnected) renderer?.forceContextLoss();
       });
     };
-  }, [analysis, desktop, focus]);
+  }, [analysis, desktop, focus, restart]);
   const label =
     musicEffects.find((effect) => effect.value === settings.effect)?.label ??
     "三维声场";

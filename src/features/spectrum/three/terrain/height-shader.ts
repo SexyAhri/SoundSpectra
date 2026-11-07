@@ -21,13 +21,15 @@ void main() {
   float spectrum = clamp(mix(uSpectrum[bin], uSpectrum[bin + 1], position-float(bin)), 0., 1.) * uLevels.x;
   vec2 center = vec2(p.x + 2. - sin(uPhase * .1) * .8, p.y + 5.) / vec2(23., 17.);
   float footprint = exp(-dot(center, center) * 1.4);
-  float ridges = .5 + .5 * sin(p.x * .23 + p.y * .17 - uPhase);
+  // Cusped crests and unequal shoulders read as a rock ridge, not a soft dome.
+  float ridgeAxis = p.x * .23 + p.y * .17 - uPhase + sin(p.y * .15) * .38;
+  float ridges = 1. - abs(sin((ridgeAxis - 1.5707963268) * .5));
   float crossing = .5 + .5 * sin(p.y * .3 - p.x * .12 - uPhase * .65);
-  float relief = .55 + ridges*ridges*.55 + crossing*crossing*crossing*.2 + (seed - .5) * .1;
+  float relief = .14 + pow(ridges,2.4)*1.85 + pow(crossing,4.)*.2 + (seed - .5) * .008;
   vec2 shoulder = vec2(p.x / 27., (p.y + 1.) / 25.);
   float shoulders = exp(-dot(shoulder, shoulder));
-  float height = footprint * (uMass.x * 2.5 + spectrum * 5.2 + uMass.y * 3.8) * relief * 1.25
-    + shoulders * (uLevels.z * 3.8 + uLevels.w * 4.) * pow(seed, 7.);
+  float height = footprint * (uMass.x * 2.5 + spectrum * 5.2 + uMass.y * 3.8) * relief * 1.8
+    + shoulders * (uLevels.z * 3.8 + uLevels.w * 4.) * pow(ridges * crossing, 3.);
   float crest = 0.;
   for (int i = 0; i < 12; i++) {
     if (i >= uRippleCount) break;
@@ -36,11 +38,16 @@ void main() {
     float width = 1.1 + ripple.z * .22;
     if (abs(front) > width * 4.) continue;
     float wave = cos(front * 1.45) * exp(-front * front / (width * width * 4.)) * exp(-ripple.z * .36) * ripple.w;
-    height += wave * mix(.55, .8, uPointer[i]);
+    height += wave * mix(.24, .8, uPointer[i]);
     crest += max(0., wave);
   }
-  height = max(0., height) * uHeight;
+  height = max(footprint * uLevels.x * .65, height) * uHeight * 2.2;
   height = 16. * (1. - 2. / (exp(2. * height / 16.) + 1.));
+  // Continuous ledges: each layer joins its neighbors without a height jump.
+  float layerWarp = sin(p.x * .15 + p.y * .19) * .11;
+  float layer = height / 3. + layerWarp;
+  float terraced = (floor(layer) + smoothstep(.2,.8,fract(layer)) - layerWarp) * 3.;
+  height = max(0., mix(height,terraced,.32*smoothstep(1.2,5.,height)));
   float heat = clamp((height / 10. * .8 + footprint * uLevels.x * .32 + spectrum * .15) * (.36 + footprint * .64), 0., 1.);
   gl_FragColor = vec4(height, footprint, min(1., crest * .65), heat);
 }`

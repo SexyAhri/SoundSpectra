@@ -16,6 +16,7 @@ import {
   dustVertex,
   dustFragment,
   coreVertex,
+  pollenVertex,
   trailFragment,
 } from "../ambient/ambient-shaders";
 import {
@@ -25,13 +26,16 @@ import {
   ribbonVertex,
   ribbonFragment,
   flightStarFragment,
+  flightDustVertex,
 } from "../ambient/star-flight";
 import { useVisualFrame } from "./runtime";
+import { reactiveUniforms, updateReactiveUniforms } from "../reactive-motion";
 
 export function useLightFieldUniforms(effect: MusicEffect) {
   const gl = useThree((state) => state.gl);
   const u = useMemo(
     () => ({
+      ...reactiveUniforms(),
       uAuroraPhase: { value: 0 },
       uPhase: { value: 0 },
       uVolume: { value: 0 },
@@ -63,7 +67,8 @@ export function useLightFieldUniforms(effect: MusicEffect) {
     u.uWarm.value.set(aurora ? palette.main : palette.accent);
     u.uHigh.value.set(palette.high);
     u.uAuroraPhase.value = motion.auroraPhase;
-    u.uPhase.value = motion.phase;
+    u.uPhase.value = motion.flowPhase(effect, .8 + config.music.speed * .16, .25, reduced);
+    updateReactiveUniforms(u, motion, effect, reduced);
     u.uVolume.value = motion.energy;
     u.uSustain.value=motion.frame?.audible?motion.frame.sustain:0;
     u.uOnsetAge.value=Math.min(10,Math.max(0,(motion.frame?.beatAge??10000)/1000));
@@ -161,18 +166,20 @@ export function ParticleField({
   uniforms,
   flight = false,
   trails = false,
+  petals = false,
 }: {
   count: number;
   uniforms: LightFieldUniforms;
   flight?: boolean;
   trails?: boolean;
+  petals?: boolean;
 }) {
   const geometry = useMemo(() => dustGeometry(count, trails), [count, trails]);
   return (
     <LightSurface
       geometry={geometry}
       uniforms={uniforms}
-      vertex={dustVertex}
+      vertex={flight ? flightDustVertex : petals ? pollenVertex : dustVertex}
       fragment={
         trails ? trailFragment : flight ? flightStarFragment : dustFragment
       }
@@ -208,13 +215,13 @@ export function AmbientLayers({
   const sheets = useMemo(
     () =>
       flight
-        ? [flightSheetGeometry(5, segments), flightSheetGeometry(2, segments)]
+        ? [flightSheetGeometry(2, segments), flightSheetGeometry(5, segments)]
         : [],
     [flight, segments],
   );
   const count = Math.max(
     48,
-    Math.round((flight ? 1500 : aurora ? 240 : 90) * detail),
+    Math.round((flight ? 4200 : aurora ? 240 : 90) * detail),
   );
   useEffect(() => {
     gl.domElement.dataset.items = String(count);
@@ -241,7 +248,7 @@ export function AmbientLayers({
           kind="points"
         />
       )}
-      <ParticleField count={count} uniforms={uniforms} flight={flight} />
+      <ParticleField count={count} uniforms={uniforms} flight={flight} petals={!flight&&!aurora} />
       {flight && (
         <>
           <ParticleField count={count} uniforms={uniforms} flight trails />

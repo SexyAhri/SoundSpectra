@@ -8,13 +8,19 @@ import { isClassicEffect } from "../../music-engine/catalog";
 import { fullscreenGeometry } from "./resources";
 import { useVisualRuntime } from "./runtime";
 import { visualQuality } from "./quality";
+import { TransitionOutput } from './transition-output';
 
 // One color conversion and premultiplied-alpha output, shared by every visual layer.
 const fragment = `uniform sampler2D uBloom0,uBloom1,uBloom2;
+#include <tonemapping_pars_fragment>
 uniform float uBloomStrength,uSceneBrightness,uTransparentScene;
 uniform vec4 uFocusBounds;
 uniform float uFocusActive,uFocusCue;
 ${compositeFragment}`
+  .replace('#include <tonemapping_fragment>','gl_FragColor.rgb = ACESFilmicToneMapping(gl_FragColor.rgb);')
+  // Preserve dark gradients in the byte transition buffers. Store sqrt-encoded
+  // premultiplied light; TransitionOutput decodes before any energy mixing.
+  .replace('#include <premultiplied_alpha_fragment>', '#include <premultiplied_alpha_fragment>\n gl_FragColor.rgb=sqrt(max(gl_FragColor.rgb,vec3(0.)));')
   .replace(
     "vec4 terrain = texture2D(uImage, uv);",
     `vec2 focusPoint=uRegion.xy+vec2(uv.x,1.-uv.y)*uRegion.zw;
@@ -58,6 +64,7 @@ export function SceneCompositor() {
       postCamera = new T.Camera(),
       geometry = fullscreenGeometry();
     const uniforms = {
+      toneMappingExposure: {value: .95},
       uImage: { value: image.texture },
       uLow: { value: new T.Color() },
       uWarm: { value: new T.Color() },
@@ -86,8 +93,10 @@ export function SceneCompositor() {
       depthWrite: false,
       blending: T.NoBlending,
       premultipliedAlpha: true,
+      toneMapped: false,
     });
     return {
+      output: new TransitionOutput(),
       image,
       bloom,
       postScene,
@@ -109,23 +118,43 @@ export function SceneCompositor() {
       pass.bloom.dispose();
       pass.geometry.dispose();
       pass.material.dispose();
+      pass.output.dispose();
     },
     [pass],
   );
   useEffect(() => {
     runtime.diagnostics.image = pass.image;
     runtime.diagnostics.bloom = pass.bloom;
+    runtime.diagnostics.capture = () => pass.output.capture(gl);
+    const prepare=async()=>{
+      const effect=runtime.settings.effect;
+      const bloom=(isClassicEffect(effect)&&effect!=='ripple')||effect==='aurora_flow'||runtime.composition==='passage';
+      const previous=gl.getRenderTarget();gl.setRenderTarget(pass.output.live);
+      const post=gl.compileAsync(pass.postScene,pass.postCamera);gl.setRenderTarget(previous);
+      await Promise.all([post,pass.output.prepare(gl),...(bloom?[pass.bloom.prepare(gl)]:[])]);
+    };
+    runtime.diagnostics.preparations?.add(prepare);
     return () => {
+      runtime.diagnostics.preparations?.delete(prepare);
       delete runtime.diagnostics.image;
       delete runtime.diagnostics.bloom;
+      delete runtime.diagnostics.capture;
     };
-  }, [runtime, pass]);
+  }, [runtime, pass, gl]);
   useFrame(() => {
+    // Animation hooks still run, but leave the previous image on the canvas
+    // while WebView/DWM changes its presentation surface.
+    if (runtime.presentationPaused) return;
     const { settings: config, motion, regions } = runtime,
       u = pass.uniforms,
       palette = resolveEffectPalette(config);
     const width = gl.domElement.width,
       height = gl.domElement.height;
+    const classic = isClassicEffect(config.effect),
+      snow = config.effect === "ripple",
+      aurora = config.effect === "aurora_flow",
+      particleComposition = runtime.composition === 'sculpture' || runtime.composition === 'expanse',
+      bloom = (classic && !snow) || aurora || runtime.composition === 'passage';
     const focus=runtime.focus, key=focus?.lineKey??null;
     if(key!==pass.focusKey){
       pass.cueAge=pass.focusKey&&key&&motion.frame?.audible&&motion.transporting&&!runtime.reduced?0:10;
@@ -144,13 +173,13 @@ export function SceneCompositor() {
     // retain their smaller byte targets, especially important for large desktop regions.
     const imageType =
       pass.hdr &&
-      (isClassicEffect(config.effect) || config.effect === "aurora_flow")
+      (isClassicEffect(config.effect) || config.effect === "aurora_flow" || !!runtime.composition)
         ? T.HalfFloatType
         : T.UnsignedByteType;
-    const stamp = `${width}:${height}:${config.quality}:${regions}:${imageType}`;
+    const stamp = `${width}:${height}:${config.quality}:${regions}:${imageType}:${config.effect}:${runtime.composition ?? ''}`;
     if (pass.stamp !== stamp) {
       const samples = Math.min(
-        visualQuality(config.quality, regions).samples,
+        particleComposition || ['rhythm_rain','ripple','dream_stars'].includes(config.effect) ? 0 : runtime.composition === 'passage' ? (config.quality === 'eco' ? 0 : 2) : visualQuality(config.quality, regions).samples,
         gl.capabilities.maxSamples,
       );
       if (
@@ -162,20 +191,17 @@ export function SceneCompositor() {
         pass.image.dispose();
       }
       pass.image.setSize(width, height);
-      pass.bloom.resize(width, height, config.quality, regions, pass.hdr);
+      if (bloom) pass.bloom.resize(width, height, runtime.composition === 'passage' && config.quality !== 'eco' ? 'balanced' : config.quality, regions, pass.hdr);
       pass.stamp = stamp;
     }
-    const classic = isClassicEffect(config.effect),
-      snow = config.effect === "ripple",
-      aurora = config.effect === "aurora_flow";
     u.uLow.value.set(palette.low);
     u.uWarm.value.set(palette.accent);
     if (snow) {
       u.uLow.value.multiplyScalar(0);
       u.uWarm.value.multiplyScalar(0);
     }
-    u.uSceneBrightness.value = classic
-      ? config.effect === "rhythm_skin"
+    u.uSceneBrightness.value = classic || runtime.composition
+      ? config.effect === "rhythm_skin" || runtime.composition === 'expanse'
         ? Math.min(0.95, 0.68 * Math.sqrt(config.music.fieldBrightness / 45))
         : config.music.fieldBrightness / 45
       : 1;
@@ -194,17 +220,18 @@ export function SceneCompositor() {
     gl.setRenderTarget(pass.image);
     gl.clear();
     gl.render(scene, camera);
-    const [threshold, strength] = bloomProfile(config.effect),
-      bloom = (classic && !snow) || aurora;
+    const [threshold, strength] = bloomProfile(config.effect);
     if (bloom)
       pass.bloom.draw(gl, pass.image.texture, aurora ? 0.22 : threshold);
     u.uBloom0.value = pass.bloom.texture(0);
     u.uBloom1.value = pass.bloom.texture(1);
     u.uBloom2.value = pass.bloom.texture(2);
     u.uBloomStrength.value = bloom ? (aurora ? 0.2 : strength) : 0;
-    gl.setRenderTarget(null);
+    pass.output.resize(width,height);
+    gl.setRenderTarget(pass.output.live);
     gl.clear();
     gl.render(pass.postScene, pass.postCamera);
+    pass.output.draw(gl,runtime.transition,pass.uniforms);
     const canvas = gl.domElement;
     canvas.dataset.frames = String(++pass.frames);
     canvas.dataset.drawCalls = String(gl.info.render.calls);

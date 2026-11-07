@@ -9,6 +9,8 @@ import { AmbientLayers } from "./ambient-layers";
 import { TerrainLayer } from "./terrain-layer";
 import { visualQuality } from "./quality";
 import { CompositionLayout } from './composition-layout';
+import { CompositionCamera, CompositionScene } from '../compositions/composition-scene';
+import { TransitionCamera } from './transition-camera';
 
 export class VisualErrorBoundary extends Component<
   { onError: (error: unknown) => void; children: ReactNode },
@@ -42,6 +44,10 @@ export function VisualScene({
   );
   return (
     <VisualContext.Provider value={runtime}>
+      {runtime.composition ? <>
+        <CompositionCamera id={runtime.composition}/>
+        <CompositionScene id={runtime.composition} detail={detail}/>
+      </> : <>
       <CameraRig />
       <CompositionLayout>
       {isClassicEffect(config.effect) && (
@@ -52,6 +58,8 @@ export function VisualScene({
       )}
       {config.effect === "sound_field" && <TerrainLayer grid={terrainGrid} />}
       </CompositionLayout>
+      </>}
+      <TransitionCamera />
       <SceneCompositor />
     </VisualContext.Provider>
   );

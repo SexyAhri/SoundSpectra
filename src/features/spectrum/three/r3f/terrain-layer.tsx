@@ -21,8 +21,8 @@ export function TerrainLayer({ grid }: { grid: number }) {
       geometry = fullscreenGeometry();
     const target = new T.WebGLRenderTarget(grid, grid, {
       type: T.HalfFloatType,
-      minFilter: T.NearestFilter,
-      magFilter: T.NearestFilter,
+      minFilter: T.LinearFilter,
+      magFilter: T.LinearFilter,
       depthBuffer: false,
     });
     const height = {
@@ -53,7 +53,8 @@ export function TerrainLayer({ grid }: { grid: number }) {
       vertexShader: fieldVertex,
       fragmentShader: fieldFragment,
       depthWrite: true,
-      blending: T.NoBlending,
+      transparent: true,
+      blending: T.NormalBlending,
       toneMapped: false,
     });
     const heightMaterial = new T.ShaderMaterial({
@@ -78,6 +79,12 @@ export function TerrainLayer({ grid }: { grid: number }) {
     };
   }, [grid]);
   useEffect(() => {
+    const prepare=()=>{
+      const previous=gl.getRenderTarget();
+      try{gl.setRenderTarget(resources.target);return gl.compileAsync(resources.scene,resources.camera)}
+      finally{gl.setRenderTarget(previous)}
+    };
+    runtime.diagnostics.preparations?.add(prepare);
     Object.assign(runtime.diagnostics, {
       heightTarget: resources.target,
       grid,
@@ -86,6 +93,7 @@ export function TerrainLayer({ grid }: { grid: number }) {
     gl.domElement.dataset.heightPass = "gpu";
     gl.domElement.dataset.cells = String(resources.field.count);
     return () => {
+      runtime.diagnostics.preparations?.delete(prepare);
       delete runtime.diagnostics.heightTarget;
       delete runtime.diagnostics.grid;
       delete runtime.diagnostics.seeds;
@@ -105,13 +113,13 @@ export function TerrainLayer({ grid }: { grid: number }) {
     u.uWarm.value.set(palette.accent);
     u.uHigh.value.set(palette.high);
     u.uBrightness.value = (config.music.fieldBrightness / 45) * 1.12;
-    if (motion.frame) h.uSpectrum.value.set(motion.frame.spectrum);
+    if (motion.frame) h.uSpectrum.value.set(motion.terrainSpectrum);
     else h.uSpectrum.value.fill(0);
     h.uLevels.value.set(
       motion.volume,
       motion.bass,
-      motion.middle,
-      motion.treble,
+      motion.terrainPeaks[0],
+      motion.terrainPeaks[1],
     );
     h.uPhase.value = motion.phase;
     h.uMass.value.fromArray(motion.terrainMass);
@@ -130,6 +138,7 @@ export function TerrainLayer({ grid }: { grid: number }) {
       );
       h.uPointer.value[i] = ripple.source === "pointer" ? 1 : 0;
     });
+    if (runtime.presentationPaused) return;
     gl.setRenderTarget(resources.target);
     gl.clear();
     gl.render(resources.scene, resources.camera);

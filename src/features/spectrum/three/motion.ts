@@ -38,6 +38,9 @@ export class SceneMotion {
   readonly spectralShape = new Float32Array(48);
   /** Slow land mass, separate from the local spectral crests and travelling waves. */
   readonly terrainMass = new Float32Array(2);
+  /** Local ridges settle faster than the land mass, without following packet edges. */
+  readonly terrainSpectrum = new Float32Array(48);
+  readonly terrainPeaks = new Float32Array(2);
   frame: MusicDriverFrame | null = null;
   presence = 0;
   /** Display release can remain visible after the source has stopped transporting. */
@@ -89,6 +92,8 @@ export class SceneMotion {
     this.ripples.length = 0;
     this.spectralShape.fill(0);
     this.terrainMass.fill(0);
+    this.terrainSpectrum.fill(0);
+    this.terrainPeaks.fill(0);
     this.frame = null;
     this.presence = 0;
     this.transporting = false;
@@ -194,6 +199,14 @@ export class SceneMotion {
       const value = this.terrainMass[i], tau = target > value ? .22 : .65;
       this.terrainMass[i] += (target - value) * (1 - Math.exp(-elapsed / tau));
     });
+    for (let i = 0; i < 48; i++) {
+      const target = audible ? unit(frame.spectrum[i]) : 0, value = this.terrainSpectrum[i];
+      this.terrainSpectrum[i] += (target - value) * (1 - Math.exp(-elapsed / (target > value ? .085 : .30)));
+    }
+    [this.middle, this.treble].forEach((target, i) => {
+      const value = this.terrainPeaks[i];
+      this.terrainPeaks[i] += (target - value) * (1 - Math.exp(-elapsed / (target > value ? .10 : .38)));
+    });
     if (!reduced && this.transporting) {
       const target = this.energy * (.8 + settings.speed * .5);
       const tau = .24, decay = Math.exp(-elapsed / tau);
@@ -278,13 +291,13 @@ export class SceneMotion {
   /** CPU reference for the GPU height pass; also used to verify its numeric output. */
   sample(x: number, z: number, seed: number, settings: MusicSettings) {
     const frame = this.frame;
-    const { volume, middle, treble, phase } = this;
+    const { volume, phase } = this;
     const position = Math.max(0, Math.min(47,
       ((x + FIELD_SIZE / 2) / FIELD_SIZE) * 39 + Math.sin(z * .09 - phase * .3) * 4 + 3));
     const bin = Math.min(46, Math.floor(position)),
       f = position - bin;
     const spectrum = frame
-      ? unit(frame.spectrum[bin] * (1 - f) + frame.spectrum[bin + 1] * f) *
+      ? unit(this.terrainSpectrum[bin] * (1 - f) + this.terrainSpectrum[bin + 1] * f) *
         volume
       : 0;
     const footprint = Math.exp(
@@ -293,15 +306,16 @@ export class SceneMotion {
         ((z + 5) / 17) ** 2
       ) * 1.4,
     );
-    const ridges = 0.5 + 0.5 * Math.sin(x * 0.23 + z * 0.17 - phase);
-    const crossing = 0.5 + 0.5 * Math.sin(z * 0.3 - x * 0.12 - phase * 0.65);
-    const relief = .55 + ridges ** 2 * .55 + crossing ** 3 * .2 + (seed - .5) * .1;
+    const ridgeAxis = x * .23 + z * .17 - phase + Math.sin(z * .15) * .38;
+    const ridges = 1 - Math.abs(Math.sin((ridgeAxis - Math.PI / 2) * .5));
+    const crossing = .5 + .5 * Math.sin(z * .3 - x * .12 - phase * .65);
+    const relief = .14 + ridges ** 2.4 * 1.85 + crossing ** 4 * .2 + (seed - .5) * .008;
     // The footprint distributes the captured spectrum across an uneven terrain;
-    // volume controls its scale, while bass and individual bins lift separate columns.
+    // volume controls its scale, while individual bins lift connected ridges.
     const shoulders = Math.exp(-((x / 27) ** 2 + ((z + 1) / 25) ** 2));
     let height =
-      footprint * (this.terrainMass[0] * 2.5 + spectrum * 5.2 + this.terrainMass[1] * 3.8) * relief * 1.25 +
-      shoulders * (middle * 3.8 + treble * 4) * seed ** 7;
+      footprint * (this.terrainMass[0] * 2.5 + spectrum * 5.2 + this.terrainMass[1] * 3.8) * relief * 1.8 +
+        shoulders * (this.terrainPeaks[0] * 3.8 + this.terrainPeaks[1] * 4) * (ridges * crossing) ** 3;
     let crest = 0;
     const speed = (2.9 + settings.speed * 0.35) * settings.fieldSpread;
     for (const ripple of this.ripples) {
@@ -316,13 +330,21 @@ export class SceneMotion {
         Math.cos(front * 1.45) *
         Math.exp((-front * front) / (width * width * 4)) *
         falloff;
-      height += wave * (ripple.source === "pointer" ? 0.8 : 0.55);
+      height += wave * (ripple.source === "pointer" ? 0.8 : 0.24);
       crest += Math.max(0, wave);
     }
-    height = Math.max(0, height) * settings.fieldHeight;
+    height = Math.max(footprint * volume * .65, height) * settings.fieldHeight * 2.2;
     // Leave headroom for individual peaks instead of flattening a whole ridge
     // against the ceiling. Warmth follows height, so low cells remain cool.
     height = 16 * Math.tanh(height / 16);
+    const layerWarp = Math.sin(x * .15 + z * .19) * .11;
+    const layer = height / 3 + layerWarp;
+    const fraction = layer - Math.floor(layer);
+    const transition = unit((fraction - .2) / .6);
+    const terraced = (Math.floor(layer) + transition ** 2 * (3 - 2 * transition) - layerWarp) * 3;
+    const exposed = unit((height - 1.2) / 3.8);
+    const ledge = .32 * exposed ** 2 * (3 - 2 * exposed);
+    height = Math.max(0, height * (1 - ledge) + terraced * ledge);
     const heat = unit(
       ((height / 10) * 0.8 + footprint * volume * 0.32 + spectrum * 0.15) *
         (0.36 + footprint * 0.64),

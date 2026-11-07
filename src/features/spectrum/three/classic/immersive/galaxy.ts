@@ -2,6 +2,7 @@ import * as T from 'three'
 import { randomStream, uniformSource, type FlowEffect } from '../flow/shared'
 import { luminousDriver, luminousSource, luminousUniforms } from './luminous-motion'
 import { volumeGlow } from './volume-glow'
+import { reactiveUniforms, reactiveSource, updateReactiveUniforms } from '../../reactive-motion'
 
 // One angular field for the gas and its stars. Orbiting the camera cannot
 // expose a carrier-plane edge or rotate the river away from its star band.
@@ -22,40 +23,43 @@ vec3 galaxyDirection(vec2 p){
 
 /** A sky-spanning star river: moving emission, independent dust and depth-layered stars. */
 export function createGalaxy(detail: number): FlowEffect {
-  const group = new T.Group(), uniforms = { ...luminousUniforms(), uSpan: { value: 100 },uDust:{value:.65},uDesktop:{value:0},uGalaxyWaves:{value:Array.from({length:8},()=>new T.Vector4(10,0,0,0))} }, drive = luminousDriver(uniforms)
-  const waves:{age:number;life:number;strength:number;origin:number}[]=[]
-  let beat=-1
+  const group = new T.Group(), uniforms = { ...luminousUniforms(), ...reactiveUniforms(), uSpan: { value: 100 },uDust:{value:.65},uDesktop:{value:0} }, drive = luminousDriver(uniforms)
   const sky = new T.Mesh(new T.SphereGeometry(240,64,40), new T.ShaderMaterial({ uniforms, side:T.BackSide, transparent: true, depthWrite: false, toneMapped: false,
     vertexShader: `varying vec3 vDirection;void main(){vDirection=position;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.);}`,
-    fragmentShader: `${uniformSource}${luminousSource}${volumeGlow}${galaxySpace}
-      uniform float uDust,uDesktop;uniform vec4 uGalaxyWaves[8];varying vec3 vDirection;
+    fragmentShader: `${uniformSource}${luminousSource}${volumeGlow}${galaxySpace}${reactiveSource}
+      uniform float uDust,uDesktop;varying vec3 vDirection;
       void main(){
         vec2 p=galaxyCoordinates(vDirection);
         float flow=uPhase*.14*(.5+uTrail);
-        vec2 curl=vec2(fbm(p*1.4+vec2(flow,-flow*.5)),fbm(p*1.4+vec2(4.2-flow*.3,flow)))-.5;
-        vec2 gas=p+curl*(.46+uSlowBass*.16);
-        float width=.54+uSlowBass*.09;
+        vec2 materialP=p-vec2(flow*.24,0.);
+        vec2 curl=vec2(fbm(materialP*1.4),fbm(materialP*1.4+vec2(4.2,7.8)))-.5;
+        vec2 gas=p+curl*(.46+uDragBands.x*.16);
+        vec2 materialGas=gas-vec2(flow*.24,0.);
+        float width=.54+uBodyBands.x*.13;
         float ends=exp(-pow(abs(p.x)/4.2,6.));
         float band=exp(-pow(gas.y/width,2.))*ends;
         float core=exp(-pow((p.x+.25)/1.9,2.));
-        float clouds=fbm(gas*3.1+vec2(flow*.3,0.));
-        float fine=fbm(gas*17.);
-        float knots=pow(fbm(gas*6.7),2.);
-        float dust=fbm(p*4.8+curl*2.+vec2(-flow*.2,11.));
+        float clouds=fbm(materialGas*3.1);
+        float fine=fbm(materialGas*17.);
+        float knots=pow(fbm(materialGas*6.7),2.);
+        float dust=fbm(materialP*4.8+curl*2.+vec2(0.,11.));
         float split=exp(-pow((gas.y+.045+sin(p.x*2.)*.07)/(.075+dust*.19),2.));
         float absorb=clamp((split*(.65+dust*.5)+smoothstep(.52,.73,dust)*band*.7)*uDust/.65,0.,.98);
         float density=band*(.16+clouds*.75+knots*.45+fine*.18)*(1.-absorb)*(.5+core*.7);
         float outskirts=exp(-pow(gas.y/1.1,2.))*clouds*.055*ends;
         vec3 cool=mix(uColor,uAccent,smoothstep(-2.,2.,p.x)*.6);
         vec3 warm=mix(uAccent,uHighlight,.45);
-        vec3 emission=mix(cool,warm,core*.7)*density*(.48+uSlowMid*.55);
+        vec3 emission=mix(cool,warm,core*.7)*density*(.48+uBodyBands.y*.65);
         emission+=uColor*outskirts;
         float pulse=0.;
         for(int i=0;i<8;i++){
-          vec4 wave=uGalaxyWaves[i];
-          float front=abs(gas.x-wave.z)-wave.x*2.4;
-          float attack=1.-exp(-wave.w*35.);
-          pulse+=exp(-front*front/ .06)*attack*attack*exp(-wave.w*3.5)*wave.y;
+          if(i>=uMusicWaveCount)break;
+          vec4 wave=uMusicWaves[i];
+          float front=abs(gas.x-(wave.z-.5)*5.5)-wave.x*2.8;
+          if(abs(front)>1.15)continue;
+          float attack=1.-exp(-wave.x*35.);
+          float regional=wave.w<.5?1.:wave.w<1.5?.65:.25;
+          pulse+=exp(-front*front/ .08)*attack*attack*exp(-wave.x*2.3)*wave.y*regional;
         }
         // Local bright knots answer captured attacks; the cloud field follows
         // phrase energy rather than playing an unrelated shimmer animation.
@@ -100,15 +104,8 @@ export function createGalaxy(detail: number): FlowEffect {
       }` }))
   stars.frustumCulled = false; group.add(stars)
   return { group, update(motion, config, reduced) {
-    const dt=drive(motion, config, reduced, .65 + config.music.speed * .18)
-    for(const wave of waves){wave.life+=dt;if(!reduced)wave.age+=dt}
-    while(waves.length&&waves[0].life>1.5)waves.shift()
-    const frame=motion.frame
-    if(!reduced&&motion.transporting&&frame?.onset&&frame.beatIndex!==beat){
-      beat=frame.beatIndex;if(waves.length===8)waves.shift()
-      waves.push({age:0,life:0,strength:motion.onsetStrength*(frame.bandOnsets[0]?1:.65),origin:(uniforms.uOnsetOrigin.value-.5)*5.5})
-    }
-    uniforms.uGalaxyWaves.value.forEach((value,i)=>{const wave=waves[i];value.set(wave?.age??10,wave?.strength??0,wave?.origin??0,wave?.life??10)})
+    drive(motion, config, reduced, .65 + config.music.speed * .18)
+    updateReactiveUniforms(uniforms,motion,'dream_stars',reduced)
     uniforms.uDepth.value = config.music.nebulaScale; uniforms.uTrail.value = config.music.spinSpeed
     uniforms.uDust.value=config.music.dustOpacity
     uniforms.uDesktop.value=Number(config.sceneMode==='daily')
