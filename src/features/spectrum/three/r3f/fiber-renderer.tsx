@@ -19,6 +19,7 @@ import { SceneTransition } from '../../../performance/transition';
 import { mappingValues } from '../../../performance/mapping';
 import type { FrameOptions } from '../../../performance/runtime';
 import { originalMapping } from '../../../performance/model';
+import { native } from '../../bridge';
 
 extend({
   Mesh: T.Mesh,
@@ -111,6 +112,21 @@ export class FiberSceneRenderer {
           .join("\n") || "三维场景着色器初始化失败。",
       );
     };
+    if (native && /Windows/i.test(navigator.userAgent)) {
+      // WebView2/ANGLE can leave KHR completion polling pending indefinitely
+      // while this desktop surface holds its last frame. Finish linking during
+      // preparation; the old presented image remains until the scene is ready.
+      this.renderer.compileAsync = async (scene, camera, targetScene = null) => {
+        this.renderer.compile(scene, camera, targetScene);
+        const gl = this.renderer.getContext();
+        for (const item of this.renderer.info.programs ?? []) {
+          if (!gl.getProgramParameter(item.program, gl.LINK_STATUS)) {
+            throw new Error(gl.getProgramInfoLog(item.program) || '三维场景着色器链接失败。');
+          }
+        }
+        return scene;
+      };
+    }
     this.root = createRoot(canvas);
     this.configured = this.root
       .configure({
@@ -179,10 +195,14 @@ export class FiberSceneRenderer {
           this.renderer.setRenderTarget(this.diagnostics.image??null);
           main=this.renderer.compileAsync(this.scene,this.camera);
         }finally{this.renderer.setRenderTarget(previous)}
-        await Promise.all([
+        const pending = [
           main,
           ...Array.from(this.diagnostics.preparations??[],prepare=>prepare()),
-        ]);
+        ];
+        // Preparation deliberately holds the last frame instead of rendering.
+        // Submit shader work even while a paused/desktop canvas has no presents.
+        this.renderer.getContext().flush();
+        await Promise.all(pending);
       } finally {
         this.compiling = false;
       }
