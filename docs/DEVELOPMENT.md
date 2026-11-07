@@ -64,6 +64,8 @@ node scripts/desktop.mjs --cargo test --manifest-path src-tauri/Cargo.toml --loc
 
 三维渲染按质量档位和区域数量共享像素预算；均衡及以上采用最多 4 倍 MSAA，仍受设备像素比、画布尺寸与硬件支持限制。不要将这些设置描述为所有机器均能达到指定帧率。
 
+视觉效果已统一到 React Three Fiber。组件组合、音频采样时钟、外观映射、质量档位及资源所有权见 [视觉开发](VISUALS.md)。
+
 ## 验证入口
 
 Mac 音频通过 ScreenCaptureKit 对预设播放器分别采样，再由共享选择器选择唯一音源，不混入系统其他声音。Swift 辅助程序只输出 PCM，未注册屏幕画面回调；退出主程序后自动结束。AppKit 桌面属性在主线程设置，正常模式位于壁纸和图标之间并穿透鼠标。
@@ -109,3 +111,5 @@ node scripts/capture-lyric-compositions.mjs
 ```
 
 脚本先输出到 `artifacts/`，选定的图片与视频再放入文档目录。不要将整个产物目录解除忽略，也不要提交真实播放器缓存、商业歌词或私人壁纸。
+
+效果艺术参数、桌面／沉浸构图、歌词局部联动和固定输入画面对比工具见 [视觉创作与固定输入审阅](VISUAL_STUDIES.md)。
