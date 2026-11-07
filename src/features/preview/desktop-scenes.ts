@@ -26,7 +26,9 @@ export function parseDesktopScene(value: unknown): DesktopScene {
       && Object.entries(a).every(([key, value]) => same(value, (b as Record<string, unknown>)[key]))
     return a === b
   }
-  if (typeof source.followCover !== 'boolean' || !same(result, source)) throw Error('桌面方案版本或展示参数无效。')
+  const comparable = { ...source, card: { ...source.card } }
+  if ('accentColor' in comparable.card && !result.card.accentColor) delete comparable.card.accentColor
+  if (typeof source.followCover !== 'boolean' || !same(result, comparable)) throw Error('桌面方案版本或展示参数无效。')
   return result
 }
 // One settings transaction; private lyric paths/timing and rail mounts stay owned

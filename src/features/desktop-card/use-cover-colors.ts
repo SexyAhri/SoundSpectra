@@ -60,5 +60,5 @@ export function useCoverColors(settings: SpectrumSettings, info: NowPlaying, act
     : currentSample.failed ? '封面暂不可读，使用固定配色'
     : !accent ? '封面颜色不足，使用固定配色'
     : info.playing ? '灯效与音乐卡片跟随封面' : '暂停时柔和收敛'
-  return { settings: display, message, available: !!accent }
+  return { settings: display, cardColor: target ?? settings.color, message, available: !!accent }
 }

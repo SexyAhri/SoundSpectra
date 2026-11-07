@@ -2,6 +2,7 @@ use crate::{audio_source::Target, AppState};
 use base64::{engine::general_purpose::STANDARD, Engine};
 use serde::Serialize;
 use std::{
+    hash::{DefaultHasher, Hash, Hasher},
     sync::{atomic::Ordering, Arc},
     thread,
     time::{Duration, SystemTime, UNIX_EPOCH},
@@ -36,6 +37,10 @@ pub struct NowPlaying {
     pub process_id: Option<u32>,
     pub updated: u64,
     pub issue: Option<String>,
+    pub track_id: String,
+    pub playback_available: bool,
+    pub session_id: String,
+    pub controls: crate::card_controls::MediaCapabilities,
 }
 fn now() -> u64 {
     SystemTime::now()
@@ -54,7 +59,7 @@ fn clean(value: String) -> String {
 }
 // Match only the captured player's registered media session. Never substitute
 // the globally focused session, which may be a browser video or another player.
-fn matches_session(id: &str, target: &Target) -> bool {
+pub(crate) fn matches_session(id: &str, target: &Target) -> bool {
     let id = id.to_lowercase();
     let aliases: &[&str] = match target.player_id.as_deref() {
         Some("qqmusic") => &["qqmusic"],
@@ -113,7 +118,33 @@ fn image_mime(bytes: &[u8]) -> Option<&'static str> {
         None
     }
 }
-fn read(manager: &Manager, target: &Target, old: &NowPlaying) -> Result<NowPlaying, String> {
+fn metadata_signature(properties: &Properties) -> (String, String, String, i32) {
+    (
+        clean(properties.Title().unwrap_or_default().to_string()),
+        clean(properties.Artist().unwrap_or_default().to_string()),
+        clean(properties.AlbumTitle().unwrap_or_default().to_string()),
+        properties.TrackNumber().unwrap_or_default(),
+    )
+}
+fn observed_position(
+    position: f64,
+    duration: f64,
+    updated_ticks: i64,
+    observed: u64,
+) -> Option<f64> {
+    let unix_ms = updated_ticks / 10_000 - 11_644_473_600_000;
+    if !position.is_finite()
+        || !duration.is_finite()
+        || duration <= 0.0
+        || unix_ms <= 0
+        || unix_ms > observed as i64 + 2000
+    {
+        return None;
+    }
+    Some((position + (observed as i64 - unix_ms).max(0) as f64 / 1000.0).clamp(0.0, duration))
+}
+
+fn read(manager: &Manager, target: &Target) -> Result<NowPlaying, String> {
     let sessions = manager.GetSessions().map_err(|e| e.to_string())?;
     let mut candidates = Vec::new();
     for i in 0..sessions.Size().map_err(|e| e.to_string())? {
@@ -139,24 +170,35 @@ fn read(manager: &Manager, target: &Target, old: &NowPlaying) -> Result<NowPlayi
         .TryGetMediaPropertiesAsync()
         .and_then(|op| op.join())
         .map_err(|e| e.to_string())?;
+    let signature = metadata_signature(&properties);
     let mut value = NowPlaying {
-        title: clean(properties.Title().unwrap_or_default().to_string()),
-        artist: clean(properties.Artist().unwrap_or_default().to_string()),
-        album: clean(properties.AlbumTitle().unwrap_or_default().to_string()),
+        title: signature.0.clone(),
+        artist: signature.1.clone(),
+        album: signature.2.clone(),
         playing: *playing,
+        playback_available: false,
         ..NowPlaying::default()
     };
-    value.cover = if old.process_id == Some(target.pid)
-        && old.title == value.title
-        && old.artist == value.artist
-        && old.album == value.album
-        && !value.title.is_empty()
-        && old.cover.is_some()
+    value.cover = cover(&properties);
+    let confirmed = session
+        .TryGetMediaPropertiesAsync()
+        .and_then(|op| op.join())
+        .map_err(|error| error.to_string())?;
+    if signature != metadata_signature(&confirmed) {
+        return Err("歌曲信息正在更新".into());
+    }
+    match session
+        .GetPlaybackInfo()
+        .and_then(|playback| playback.PlaybackStatus())
     {
-        old.cover.clone()
-    } else {
-        cover(&properties)
-    };
+        Ok(status) => {
+            value.playing = status.0 == 4;
+            value.playback_available = matches!(status.0, 3..=5);
+        }
+        Err(_) => {
+            value.playing = false;
+        }
+    }
     if let Ok(timeline) = session.GetTimelineProperties() {
         let start = timeline.StartTime().map_or(0, |t| t.Duration);
         let end = timeline.EndTime().map_or(0, |t| t.Duration);
@@ -171,15 +213,37 @@ fn read(manager: &Manager, target: &Target, old: &NowPlaying) -> Result<NowPlayi
         value.timeline_available = value.duration > 0.0;
         if value.playing && value.timeline_available {
             if let Ok(updated) = timeline.LastUpdatedTime() {
-                // WinRT timestamps count 100 ns ticks since 1601, not Unix time.
-                let unix_ms = updated.UniversalTime / 10_000 - 11_644_473_600_000;
-                if unix_ms > 0 {
-                    let elapsed = (now() as i64 - unix_ms).max(0) as f64 / 1000.0;
-                    value.position = (value.position + elapsed).min(value.duration);
+                if let Some(position) =
+                    observed_position(value.position, value.duration, updated.UniversalTime, now())
+                {
+                    value.position = position;
+                } else {
+                    value.timeline_available = false;
                 }
+            } else {
+                value.timeline_available = false;
             }
         }
     }
+    value.updated = now();
+    value.session_id = session
+        .SourceAppUserModelId()
+        .unwrap_or_default()
+        .to_string();
+    value.controls = crate::card_controls::capabilities(session);
+    let mut identity = DefaultHasher::new();
+    target.pid.hash(&mut identity);
+    session
+        .SourceAppUserModelId()
+        .unwrap_or_default()
+        .to_string()
+        .hash(&mut identity);
+    signature.hash(&mut identity);
+    (value.duration * 10.0)
+        .round()
+        .to_bits()
+        .hash(&mut identity);
+    value.track_id = format!("{:016x}", identity.finish());
     Ok(value)
 }
 
@@ -188,16 +252,13 @@ pub fn get_now_playing(
     window: WebviewWindow,
     state: State<'_, Arc<AppState>>,
 ) -> Result<NowPlaying, String> {
-    if !["settings", "overlay"].contains(&window.label()) {
+    if !["settings", "overlay", "card-controls"].contains(&window.label()) {
         return Err("不支持的窗口".into());
     }
     let status = state.status.lock().map_err(|e| e.to_string())?.clone();
     let mut value = state.now_playing.lock().map_err(|e| e.to_string())?.clone();
     if value.process_id != status.process_id || now().saturating_sub(value.updated) > 10_000 {
         value = NowPlaying::default();
-    }
-    if value.title.is_empty() {
-        value.playing = status.state == "listening";
     }
     value.source = status.source_name.unwrap_or_default();
     Ok(value)
@@ -226,7 +287,6 @@ pub fn start(state: Arc<AppState>) {
             } else {
                 None
             };
-            let old = state.now_playing.lock().unwrap().clone();
             let mut value = NowPlaying::default();
             if let Some(target) = target {
                 let result = (|| {
@@ -240,7 +300,7 @@ pub fn start(state: Arc<AppState>) {
                                 .map_err(|e| e.to_string())?,
                         );
                     }
-                    read(manager.as_ref().unwrap(), &target, &old)
+                    read(manager.as_ref().unwrap(), &target)
                 })();
                 value = result.unwrap_or_else(|error| NowPlaying {
                     issue: Some(error),
@@ -248,7 +308,12 @@ pub fn start(state: Arc<AppState>) {
                 });
                 value.process_id = Some(target.pid);
             }
-            value.updated = now();
+            if value.updated == 0 {
+                value.updated = now();
+            }
+            if !value.track_id.is_empty() {
+                value.track_id = format!("{revision}:{}", value.track_id);
+            }
             // A slow metadata/cover request must never overwrite a newer selection.
             let source = state.audio_source.lock().unwrap();
             if source.revision == revision {
@@ -279,6 +344,23 @@ pub fn start(state: Arc<AppState>) {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn media_timestamp_is_winrt_epoch_and_seek_is_not_smoothed() {
+        let observed = 1_700_000_000_000;
+        let ticks = (observed as i64 - 750 + 11_644_473_600_000) * 10_000;
+        assert_eq!(observed_position(12.0, 100.0, ticks, observed), Some(12.75));
+        assert_eq!(
+            observed_position(3.0, 100.0, ticks + 7_500_000, observed),
+            Some(3.0)
+        );
+        assert_eq!(observed_position(99.8, 100.0, ticks, observed), Some(100.0));
+        assert_eq!(observed_position(3.0, 100.0, 0, observed), None);
+        assert_eq!(observed_position(3.0, 0.0, ticks, observed), None);
+        assert_eq!(
+            observed_position(3.0, 100.0, ticks + 30_000_000, observed),
+            None
+        );
+    }
     #[test]
     fn cover_headers_accept_only_supported_raster_formats() {
         assert_eq!(image_mime(b"\x89PNG\r\n\x1a\n"), Some("image/png"));

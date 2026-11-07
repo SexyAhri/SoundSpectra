@@ -35,7 +35,10 @@ pub fn sync_scene_shortcuts(
             return Err("场景快捷入口无效".into());
         }
     }
-    let menu = &app.state::<SceneMenu>().0;
+    let state = app
+        .try_state::<SceneMenu>()
+        .ok_or("托盘尚未就绪，请稍后重试")?;
+    let menu = &state.0;
     while menu.items().map_err(|e| e.to_string())?.len() > 4 {
         menu.remove_at(4).map_err(|e| e.to_string())?;
     }

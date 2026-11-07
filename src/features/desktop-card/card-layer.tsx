@@ -4,11 +4,12 @@ import { relativeBounds } from '../spectrum/regions'
 import type { NowPlaying } from './use-now-playing'
 import { MusicCard } from './music-card'
 
-export function CardLayer({ settings, info, color, bands, receivedAt, demo = false, active = true, desktop = false, host, arranging = false, onChange, onSelect, zIndex, selected }: {
+export function CardLayer({ settings, info, color, bands, receivedAt, demo = false, active = true, desktop = false, host, arranging = false, onChange, onSelect, zIndex, selected, previewSize }: {
   settings: DesktopCardSettings; info: NowPlaying; color: string; bands: RefObject<Float32Array>; receivedAt: RefObject<number>;
   demo?: boolean; active?: boolean; desktop?: boolean; host?: SceneBounds; arranging?: boolean; onChange?: (bounds: SceneBounds) => void;
   onSelect?: () => void;
   zIndex?: number; selected?: boolean;
+  previewSize?: { width: number; height: number; scale: number };
 }) {
   const [draft, setDraft] = useState<SceneBounds | null>(null)
   const drag = useRef<{ id: number; x: number; y: number; width: number; height: number; start: SceneBounds; next: SceneBounds } | null>(null)
@@ -45,6 +46,8 @@ export function CardLayer({ settings, info, color, bands, receivedAt, demo = fal
   }
   const b = host ? relativeBounds(draft ?? settings.bounds, host) : draft ?? settings.bounds
   return <div className={`music-card-layer ${arranging ? 'arrange-card' : ''}`} data-testid="music-card-layer" data-preview-object="card" data-selected={selected || undefined} style={{ zIndex, left: `${b.x * 100}%`, top: `${b.y * 100}%`, width: `${b.width * 100}%`, height: `${b.height * 100}%` }} role={arranging ? 'group' : undefined} tabIndex={arranging ? 0 : undefined} aria-label={arranging ? '音乐卡片位置，方向键移动' : undefined} onFocus={arranging ? onSelect : undefined} onPointerDown={begin} onPointerMove={moving} onPointerUp={event => end(event)} onPointerCancel={event => end(event, true)} onLostPointerCapture={event => end(event, true)} onKeyDown={keyboard}>
-    <MusicCard info={info} settings={settings} color={color} bands={bands} receivedAt={receivedAt} demo={demo} active={active} desktop={desktop} />
+    <div className="music-card-render" style={{ width: previewSize?.width ?? '100%', height: previewSize?.height ?? '100%', transformOrigin: 'top left', transform: previewSize ? `scale(${previewSize.scale})` : undefined }}>
+      <MusicCard info={info} settings={settings} color={color} bands={bands} receivedAt={receivedAt} demo={demo} active={active} desktop={desktop} controlsDisabled={arranging} />
+    </div>
   </div>
 }

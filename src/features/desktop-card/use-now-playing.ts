@@ -7,6 +7,9 @@ export interface NowPlaying {
   position: number; duration: number; playing: boolean; source: string;
   processId: number | null; updated: number; issue: string | null;
   timelineAvailable?: boolean;
+  trackId?: string; playbackAvailable?: boolean;
+  sessionId?: string;
+  controls?: { previous: boolean; next: boolean; play: boolean; pause: boolean };
 }
 export const emptyNowPlaying: NowPlaying = { title: '', artist: '', album: '', cover: null, position: 0, duration: 0, playing: false, source: '', processId: null, updated: 0, issue: null }
 

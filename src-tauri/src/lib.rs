@@ -10,6 +10,8 @@ mod audio_discovery;
 #[path = "platform/macos/discovery.rs"]
 mod audio_discovery;
 mod audio_source;
+mod card_controls;
+mod card_window;
 #[cfg(windows)]
 mod desktop;
 #[cfg(target_os = "macos")]
@@ -134,6 +136,7 @@ fn reset_settings(app: AppHandle, state: State<'_, Arc<AppState>>) -> Result<Set
 }
 
 fn apply_display(app: &AppHandle, settings: &Settings) -> Result<(), String> {
+    card_window::sync(app, settings)?;
     let window = app
         .get_webview_window("overlay")
         .ok_or("找不到频谱窗口，请重启客户端")?;
@@ -186,6 +189,7 @@ fn commit_settings(
         return Err("请先完成桌面位置调整，再修改装饰区域".into());
     }
     let display_changed = settings.enabled != old.enabled
+        || settings.desktop_card != old.desktop_card
         || settings.display_bounds() != old.display_bounds()
         || (settings.enabled
             && settings.display_bounds().is_some()
@@ -288,6 +292,9 @@ fn start_desktop_recovery(app: AppHandle, state: Arc<AppState>) {
                     return;
                 };
                 let settings = state_copy.settings.lock().unwrap().clone();
+                if let Err(error) = card_window::sync(&app_copy, &settings) {
+                    state_copy.status.lock().unwrap().desktop_error = Some(error);
+                }
                 if !settings.enabled
                     || settings.display_bounds().is_none()
                     || state_copy.status.lock().unwrap().editing
@@ -355,6 +362,9 @@ pub fn run() {
             audio_source::get_audio_sources,
             audio_source::set_audio_source,
             now_playing::get_now_playing,
+            card_controls::control_card_media,
+            card_window::card_hit_regions,
+            card_window::debug_card_hit_test,
             lyrics::get_current_lyrics,
             lyrics::discovery::rescan_lyric_locations,
             rail::rail_get,

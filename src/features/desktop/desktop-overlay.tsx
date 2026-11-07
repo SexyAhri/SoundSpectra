@@ -126,7 +126,7 @@ export function DesktopOverlay() {
         active={settings.enabled || editing}
         regionCount={sceneRegions(settings).filter(region => region.visible).length}
       /></div>})}
-      {settings.desktopCard.enabled && <CardLayer zIndex={layerIndex(settings, 'card')} settings={settings.desktopCard} info={nowPlaying} color={colors.settings.color} bands={bands} receivedAt={receivedAt} host={displayBounds(settings)} desktop active={settings.enabled} />}
+      {settings.desktopCard.enabled && <CardLayer zIndex={layerIndex(settings, 'card')} settings={settings.desktopCard} info={nowPlaying} color={colors.cardColor} bands={bands} receivedAt={receivedAt} host={displayBounds(settings)} desktop active={settings.enabled} />}
       {settings.lyrics.enabled && <LyricLayer appearance={settings} obstacles={railObstacles(rail.settings, screen)} zIndex={layerIndex(settings, 'lyrics')} settings={settings.lyrics} document={lyricDocument} info={nowPlaying} host={displayBounds(settings)} desktop active={settings.enabled} />}
       {editing && (
         <>

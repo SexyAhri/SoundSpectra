@@ -35,7 +35,8 @@ test('music card supports persistent style, scale and keyboard placement without
   await page.getByRole('button', { name: '简约', exact: true }).click()
   await expect(card.locator('.music-card')).toHaveClass(/music-card-compact/)
   await page.getByRole('button', { name: '琥珀色卡片' }).click()
-  await expect.poll(async () => (await saved(page)).color).toBe('#efb273')
+  await expect.poll(async () => (await saved(page)).desktopCard.accentColor).toBe('#efb273')
+  expect((await saved(page)).color).toBe(defaults.color)
   const original = (await saved(page)).bounds
   await page.getByRole('button', { name: '布置', exact: true }).click()
   await page.getByRole('group', { name: '音乐卡片位置，方向键移动', exact: true }).focus()

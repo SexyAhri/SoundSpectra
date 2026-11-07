@@ -152,12 +152,31 @@ pub struct DesktopCard {
     pub enabled: bool,
     pub variant: String,
     pub bounds: Bounds,
+    #[serde(
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "card_accent"
+    )]
+    pub accent_color: Option<String>,
+}
+fn card_accent<'de, D: serde::Deserializer<'de>>(
+    deserializer: D,
+) -> Result<Option<String>, D::Error> {
+    let value = serde_json::Value::deserialize(deserializer)?;
+    Ok(value
+        .as_str()
+        .filter(|color| {
+            color.len() == 7
+                && color.starts_with('#')
+                && color[1..].bytes().all(|byte| byte.is_ascii_hexdigit())
+        })
+        .map(String::from))
 }
 impl Default for DesktopCard {
     fn default() -> Self {
         Self {
             enabled: false,
             variant: "record".into(),
+            accent_color: None,
             bounds: Bounds {
                 x: 0.035,
                 y: 0.81,
@@ -639,6 +658,15 @@ impl Settings {
         validate_bounds(&self.desktop_card.bounds, 0.15, 0.08, 0.24)?;
         if self.desktop_card.bounds.width > 0.45
             || !["record", "compact", "afternoon"].contains(&self.desktop_card.variant.as_str())
+            || self
+                .desktop_card
+                .accent_color
+                .as_ref()
+                .is_some_and(|color| {
+                    color.len() != 7
+                        || !color.starts_with('#')
+                        || !color[1..].bytes().all(|byte| byte.is_ascii_hexdigit())
+                })
         {
             return Err("桌面音乐卡片参数超出允许范围".into());
         }
@@ -856,6 +884,33 @@ mod tests {
         settings.bounds.height = 1.0;
         settings.desktop_card.bounds.height = 0.5;
         assert!(settings.validate().is_err());
+    }
+    #[test]
+    fn desktop_card_accent_is_optional_isolated_and_round_trips() {
+        let mut settings = super::Settings::default();
+        let original_color = settings.color.clone();
+        for invalid in [
+            serde_json::json!(null),
+            serde_json::json!(42),
+            serde_json::json!("not-a-color"),
+        ] {
+            let mut value = serde_json::to_value(&settings).unwrap();
+            value["desktopCard"]["accentColor"] = invalid;
+            let loaded: super::Settings = serde_json::from_value(value).unwrap();
+            loaded.validate().unwrap();
+            assert_eq!(loaded.desktop_card.accent_color, None);
+        }
+        settings.desktop_card.accent_color = Some("#efb273".into());
+        let loaded: super::Settings =
+            serde_json::from_value(serde_json::to_value(&settings).unwrap()).unwrap();
+        loaded.validate().unwrap();
+        assert_eq!(loaded.desktop_card.accent_color.as_deref(), Some("#efb273"));
+        assert_eq!(loaded.color, original_color);
+        assert!(!serde_json::to_value(super::DesktopCard::default())
+            .unwrap()
+            .as_object()
+            .unwrap()
+            .contains_key("accentColor"));
     }
     #[test]
     fn desktop_card_extends_host_bounds_and_legacy_settings_default_to_hidden() {

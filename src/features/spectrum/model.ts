@@ -14,7 +14,7 @@ export const migrateEffectId = (value: unknown): unknown => typeof value === 'st
 export type RenderQuality = "eco" | "balanced" | "smooth" | "unlimited";
 export type SceneMode = "daily" | "immersive";
 export interface SceneBounds { x: number; y: number; width: number; height: number }
-export interface DesktopCardSettings { enabled: boolean; variant: 'record' | 'compact' | 'afternoon'; bounds: SceneBounds }
+export interface DesktopCardSettings { enabled: boolean; variant: 'record' | 'compact' | 'afternoon'; bounds: SceneBounds; accentColor?: string }
 export const defaultDesktopCard: DesktopCardSettings = { enabled: false, variant: 'record', bounds: { x: .035, y: .81, width: .23, height: .13 } }
 export interface AtmosphereSettings { direction: number; wind: number; fog: number; lights: number; choreography: boolean }
 export interface WallpaperDepthSettings { enabled: boolean; amount: number; profile: 'landscape' | 'left-foreground'; revision: string }
@@ -163,7 +163,8 @@ export function normalizeDesktopCard(value: unknown): DesktopCardSettings {
   const source = value && typeof value === 'object' ? value as Partial<DesktopCardSettings> : {}
   const b = source.bounds ?? defaultDesktopCard.bounds
   const width = clamp(b.width, .23, .15, .45), height = clamp(b.height, .13, .08, .24)
-  return { enabled: source.enabled === true, variant: source.variant === 'afternoon' ? 'afternoon' : source.variant === 'compact' ? 'compact' : 'record', bounds: { x: clamp(b.x, .035, 0, 1 - width), y: clamp(b.y, .81, 0, 1 - height), width, height } }
+  const accent = typeof source.accentColor === 'string' && /^#[0-9a-f]{6}$/i.test(source.accentColor) ? { accentColor: source.accentColor } : {}
+  return { enabled: source.enabled === true, variant: source.variant === 'afternoon' ? 'afternoon' : source.variant === 'compact' ? 'compact' : 'record', ...accent, bounds: { x: clamp(b.x, .035, 0, 1 - width), y: clamp(b.y, .81, 0, 1 - height), width, height } }
 }
 
 const validId = (value: unknown): value is string => typeof value === 'string' && /^[a-zA-Z0-9_-]{1,64}$/.test(value) && value !== 'primary'
