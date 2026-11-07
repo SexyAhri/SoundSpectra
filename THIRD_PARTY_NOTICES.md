@@ -6,6 +6,8 @@ SoundSpectra itself is Copyright (C) 2026 SexyAhri, licensed under GPL-3.0-only 
 
 Frontend runtime license texts from the installed, locked npm packages are collected in `licenses/frontend.txt`. Tauri's MIT notice is in `licenses/tauri-MIT.txt`; its alternative Apache-2.0 terms and the Apache-2.0 terms for `lyrics-crypto` are in `licenses/Apache-2.0.txt`. These files do not change any dependency's license choice.
 
+The folded-curtain lyric renderer and its isolated experiment use Anime.js 4.5.0 (MIT), Copyright (c) 2025 Julian Garnier. Its complete notice is in `licenses/animejs-MIT.txt`.
+
 The GitHub mark in `src/assets/github-mark.svg` is from GitHub's Primer Octicons (`icons/mark-github-16.svg`), Copyright (c) 2026 GitHub Inc., MIT. The complete notice is in `licenses/github-octicons-MIT.txt`.
 
 Windows clipboard image import uses `arboard` 3.7.0 (MIT OR Apache-2.0), Copyright (c) 2022 The Arboard contributors. Its MIT notice is in `licenses/arboard-MIT.txt`.
@@ -37,3 +39,5 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 
 The previously bundled two-dimensional fluid solver has been removed from the source tree. Its MIT notice remains available in historical revisions containing that solver.
+
+Noto Sans SC Variable and Noto Serif SC Variable (5.3.1), distributed through Fontsource, are bundled locally for lyric typography. Copyright belongs to the Noto Project Authors. Licensed under SIL Open Font License 1.1; full notices are in `licenses/noto-sans-sc-OFL.txt` and `licenses/noto-serif-sc-OFL.txt`. Font files are unmodified.

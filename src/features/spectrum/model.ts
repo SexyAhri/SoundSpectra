@@ -4,6 +4,11 @@ export const BAND_COUNT = 96;
 export const effectIds = musicEffects.map(effect => effect.value);
 export type SpectrumEffect = MusicEffect;
 const replacedEffects: Record<string, SpectrumEffect> = {
+  ember_flow: 'caustic_light',
+  prism_cluster: 'caustic_light', kinetic_mobile: 'ginkgo_leaves', solar_corona: 'cosmic_web',
+  ink_marbling: 'caustic_light', harmonic_strings: 'ginkgo_leaves',
+  koi_dance: 'ginkgo_leaves',
+  ferrofluid: 'caustic_light',
   bars: 'sound_field', ribbon: 'ripple', stars: 'dream_stars', night: 'dream_stars',
   ring: 'vortex', rain: 'volume_rain', orbit: 'vortex', flock: 'rhythm_balls',
   bloom: 'ripple', valley: 'ripple',
@@ -14,17 +19,27 @@ export const migrateEffectId = (value: unknown): unknown => typeof value === 'st
 export type RenderQuality = "eco" | "balanced" | "smooth" | "unlimited";
 export type SceneMode = "daily" | "immersive";
 export interface SceneBounds { x: number; y: number; width: number; height: number }
-export interface DesktopCardSettings { enabled: boolean; variant: 'record' | 'compact' | 'afternoon'; bounds: SceneBounds; accentColor?: string }
+export interface DesktopCardSettings { enabled: boolean; variant: 'record' | 'compact' | 'afternoon' | 'floating'; bounds: SceneBounds; accentColor?: string }
 export const defaultDesktopCard: DesktopCardSettings = { enabled: false, variant: 'record', bounds: { x: .035, y: .81, width: .23, height: .13 } }
 export interface AtmosphereSettings { direction: number; wind: number; fog: number; lights: number; choreography: boolean }
-export interface WallpaperDepthSettings { enabled: boolean; amount: number; profile: 'landscape' | 'left-foreground'; revision: string }
-export const defaultWallpaperDepth: WallpaperDepthSettings = { enabled: false, amount: 25, profile: 'landscape', revision: '' }
+// Keep the existing storage key so imported images and old parallax settings survive.
+export interface WallpaperDepthSettings {
+  enabled: boolean; amount: number; profile: 'landscape' | 'left-foreground'; revision: string;
+  source: 'system' | 'custom'; fit: 'cover' | 'contain'; focusX: number; focusY: number;
+  brightness: number; saturation: number;
+  ambientEnabled: boolean; ambientAmount: number; ambientColor: string; ambientBounds: SceneBounds;
+}
+export const defaultWallpaperDepth: WallpaperDepthSettings = {
+  enabled: false, amount: 25, profile: 'landscape', revision: '', source: 'system', fit: 'cover',
+  focusX: 50, focusY: 50, brightness: 100, saturation: 100,
+  ambientEnabled: false, ambientAmount: 30, ambientColor: '#c5dfdf', ambientBounds: { x: .08, y: .08, width: .84, height: .44 },
+}
 export const defaultAtmosphere: AtmosphereSettings = { direction: 15, wind: 40, fog: 45, lights: 60, choreography: true }
 export type RegionStyle = Pick<SpectrumSettings, 'effect' | 'sceneMode' | 'color' | 'opacity' | 'sensitivity' | 'decay' | 'reflection' | 'glow' | 'bounds' | 'atmosphere' | 'music' | 'view'>
 export interface SpectrumRegion extends RegionStyle { id: string; name: string; visible: boolean }
 export interface SceneMask { id: string; bounds: SceneBounds; feather: number }
-export interface LyricSettings { readability: 'soft' | 'contrast'; enabled: boolean; folder: string; fontSize: number; backgroundOpacity: number; offsetMs: number; motion: 'depth' | 'stardust' | 'stage'; bounds: SceneBounds }
-export const defaultLyrics: LyricSettings = { readability: 'soft', enabled: false, folder: '', fontSize: 64, backgroundOpacity: 30, offsetMs: 0, motion: 'depth', bounds: { x: .06, y: .20, width: .88, height: .56 } }
+export interface LyricSettings { fontStyle: 'modern' | 'poetry'; readability: 'soft' | 'contrast'; enabled: boolean; folder: string; fontSize: number; backgroundOpacity: number; offsetMs: number; motion: 'depth' | 'stardust' | 'stage' | 'folded'; bounds: SceneBounds }
+export const defaultLyrics: LyricSettings = { fontStyle: 'modern', readability: 'soft', enabled: false, folder: '', fontSize: 64, backgroundOpacity: 30, offsetMs: 0, motion: 'depth', bounds: { x: .06, y: .20, width: .88, height: .56 } }
 export const MAX_REGIONS = 4, MAX_MASKS = 8
 
 export interface SpectrumSettings {
@@ -86,7 +101,7 @@ export const defaults: SpectrumSettings = {
   regionName: '主区域', regionVisible: true, regions: [], masks: [],
   atmosphere: { ...defaultAtmosphere },
   desktopCard: structuredClone(defaultDesktopCard),
-  wallpaperDepth: { ...defaultWallpaperDepth },
+  wallpaperDepth: structuredClone(defaultWallpaperDepth),
   lyrics: structuredClone(defaultLyrics),
 };
 
@@ -149,14 +164,24 @@ export function normalizeLyrics(value: unknown): LyricSettings {
   const b = source.bounds ?? defaultLyrics.bounds
   const width = clamp(b.width, .88, .25, 1), height = clamp(b.height, .56, .1, .75)
   return { enabled: source.enabled === true, folder: typeof source.folder === 'string' ? source.folder.trim().slice(0, 1024) : defaultLyrics.folder,
-    backgroundOpacity: clamp(source.backgroundOpacity, 30, 0, 100), readability: source.readability==='contrast'?'contrast':'soft',
-    fontSize: clamp((source as { motion?: string }).motion === 'float' && source.fontSize === 36 ? 64 : source.fontSize, 64, 18, 72), offsetMs: clamp(source.offsetMs, 0, -10000, 10000), motion: source.motion === 'stardust' || source.motion === 'stage' ? source.motion : 'depth',
+    backgroundOpacity: clamp(source.backgroundOpacity, 30, 0, 100), readability: source.readability==='contrast'?'contrast':'soft', fontStyle: source.fontStyle === 'poetry' ? 'poetry' : 'modern',
+    fontSize: clamp((source as { motion?: string }).motion === 'float' && source.fontSize === 36 ? 64 : source.fontSize, 64, 18, 72), offsetMs: clamp(source.offsetMs, 0, -10000, 10000), motion: source.motion === 'stardust' || source.motion === 'stage' || source.motion === 'folded' ? source.motion : 'depth',
     bounds: { x: clamp(b.x, .06, 0, 1 - width), y: clamp(b.y, .20, 0, 1 - height), width, height } }
 }
 
 export function normalizeWallpaperDepth(value: unknown): WallpaperDepthSettings {
   const source = value && typeof value === 'object' ? value as Partial<WallpaperDepthSettings> : {}
-  return { enabled: source.enabled === true, amount: clamp(source.amount,25,0,100), profile: source.profile === 'left-foreground' ? 'left-foreground' : 'landscape', revision: typeof source.revision === 'string' && /^[a-f0-9]{1,32}$/.test(source.revision) ? source.revision : '' }
+  const b = source.ambientBounds ?? defaultWallpaperDepth.ambientBounds
+  const width = clamp(b.width, .84, .2, 1), height = clamp(b.height, .44, .08, 1)
+  const revision = typeof source.revision === 'string' && /^[a-f0-9]{1,32}$/.test(source.revision) ? source.revision : ''
+  return { enabled: source.enabled === true, amount: clamp(source.amount,25,0,100), profile: source.profile === 'left-foreground' ? 'left-foreground' : 'landscape', revision,
+    source: source.source === 'custom' || source.source !== 'system' && source.enabled === true && !!revision ? 'custom' : 'system',
+    fit: source.fit === 'contain' ? 'contain' : 'cover', focusX: clamp(source.focusX,50,0,100), focusY: clamp(source.focusY,50,0,100),
+    brightness: clamp(source.brightness,100,30,130), saturation: clamp(source.saturation,100,0,150),
+    ambientEnabled: source.ambientEnabled === true, ambientAmount: clamp(source.ambientAmount,30,0,100),
+    ambientColor: typeof source.ambientColor === 'string' && /^#[a-f0-9]{6}$/i.test(source.ambientColor) ? source.ambientColor : defaultWallpaperDepth.ambientColor,
+    ambientBounds: { x: clamp(b.x,.08,0,1-width), y: clamp(b.y,.08,0,1-height), width, height },
+  }
 }
 
 export function normalizeDesktopCard(value: unknown): DesktopCardSettings {
@@ -164,7 +189,7 @@ export function normalizeDesktopCard(value: unknown): DesktopCardSettings {
   const b = source.bounds ?? defaultDesktopCard.bounds
   const width = clamp(b.width, .23, .15, .45), height = clamp(b.height, .13, .08, .24)
   const accent = typeof source.accentColor === 'string' && /^#[0-9a-f]{6}$/i.test(source.accentColor) ? { accentColor: source.accentColor } : {}
-  return { enabled: source.enabled === true, variant: source.variant === 'afternoon' ? 'afternoon' : source.variant === 'compact' ? 'compact' : 'record', ...accent, bounds: { x: clamp(b.x, .035, 0, 1 - width), y: clamp(b.y, .81, 0, 1 - height), width, height } }
+  return { enabled: source.enabled === true, variant: source.variant === 'floating' ? 'floating' : source.variant === 'afternoon' ? 'afternoon' : source.variant === 'compact' ? 'compact' : 'record', ...accent, bounds: { x: clamp(b.x, .035, 0, 1 - width), y: clamp(b.y, .81, 0, 1 - height), width, height } }
 }
 
 const validId = (value: unknown): value is string => typeof value === 'string' && /^[a-zA-Z0-9_-]{1,64}$/.test(value) && value !== 'primary'

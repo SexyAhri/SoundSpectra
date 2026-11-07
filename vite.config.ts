@@ -12,5 +12,6 @@ export default defineConfig({
     // Downloads, traces and native outputs can be locked while tests/builds write them.
     watch: { ignored: ['**/src-tauri/**', '**/artifacts/**', '**/test-results/**', '**/playwright-report/**', '**/.tools/**', '**/releases/**', '**/dist/**'] },
   },
-  build: { target: 'es2022' },
+  // Keep even small Unicode font shards as local files: native CSP excludes data: fonts.
+  build: { target: 'es2022', assetsInlineLimit: file => /\.woff2?$/.test(file) ? false : undefined },
 })

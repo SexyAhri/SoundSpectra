@@ -43,6 +43,31 @@ pub enum SpectrumEffect {
     AuroraFlow,
     #[serde(rename = "star_flight")]
     StarFlight,
+    #[serde(rename = "tidal_knot")]
+    TidalKnot,
+    #[serde(rename = "layered_tides")]
+    LayeredTides,
+    #[serde(rename = "echo_corridor")]
+    EchoCorridor,
+    #[serde(rename = "butterfly_flock")]
+    ButterflyFlock,
+    #[serde(
+        rename = "caustic_light",
+        alias = "ember_flow",
+        alias = "prism_cluster",
+        alias = "ink_marbling",
+        alias = "ferrofluid"
+    )]
+    CausticLight,
+    #[serde(
+        rename = "ginkgo_leaves",
+        alias = "kinetic_mobile",
+        alias = "harmonic_strings",
+        alias = "koi_dance"
+    )]
+    GinkgoLeaves,
+    #[serde(rename = "cosmic_web", alias = "solar_corona")]
+    CosmicWeb,
 }
 
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
@@ -463,6 +488,16 @@ pub struct WallpaperDepth {
     pub amount: f64,
     pub profile: String,
     pub revision: String,
+    pub source: String,
+    pub fit: String,
+    pub focus_x: f64,
+    pub focus_y: f64,
+    pub brightness: f64,
+    pub saturation: f64,
+    pub ambient_enabled: bool,
+    pub ambient_amount: f64,
+    pub ambient_color: String,
+    pub ambient_bounds: Bounds,
 }
 impl Default for WallpaperDepth {
     fn default() -> Self {
@@ -471,13 +506,39 @@ impl Default for WallpaperDepth {
             amount: 25.0,
             profile: "landscape".into(),
             revision: String::new(),
+            // Old configurations selected an image only when parallax was on.
+            source: "legacy".into(),
+            fit: "cover".into(),
+            focus_x: 50.0,
+            focus_y: 50.0,
+            brightness: 100.0,
+            saturation: 100.0,
+            ambient_enabled: false,
+            ambient_amount: 30.0,
+            ambient_color: "#c5dfdf".into(),
+            ambient_bounds: Bounds {
+                x: 0.08,
+                y: 0.08,
+                width: 0.84,
+                height: 0.44,
+            },
         }
+    }
+}
+impl WallpaperDepth {
+    pub fn needs_surface(&self) -> bool {
+        self.source == "custom"
+            || self.enabled
+            || self.ambient_enabled
+            || self.brightness != 100.0
+            || self.saturation != 100.0
     }
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", default)]
 pub struct Lyrics {
+    pub font_style: String,
     pub readability: String,
     pub enabled: bool,
     pub folder: String,
@@ -490,6 +551,7 @@ pub struct Lyrics {
 impl Default for Lyrics {
     fn default() -> Self {
         Self {
+            font_style: "modern".into(),
             readability: "soft".into(),
             enabled: false,
             folder: String::new(),
@@ -591,7 +653,7 @@ impl Settings {
     pub fn display_bounds(&self) -> Option<Bounds> {
         // Avoid independently placed rails without resizing the native host
         // every time a rail moves. The overlay remains click-through.
-        if self.wallpaper_depth.enabled || self.lyrics.enabled {
+        if self.wallpaper_depth.needs_surface() || self.lyrics.enabled {
             return Some(Bounds {
                 x: 0.0,
                 y: 0.0,
@@ -631,24 +693,43 @@ impl Settings {
         let lyrics = &self.lyrics;
         validate_bounds(&lyrics.bounds, 0.25, 0.1, 0.75)?;
         if !lyrics.font_size.is_finite()
+            || !["modern", "poetry"].contains(&lyrics.font_style.as_str())
             || !["soft", "contrast"].contains(&lyrics.readability.as_str())
             || !(18.0..=72.0).contains(&lyrics.font_size)
             || !lyrics.background_opacity.is_finite()
             || !(0.0..=100.0).contains(&lyrics.background_opacity)
             || !lyrics.offset_ms.is_finite()
             || !(-10000.0..=10000.0).contains(&lyrics.offset_ms)
-            || !["depth", "stardust", "stage", "float", "glow"].contains(&lyrics.motion.as_str())
+            || !["depth", "stardust", "stage", "folded", "float", "glow"]
+                .contains(&lyrics.motion.as_str())
             || lyrics.folder.chars().count() > 1024
             || lyrics.folder.contains('\0')
         {
             return Err("歌词设置无效".into());
         }
         let depth = &self.wallpaper_depth;
+        validate_bounds(&depth.ambient_bounds, 0.2, 0.08, 1.0)?;
         if !depth.amount.is_finite()
             || !(0.0..=100.0).contains(&depth.amount)
             || !["landscape", "left-foreground"].contains(&depth.profile.as_str())
             || depth.revision.len() > 32
             || !depth.revision.bytes().all(|b| b.is_ascii_hexdigit())
+            || !["system", "custom", "legacy"].contains(&depth.source.as_str())
+            || !["cover", "contain"].contains(&depth.fit.as_str())
+            || [
+                (depth.focus_x, 0.0, 100.0),
+                (depth.focus_y, 0.0, 100.0),
+                (depth.brightness, 30.0, 130.0),
+                (depth.saturation, 0.0, 150.0),
+                (depth.ambient_amount, 0.0, 100.0),
+            ]
+            .iter()
+            .any(|(v, min, max)| !v.is_finite() || !(*min..=*max).contains(v))
+            || depth.ambient_color.len() != 7
+            || !depth.ambient_color.starts_with('#')
+            || !depth.ambient_color[1..]
+                .bytes()
+                .all(|b| b.is_ascii_hexdigit())
         {
             return Err("立体壁纸参数超出允许范围".into());
         }
@@ -657,7 +738,8 @@ impl Settings {
         self.music.validate()?;
         validate_bounds(&self.desktop_card.bounds, 0.15, 0.08, 0.24)?;
         if self.desktop_card.bounds.width > 0.45
-            || !["record", "compact", "afternoon"].contains(&self.desktop_card.variant.as_str())
+            || !["record", "compact", "afternoon", "floating"]
+                .contains(&self.desktop_card.variant.as_str())
             || self
                 .desktop_card
                 .accent_color
@@ -906,6 +988,11 @@ mod tests {
         loaded.validate().unwrap();
         assert_eq!(loaded.desktop_card.accent_color.as_deref(), Some("#efb273"));
         assert_eq!(loaded.color, original_color);
+        settings.desktop_card.variant = "floating".into();
+        let floating: super::Settings =
+            serde_json::from_value(serde_json::to_value(&settings).unwrap()).unwrap();
+        floating.validate().unwrap();
+        assert_eq!(floating.desktop_card.variant, "floating");
         assert!(!serde_json::to_value(super::DesktopCard::default())
             .unwrap()
             .as_object()
@@ -1011,6 +1098,13 @@ mod tests {
             "petal_bloom",
             "aurora_flow",
             "star_flight",
+            "tidal_knot",
+            "layered_tides",
+            "echo_corridor",
+            "butterfly_flock",
+            "caustic_light",
+            "ginkgo_leaves",
+            "cosmic_web",
         ] {
             let mut saved = serde_json::to_value(Settings::default()).unwrap();
             saved["effect"] = serde_json::json!(effect);
@@ -1030,6 +1124,14 @@ mod tests {
     #[test]
     fn retired_effects_migrate_in_primary_and_additional_regions() {
         for (retired, replacement) in [
+            ("ember_flow", "caustic_light"),
+            ("prism_cluster", "caustic_light"),
+            ("ink_marbling", "caustic_light"),
+            ("kinetic_mobile", "ginkgo_leaves"),
+            ("harmonic_strings", "ginkgo_leaves"),
+            ("solar_corona", "cosmic_web"),
+            ("koi_dance", "ginkgo_leaves"),
+            ("ferrofluid", "caustic_light"),
             ("spectrum_bars", "sound_field"),
             ("rhythm_bars", "sound_field"),
             ("pulse_ring", "vortex"),
@@ -1061,6 +1163,8 @@ mod tests {
         settings.music.dust_opacity = Some(0.4);
         settings.music.star_density = Some(4200.0);
         settings.lyrics.readability = "contrast".into();
+        settings.lyrics.font_style = "poetry".into();
+        settings.lyrics.motion = "folded".into();
         settings.validate().unwrap();
         let saved = serde_json::to_value(&settings).unwrap();
         let loaded: Settings = serde_json::from_value(saved).unwrap();
@@ -1070,6 +1174,20 @@ mod tests {
         );
         settings.music.jelly_count = Some(f32::NAN);
         assert!(settings.validate().is_err());
+    }
+
+    #[test]
+    fn lyric_font_styles_migrate_and_reject_unknown_faces() {
+        let mut value = serde_json::to_value(Settings::default()).unwrap();
+        value["lyrics"].as_object_mut().unwrap().remove("fontStyle");
+        let mut loaded: Settings = serde_json::from_value(value).unwrap();
+        assert_eq!(loaded.lyrics.font_style, "modern");
+        for style in ["modern", "poetry"] {
+            loaded.lyrics.font_style = style.into();
+            loaded.validate().unwrap();
+        }
+        loaded.lyrics.font_style = "unknown".into();
+        assert!(loaded.validate().is_err());
     }
 
     #[test]
@@ -1218,6 +1336,50 @@ mod tests {
         assert_eq!(settings.display_bounds(), Some(settings.bounds.clone()));
         settings.region_visible = false;
         assert_eq!(settings.display_bounds(), None);
+    }
+
+    #[test]
+    fn wallpaper_legacy_and_static_modes_keep_full_desktop_bounds() {
+        let mut value = serde_json::to_value(Settings::default()).unwrap();
+        value["wallpaperDepth"] = serde_json::json!({"enabled":true,"amount":25.0,"profile":"landscape","revision":"abc"});
+        let old: Settings = serde_json::from_value(value).unwrap();
+        old.validate().unwrap();
+        assert_eq!(old.wallpaper_depth.source, "legacy");
+        assert!(old.wallpaper_depth.needs_surface());
+        assert_eq!(old.display_bounds().unwrap().width, 1.0);
+
+        let mut settings = Settings::default();
+        settings.wallpaper_depth.source = "custom".into();
+        settings.wallpaper_depth.revision = "abc".into();
+        assert!(!settings.wallpaper_depth.enabled);
+        assert_eq!(settings.display_bounds().unwrap().height, 1.0);
+        settings.wallpaper_depth.source = "system".into();
+        settings.wallpaper_depth.ambient_enabled = true;
+        assert_eq!(settings.display_bounds().unwrap().height, 1.0);
+        settings.validate().unwrap();
+        let saved = serde_json::to_value(&settings).unwrap();
+        let loaded: Settings = serde_json::from_value(saved.clone()).unwrap();
+        assert_eq!(serde_json::to_value(loaded).unwrap(), saved);
+
+        for field in [
+            "brightness",
+            "saturation",
+            "focusX",
+            "focusY",
+            "ambientAmount",
+        ] {
+            let mut invalid = saved.clone();
+            invalid["wallpaperDepth"][field] = serde_json::json!(-1.0);
+            assert!(serde_json::from_value::<Settings>(invalid)
+                .unwrap()
+                .validate()
+                .is_err());
+        }
+        settings.wallpaper_depth.ambient_color = "red".into();
+        assert!(settings.validate().is_err());
+        settings.wallpaper_depth.ambient_color = "#c5dfdf".into();
+        settings.wallpaper_depth.ambient_bounds.x = 0.9;
+        assert!(settings.validate().is_err());
     }
 
     #[test]

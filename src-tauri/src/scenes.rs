@@ -28,7 +28,10 @@ pub fn merge(current: &Settings, scene: Value) -> Result<Settings, String> {
                 "motion",
                 "bounds",
             ];
-            if lyrics.len() != keys.len() + usize::from(lyrics.contains_key("readability"))
+            if lyrics.len()
+                != keys.len()
+                    + usize::from(lyrics.contains_key("readability"))
+                    + usize::from(lyrics.contains_key("fontStyle"))
                 || !keys.iter().all(|key| lyrics.contains_key(*key))
             {
                 return Err("桌面方案只能修改歌词展示样式".into());
@@ -93,11 +96,13 @@ mod tests {
         style.as_object_mut().unwrap().remove("offsetMs");
         style["enabled"] = json!(true);
         style["readability"] = json!("contrast");
+        style["fontStyle"] = json!("poetry");
         let next = merge(&current, json!({"desktop": {"version":1, "card": current.desktop_card, "lyrics":style, "followCover":true}})).unwrap();
         assert!(next.enabled && next.lyrics.enabled && next.follow_cover);
         assert_eq!(next.lyrics.folder, current.lyrics.folder);
         assert_eq!(next.lyrics.offset_ms, current.lyrics.offset_ms);
         assert_eq!(next.lyrics.readability, "contrast");
+        assert_eq!(next.lyrics.font_style, "poetry");
         assert_eq!(next.wallpaper_depth, current.wallpaper_depth);
         assert!(merge(&current, json!({"enabled":false})).is_err());
         assert!(merge(&current, json!({"lyrics":{"folder":"changed"}})).is_err());
@@ -109,8 +114,13 @@ mod tests {
             .as_object_mut()
             .unwrap()
             .remove("readability");
+        desktop["lyrics"]
+            .as_object_mut()
+            .unwrap()
+            .remove("fontStyle");
         let legacy = merge(&next, json!({"desktop":desktop})).unwrap();
         assert_eq!(legacy.lyrics.readability, "contrast");
+        assert_eq!(legacy.lyrics.font_style, "poetry");
         for key in ["folder", "offsetMs", "unknown"] {
             let mut invalid = desktop.clone();
             invalid["lyrics"][key] = json!("private");

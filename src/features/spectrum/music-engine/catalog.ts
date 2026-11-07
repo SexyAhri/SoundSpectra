@@ -13,12 +13,23 @@ export const musicEffects = [
   { value: 'petal_bloom', label: '星瓣花境' },
   { value: 'aurora_flow', label: '极光流域' },
   { value: 'star_flight', label: '星尘航道' },
+  { value: 'tidal_knot', label: '潮汐之结' },
+  { value: 'layered_tides', label: '层海' },
+  { value: 'echo_corridor', label: '回声廊道' },
+  { value: 'butterfly_flock', label: '风栖蝶群' },
+  { value: 'caustic_light', label: '水光焦散' },
+  { value: 'ginkgo_leaves', label: '秋光银杏' },
+  { value: 'cosmic_web', label: '星脉旷野' },
 ] as const
 export type MusicEffect = typeof musicEffects[number]['value']
-export const classicMusicEffects = musicEffects.slice(0, 7)
+export const classicMusicEffects = musicEffects.filter(effect =>
+  ['rhythm_balls', 'rhythm_rain', 'rhythm_skin', 'ripple', 'volume_rain', 'dream_stars', 'vortex',
+    'butterfly_flock', 'caustic_light', 'ginkgo_leaves', 'cosmic_web'].includes(effect.value))
 export const ambientEffects = ['petal_bloom', 'aurora_flow', 'star_flight'] as const
 export type AmbientEffect = typeof ambientEffects[number]
-export type ClassicEffect = Exclude<MusicEffect, AmbientEffect | 'sound_field'>
+export const compositionEffects = ['tidal_knot', 'layered_tides', 'echo_corridor'] as const
+export type CompositionEffect = typeof compositionEffects[number]
+export type ClassicEffect = Exclude<MusicEffect, AmbientEffect | CompositionEffect | 'sound_field'>
 export type ThreeEffect = MusicEffect
 export const threeEffects = musicEffects.map(effect => effect.value)
 export const isThreeEffect = (value: string): value is ThreeEffect => (threeEffects as readonly string[]).includes(value)
