@@ -13,6 +13,9 @@ import "./features/preview/preview.css";
 import "./features/settings/inspector.css";
 import "./features/settings/studio.css";
 import "./features/settings/workspace-layout.css";
+import "./features/settings/workspace-design.css";
+
+if (import.meta.env.DEV) void import('./features/application/resize-diagnostics');
 
 const overlay =
   new URLSearchParams(window.location.search).get("window") === "overlay";

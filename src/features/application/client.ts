@@ -38,7 +38,7 @@ async function openGithub(repository: string, path: '' | '/releases') {
 export const backupConfiguration = () => invoke<string>('backup_configuration')
 export const exportDiagnostics = () => invoke<string>('export_diagnostics')
 
-export type ApplicationAction = 'quit' | 'settings' | 'updates' | 'about' | 'rail' | 'scene' | 'lyrics' | 'card' | 'wallpaper'
+export type ApplicationAction = 'quit' | 'quick' | 'settings' | 'updates' | 'about' | 'rail' | 'scene' | 'lyrics' | 'card' | 'wallpaper'
 export function subscribeApplicationActions(onAction: (action: ApplicationAction) => void) {
   return listen<ApplicationAction>('application-action', event => onAction(event.payload))
 }

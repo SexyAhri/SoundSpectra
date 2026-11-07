@@ -17,6 +17,7 @@ import {
 } from "../spectrum/bridge";
 import { applyDesktopScene } from '../preview/scene-client';
 import type { SceneLayout } from '../preview/scene-library';
+import { SettingsHistory } from './settings-history';
 
 export function useSettings() {
   const [settings, setSettings] = useState<SpectrumSettings>(
@@ -33,6 +34,9 @@ export function useSettings() {
   const queue = useRef(Promise.resolve());
   const revision = useRef(0);
   const committing = useRef(false);
+  const history = useRef(new SettingsHistory());
+  const [, refreshHistory] = useState(0);
+  const historyChanged = () => refreshHistory(value => value + 1);
 
   useEffect(() => {
     let disposed = false;
@@ -53,6 +57,7 @@ export function useSettings() {
       });
     subscribeGeometry((value) => {
       if (!disposed && value.bounds) {
+        history.current.clear(); historyChanged();
         // Only external geometry changes are broadcast; local pending appearance edits remain intact.
         setSettings((previous) => {
           const next = { ...previous, bounds: value.bounds };
@@ -91,10 +96,11 @@ export function useSettings() {
     };
   }, []);
 
-  const update: SettingsUpdate = useCallback((change: Parameters<SettingsUpdate>[0]) => {
+  const persist = useCallback((change: Parameters<SettingsUpdate>[0], remember = true) => {
     if (committing.current) return; // Same lock as the disabled scene controls.
     const patch = typeof change === 'function' ? change(latest.current) : change;
     const next = { ...latest.current, ...patch };
+    if (remember) { history.current.record(latest.current, next); historyChanged(); }
     latest.current = next;
     setSettings(next);
     setSaveState("saving");
@@ -123,12 +129,24 @@ export function useSettings() {
       }
     });
   }, []);
+  const update: SettingsUpdate = useCallback(change => persist(change), [persist]);
+  const undo = useCallback(() => {
+    if (committing.current || !loaded || status.editing) return;
+    const patch = history.current.undo(latest.current);
+    if (patch) { persist(patch, false); historyChanged(); }
+  }, [persist, loaded, status.editing]);
+  const redo = useCallback(() => {
+    if (committing.current || !loaded || status.editing) return;
+    const patch = history.current.redo(latest.current);
+    if (patch) { persist(patch, false); historyChanged(); }
+  }, [persist, loaded, status.editing]);
 
   const edit = async () => {
     setBusy(true);
     try {
       await queue.current;
       const saved = await setEditing(!status.editing);
+      history.current.clear(); historyChanged();
       latest.current = saved;
       setSettings(saved);
       setStatus(await getStatus());
@@ -144,6 +162,7 @@ export function useSettings() {
     setBusy(true);
     try {
       const saved = await resetSettings();
+      history.current.clear(); historyChanged();
       latest.current = saved;
       setSettings(saved);
       setLoaded(true);
@@ -178,7 +197,9 @@ export function useSettings() {
     // A flush must never write the previous scene while this save is in flight.
     const task = queue.current.then(async () => {
       setSaveState("saving");
-      const saved = await applyDesktopScene(patch, latest.current);
+      const before = latest.current;
+      const saved = await applyDesktopScene(patch, before);
+      history.current.record(before, saved, true); historyChanged();
       revision.current++;
       latest.current = saved;
       setSettings(saved);
@@ -198,5 +219,6 @@ export function useSettings() {
       setBusy(false);
     }
   };
-  return { settings, status, loaded, busy, saveState, error, update, edit, recover, flush, commitScene };
+  return { settings, status, loaded, busy, saveState, error, update, edit, recover, flush, commitScene,
+    undo, redo, canUndo: history.current.canUndo, canRedo: history.current.canRedo };
 }

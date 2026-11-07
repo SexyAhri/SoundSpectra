@@ -11,6 +11,8 @@ import { readWallpaperPixels } from './wallpaper-palette'
 import { analyzeWallpaper } from './scene-suggestions'
 import { readLibrary, writeLibrary, recoverLibrary, importScene, exportScene, rememberScene, type SceneLayout, type SavedScene } from './scene-library'
 import { desktopLayout, desktopPresets, scenePatch } from './desktop-scenes'
+import { SceneThumbnail } from './scene-thumbnail'
+import { ChoiceSelect } from '@/components/ui/choice-select'
 
 interface Props {
   settings: SpectrumSettings; image: PreviewImage | null; desktop: DesktopBackground | null; screen: ScreenRect;
@@ -21,7 +23,10 @@ interface Props {
 export function SceneLibraryDialog(props: Props) {
   const [items, setItems] = useState<SavedScene[]>([]), [selected, select] = useState<string | null>(null)
   const [tab, setTab] = useState<'featured' | 'saved'>('featured')
+  const [query, setQuery] = useState(''), [order, setOrder] = useState('recent')
+  const [compare, setCompare] = useState(false)
   const [presetId, selectPreset] = useState<string | null>(null)
+  useEffect(() => setCompare(false), [selected, presetId, tab])
   const [name, setName] = useState(props.settings.regionName), [matching, setMatching] = useState(false)
   const [ready, setReady] = useState(false), [error, setError] = useState<string | null>(null), [notice, setNotice] = useState('')
   const [source, setSource] = useState<{ key: string; wallpaper: string | null; error?: string } | null>(null)
@@ -57,9 +62,10 @@ export function SceneLibraryDialog(props: Props) {
     }).catch(reason => { if (!cancelled) setSource({ key: sourceKey, wallpaper: null, error: `壁纸关联失败：${String(reason)}` }) })
     return () => { cancelled = true }
   }, [sourceKey])
-  const visible = items.filter(item => !matching || !!wallpaper && item.wallpaper === wallpaper)
-    .sort((a, b) => (b.usedAt ?? 0) - (a.usedAt ?? 0) || Number(b.wallpaper === wallpaper && !!wallpaper) - Number(a.wallpaper === wallpaper && !!wallpaper) || b.updated - a.updated)
-  const item = tab === 'saved' ? visible.find(value => value.id === selected) ?? null : null
+  const search = query.trim().toLocaleLowerCase()
+  const visible = items.filter(item => (!matching || !!wallpaper && item.wallpaper === wallpaper) && item.name.toLocaleLowerCase().includes(search))
+    .sort((a, b) => order === 'name' ? a.name.localeCompare(b.name, 'zh-CN') : (b.usedAt ?? 0) - (a.usedAt ?? 0) || Number(b.wallpaper === wallpaper && !!wallpaper) - Number(a.wallpaper === wallpaper && !!wallpaper) || b.updated - a.updated)
+  const item = tab === 'saved' ? items.find(value => value.id === selected) ?? null : null
   const preset = tab === 'featured' ? desktopPresets.find(value => value.id === presetId) : undefined
   const chosen = preset ?? item
   const preview = chosen ? { ...props.settings, ...scenePatch(props.settings, chosen.scene) } : props.settings
@@ -112,7 +118,8 @@ export function SceneLibraryDialog(props: Props) {
       <div className="auto-scene-heading"><div><Dialog.Title><Bookmark size={17} />场景收藏</Dialog.Title><Dialog.Description>一套搭配，收好灯效、歌词和音乐卡片。</Dialog.Description></div><Dialog.Close asChild><IconButton aria-label="关闭场景收藏" disabled={locked}><X size={18} /></IconButton></Dialog.Close></div>
       <div className="auto-scene-body">
         <div className="auto-scene-preview">
-          {props.renderPreview(preview, simulate)}
+          <div className="scene-preview-compare"><span>{compare ? '当前工作台' : chosen ? `预览 · ${chosen.name}` : '当前工作台'}</span><Button size="sm" variant="outline" aria-pressed={compare} disabled={!chosen || locked} onClick={() => setCompare(value => !value)}>{compare ? '返回所选场景' : '对比当前搭配'}</Button></div>
+          {props.renderPreview(compare ? props.settings : preview, simulate)}
           <label className="auto-scene-demo">模拟音频<Switch aria-label="收藏模拟音频" checked={simulate} onCheckedChange={setSimulate} disabled={locked} /></label>
         </div>
         <div className="auto-scene-options scene-library-options">
@@ -120,17 +127,20 @@ export function SceneLibraryDialog(props: Props) {
             <Button size="sm" variant="ghost" aria-pressed={tab === 'featured'} disabled={locked} onClick={() => setTab('featured')}>精选搭配</Button>
             <Button size="sm" variant="ghost" aria-pressed={tab === 'saved'} disabled={locked} onClick={() => setTab('saved')}>我的收藏</Button>
           </div>
+          <label className="library-search"><span className="sr-only">搜索场景</span><input type="search" aria-label="搜索场景" placeholder="搜索场景名称" value={query} onChange={event => { setQuery(event.target.value); select(null); selectPreset(null) }} /></label>
           {tab === 'featured' ? <div className="library-featured">
-            {desktopPresets.map(value => <button key={value.id} className="auto-scene-choice desktop-scene-choice" aria-pressed={presetId === value.id} disabled={locked}
+            {desktopPresets.filter(value => `${value.name}${value.description}`.toLocaleLowerCase().includes(search)).map(value => <button key={value.id} className="auto-scene-choice desktop-scene-choice" aria-pressed={presetId === value.id} disabled={locked}
               onClick={() => { selectPreset(value.id); setName(value.name); setError(null); setNotice('') }}>
+              <SceneThumbnail scene={value.scene} />
               <span className="auto-scene-choice-heading"><span>{value.name}</span><i className="palette-color-dot" style={{ background: value.color }} /></span>
               <span>{value.description}</span>
             </button>)}
             <p className="preview-message">点选只预览，满意后再应用。</p>
           </div> : <>
           <div className="library-filter" role="group" aria-label="收藏筛选"><Button size="sm" variant="ghost" disabled={locked} aria-pressed={!matching} onClick={() => { setMatching(false); select(null) }}>全部</Button><Button size="sm" variant="ghost" disabled={locked || !wallpaper} aria-pressed={matching} onClick={() => { setMatching(true); select(null) }}>当前壁纸</Button><span>{items.length}/40</span></div>
-          <div className="library-items">{visible.map(value => <button className="auto-scene-choice" key={value.id} disabled={locked} aria-pressed={item?.id === value.id} onClick={() => choose(value)}><span className="auto-scene-choice-heading">{value.name}</span><span>{value.wallpaper === wallpaper && wallpaper ? '当前壁纸' : value.wallpaper ? '其他壁纸' : '未关联壁纸'} · {value.usedAt ? '最近使用 ' : ''}{new Date(value.usedAt ?? value.updated).toLocaleDateString()}</span></button>)}
-            {ready && !visible.length && <p className="preview-message">{matching ? '这张壁纸还没有收藏。' : '还没有收藏，先保存当前场景。'}</p>}</div>
+          <ChoiceSelect label="收藏排序" value={order} onChange={setOrder} options={[{ value: 'recent', label: '最近使用优先' }, { value: 'name', label: '按名称排序' }]} />
+          <div className="library-items">{visible.map(value => <button className="auto-scene-choice" key={value.id} disabled={locked} aria-pressed={item?.id === value.id} onClick={() => choose(value)}><SceneThumbnail scene={value.scene} /><span className="auto-scene-choice-heading">{value.name}</span><span>{value.wallpaper === wallpaper && wallpaper ? '当前壁纸' : value.wallpaper ? '其他壁纸' : '未关联壁纸'} · {value.usedAt ? '最近使用 ' : ''}{new Date(value.usedAt ?? value.updated).toLocaleDateString()}</span></button>)}
+            {ready && !visible.length && <p className="preview-message">{search ? '没有找到匹配的场景，试试其他名称。' : matching ? '这张壁纸还没有收藏。' : '还没有收藏，先保存当前场景。'}</p>}</div>
           </>}
           <label className="library-name">场景名称<input aria-label="收藏名称" maxLength={40} value={name} disabled={locked || !ready} onChange={event => setName(event.target.value)} /></label>
           <div className="library-actions"><Button size="sm" variant="outline" disabled={locked || !ready || !sourceReady} onClick={() => save(false)}>保存当前</Button><Button size="sm" variant="outline" disabled={locked || !ready || !sourceReady} onClick={() => save(true)}>另存为</Button></div>

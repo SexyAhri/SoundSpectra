@@ -10,6 +10,7 @@ import { useUpdater } from './use-updater'
 import { ApplicationSettingsDialog } from './application-settings-dialog'
 import { QuitDialog } from './quit-dialog'
 import githubMark from '../../assets/github-mark.svg'
+import { withPreviewResize } from '../preview/resize-settling'
 
 interface Props { beforeClose: () => Promise<void>; open: boolean; onOpenChange: (open: boolean) => void }
 function ApplicationToolbarContent({ beforeClose, open, onOpenChange: setOpen }: Props) {
@@ -39,6 +40,7 @@ function ApplicationToolbarContent({ beforeClose, open, onOpenChange: setOpen }:
     void subscribeApplicationActions(action => {
       if (disposed) return
       if (action === 'quit') { setQuitError(null); setQuitOpen(true) }
+      else if (action === 'quick') { setOpen(false); window.dispatchEvent(new Event('workspace-quick-controls')) }
       else if (action === 'settings' || action === 'updates' || action === 'about') {
         setTab(action === 'settings' ? 'general' : action); setOpen(true)
       } else { setOpen(false); location.hash = `#${action}` }
@@ -54,9 +56,11 @@ function ApplicationToolbarContent({ beforeClose, open, onOpenChange: setOpen }:
     if (native) {
       void autostart.isEnabled().then(v => { if (!disposed) { setStarting(v); setAutostartKnown(true) } }).catch(e => { if (!disposed) setError(describeError(e)) })
       const window = getCurrentWindow()
+      let resizeTimer: ReturnType<typeof globalThis.setTimeout> | undefined
       const refresh = () => { void window.isMaximized().then(v => { if (!disposed) setMaximized(v) }) }
+      const settled = () => { globalThis.clearTimeout(resizeTimer); resizeTimer=globalThis.setTimeout(refresh,100) }
       refresh()
-      void window.onResized(refresh).then(stop => { if (disposed) stop(); else unlisten = stop })
+      void window.onResized(settled).then(stop => { if (disposed) stop(); else unlisten = () => { globalThis.clearTimeout(resizeTimer); stop() } })
     }
     return () => { disposed = true; unlisten?.() }
   }, [])
@@ -94,7 +98,7 @@ function ApplicationToolbarContent({ beforeClose, open, onOpenChange: setOpen }:
       <IconButton className="mobile-settings" title="应用设置与更新" aria-label="应用设置与更新" onClick={() => setOpen(true)}><Settings2 size={15} /></IconButton>
       {native && <div className="window-controls">
         <button aria-label="最小化" title="最小化" onClick={() => void perform(() => getCurrentWindow().minimize())}><Minus size={16} /></button>
-        <button aria-label={maximized ? '还原窗口' : '最大化'} title={maximized ? '还原窗口' : '最大化'} onClick={() => void perform(() => getCurrentWindow().toggleMaximize())}>{maximized ? <Copy size={13} /> : <Maximize2 size={14} />}</button>
+        <button aria-label={maximized ? '还原窗口' : '最大化'} title={maximized ? '还原窗口' : '最大化'} onClick={() => void perform(() => withPreviewResize(() => getCurrentWindow().toggleMaximize()))}>{maximized ? <Copy size={13} /> : <Maximize2 size={14} />}</button>
         <button aria-label="关闭窗口" title={preferences.closeToTray ? '收起到托盘' : '退出 SoundSpectra'} className="window-close" disabled={pending || updater.state.phase === 'installing'} onClick={() => void close()}><X size={17} /></button>
       </div>}
     </div>

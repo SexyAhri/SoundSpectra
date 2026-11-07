@@ -9,10 +9,10 @@ import {
 
 export type WorkspacePanel = "scene" | "lyrics" | "card" | "wallpaper" | "rail";
 const panels = [
-  { id: "rail", label: "拾光绳", icon: GalleryHorizontalEnd },
   { id: "scene", label: "灯效", icon: Monitor },
   { id: "lyrics", label: "歌词", icon: Type },
   { id: "card", label: "音乐卡片", icon: Disc3 },
+  { id: "rail", label: "拾光绳", icon: GalleryHorizontalEnd },
   { id: "wallpaper", label: "壁纸", icon: Image },
 ] as const;
 

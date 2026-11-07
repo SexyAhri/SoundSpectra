@@ -18,9 +18,9 @@ export function PositionPanel({ settings, update, disabled }: { settings: Spectr
     update({ bounds });
   };
   return (
-    <div className="inspector-content">
-      {isThreeEffect(settings.effect) && <><SceneViewControls view={settings.view} onChange={view => update({ view })} disabled={disabled} /><div className="inspector-divider" /></>}
-      <div className="section-label">布局预设</div>
+    <div className="inspector-content effect-position-controls">
+      <section className="effect-settings-block" aria-label="区域布局">
+      <header className="effect-block-heading"><h3>区域布局</h3><p>选择摆放方式，也可以在预览中拖动微调</p></header>
       <LayoutPresets bounds={settings.bounds} disabled={disabled} onChange={bounds => update({ bounds })} />
       <details className="inspector-advanced"><summary>精确位置</summary>
       <Parameter
@@ -56,6 +56,8 @@ export function PositionPanel({ settings, update, disabled }: { settings: Spectr
         onChange={(value) => positionPatch("y", value)}
       />
       </details>
+      </section>
+      {isThreeEffect(settings.effect) && <details className="module-advanced"><summary>三维视角</summary><SceneViewControls view={settings.view} onChange={view => update({ view })} disabled={disabled} /></details>}
     </div>
   )
 }

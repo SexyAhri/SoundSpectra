@@ -9,7 +9,10 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Dialog } from 'radix-ui';
+import { ModalContent } from '@/components/ui/modal';
+import { ChoiceSelect } from '@/components/ui/choice-select';
+import { IconButton } from '@/components/ui/icon-button';
 import { Parameter } from "@/components/ui/parameter";
 import { native } from "../spectrum/bridge";
 import {
@@ -58,7 +61,7 @@ export function RailControls({
       const row = root.current?.querySelector<HTMLElement>(
         `[data-control-item="${CSS.escape(item.id)}"]`,
       );
-      const pane = row?.closest<HTMLElement>("[role=tabpanel]");
+      const pane = row?.closest<HTMLElement>(".inspector-scroll");
       if (!row || !pane) return;
       if (getComputedStyle(pane).overflowY !== "auto") {
         row.scrollIntoView({ block: "nearest" });
@@ -104,8 +107,8 @@ export function RailControls({
     }
   };
   const closeAdd = (itemId?: string) => {
+    setTab("items");
     if (group && itemId) {
-      setTab("items");
       onSelect(group.id, itemId);
     }
   };
@@ -184,40 +187,20 @@ export function RailControls({
             <span>新建</span>
           </button>
         </div>
-        <div className="rail-group-tabs" role="group" aria-label="选择拾光绳">
-          {controller.settings.groups.map((value) => (
-            <button
-              key={value.id}
-              type="button"
-              title={value.name}
-              aria-pressed={group?.id === value.id}
-              onClick={() => onSelect(value.id)}
-            >
-              <strong>{value.name}</strong>
-              <span>{value.items.length}</span>
-            </button>
-          ))}
-        </div>
+        {group && <ChoiceSelect label="当前拾光绳" value={group.id} disabled={busy} onChange={id => onSelect(id)} options={controller.settings.groups.map(value => ({ value: value.id, label: `${value.name} · ${value.items.length} 项` }))} />}
       </div>
       {group ? (
         <>
-          <Tabs
-            value={tab}
-            onValueChange={(value) => {
-              setTab(value);
-              if (value === "layout") onSelect(group.id);
-            }}
-            className="rail-settings-tabs"
-          >
-            <TabsList
-              className="rail-settings-tab-list"
-              aria-label="拾光绳设置分类"
-            >
-              <TabsTrigger value="add">添加</TabsTrigger>
-              <TabsTrigger value="items">挂件列表</TabsTrigger>
-              <TabsTrigger value="layout">布局</TabsTrigger>
-            </TabsList>
-            <TabsContent value="add">
+          <Dialog.Root open={tab === 'add'} onOpenChange={open => setTab(open ? 'add' : 'items')}>
+            <Dialog.Trigger asChild><Button className="rail-add-trigger" variant="outline" disabled={busy}><Plus size={14} />添加挂件</Button></Dialog.Trigger>
+            <ModalContent className="module-add-dialog" onEscapeKeyDown={event => {
+              const panel = document.querySelector('.module-add-dialog .rail-add-panel');
+              if (panel && !panel.classList.contains('rail-add-mode-choices')) {
+                event.preventDefault();
+              }
+            }}>
+              <header><div><Dialog.Title>添加挂件</Dialog.Title><Dialog.Description>添加到「{group.name}」。</Dialog.Description></div><Dialog.Close asChild><IconButton aria-label="关闭添加挂件"><X size={18} /></IconButton></Dialog.Close></header>
+              <div className="module-add-body">
               <section aria-label="添加挂件">
                 <RailAddPanel key={group.id} group={group} controller={controller} onDone={closeAdd} />
               </section>
@@ -244,8 +227,10 @@ export function RailControls({
                 </form>
               </details>
               )}
-            </TabsContent>
-            <TabsContent value="items">
+              </div>
+            </ModalContent>
+          </Dialog.Root>
+            <section className="module-section rail-items-section" aria-label="挂件管理">
               <div className="rail-list-heading">
                 <span className="section-label">挂件列表</span>
                 <span>{group.items.length} / 48</span>
@@ -337,13 +322,13 @@ export function RailControls({
                       onClick={() => setTab("add")}
                     >
                       <Plus size={13} />
-                      添加挂件
+                      去添加
                     </Button>
                   </p>
                 )}
               </div>
-            </TabsContent>
-            <TabsContent value="layout">
+            </section>
+            <details className="module-advanced rail-layout-advanced"><summary>布局与分组设置</summary>
               <section
                 className="rail-layout-settings"
                 aria-label="拾光绳位置与尺寸"
@@ -435,8 +420,7 @@ export function RailControls({
                   移除空拾光绳
                 </Button>
               </section>
-            </TabsContent>
-          </Tabs>
+            </details>
         </>
       ) : (
         <p className="rail-list-empty">新建一组拾光绳，开始布置桌面。</p>

@@ -1,9 +1,9 @@
 import { memo } from 'react';
+import { Tabs } from 'radix-ui';
+import { MusicControls } from './music-controls';
 import {
-  Move,
-  Palette,
   SlidersHorizontal,
-  Sparkles,
+  Sparkles, Palette, Move,
   Disc3,
   Type,
   Image,
@@ -11,7 +11,6 @@ import {
 } from "lucide-react";
 import { RailControls } from "../rail/rail-controls";
 import type { RailController } from "../rail/use-rail";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import type { SpectrumSettings, SettingsUpdate } from "../spectrum/model";
 import { RegionPanel } from "./region-panel";
 import { EffectPanel } from "./effect-panel";
@@ -22,6 +21,8 @@ import { LyricControls } from "../lyrics/lyric-controls";
 import type { LyricDocument } from "../lyrics/model";
 import { WallpaperDepthControls } from "../wallpaper-depth/wallpaper-depth-controls";
 import type { WorkspacePanel } from "./workspace-navigation";
+import { MappingControls } from '../performance/mapping-controls';
+import './module-settings.css';
 
 interface Props {
   lyricDocument: LyricDocument;
@@ -53,9 +54,8 @@ function SceneInspectorContent({
   editing,
   updateScene,
   update,
-  tab,
-  onTabChange,
   panel,
+  tab, onTabChange,
   rail,
   selectedRail,
   selectedRailItem,
@@ -63,10 +63,10 @@ function SceneInspectorContent({
   onSelectRail,
 }: Props) {
   const heading = {
-    scene: "区域灯效",
+    scene: "灯效设置",
     lyrics: "歌词动效",
     card: "音乐卡片",
-    wallpaper: "壁纸与景深",
+    wallpaper: "壁纸与氛围",
     rail: "桌面拾光绳",
   }[panel];
   const Icon = {
@@ -76,11 +76,18 @@ function SceneInspectorContent({
     wallpaper: Image,
     rail: GalleryHorizontalEnd,
   }[panel];
+  const description = {
+    scene: '选择灯效，调整当前区域的画面',
+    lyrics: '选择文字编排，调整阅读与同步',
+    card: '选择卡片样式，布置歌曲信息',
+    wallpaper: '调整壁纸构图，点缀局部音乐微光',
+    rail: '把应用、照片与便签挂在桌面上',
+  }[panel];
   return (
-    <aside className="inspector" aria-label="频谱设置">
+    <aside className={`inspector module-inspector${panel === 'scene' ? ' effect-inspector' : ''}`} aria-label="对象属性">
       <div className="inspector-heading">
         <Icon size={16} />
-        <h2>{heading}</h2>
+        <div className="inspector-heading-copy"><h2>{heading}</h2><p>{description}</p></div>
       </div>
       {panel === "scene" ? (
         <>
@@ -91,51 +98,33 @@ function SceneInspectorContent({
             disabled={disabled || editing}
             update={updateScene}
           />
-          <Tabs
-            value={tab}
-            onValueChange={onTabChange}
-            className="inspector-tabs"
-          >
-            <TabsList className="inspector-tab-list" aria-label="区域设置分类">
-              <TabsTrigger value="effect">
-                <Sparkles size={14} />
-                动效
-              </TabsTrigger>
-              <TabsTrigger value="appearance">
-                <Palette size={14} />
-                外观
-              </TabsTrigger>
-              <TabsTrigger value="position">
-                <Move size={14} />
-                位置
-              </TabsTrigger>
-            </TabsList>
-            <div className="inspector-scroll" key={tab}>
-              <TabsContent value="effect">
-                <EffectPanel
-                  scope={selected}
-                  settings={settings}
-                  update={update}
-                  disabled={disabled}
-                  positionDisabled={editing}
-                />
-              </TabsContent>
-              <TabsContent value="appearance">
-                <AppearancePanel
-                  settings={settings}
-                  update={update}
-                  disabled={disabled}
-                />
-              </TabsContent>
-              <TabsContent value="position">
-                <PositionPanel
-                  settings={settings}
-                  update={update}
-                  disabled={disabled || editing}
-                />
-              </TabsContent>
-            </div>
-          </Tabs>
+          <Tabs.Root className="module-scene-tabs" value={tab} onValueChange={onTabChange}>
+            <Tabs.List className="module-section-nav" aria-label="灯效设置分类">
+              {([['effect', '动效', Sparkles], ['appearance', '外观', Palette], ['position', '位置', Move]] as const).map(([value, label, Icon]) =>
+                <Tabs.Trigger key={value} value={value}><Icon size={14} />{label}</Tabs.Trigger>)}
+            </Tabs.List>
+            <Tabs.Content value="effect" className="module-tab-panel">
+              <div className="inspector-scroll" key={`effect-${selected}`}>
+              <div className="module-settings-content">
+                <EffectPanel scope={selected} settings={settings} update={update} disabled={disabled} positionDisabled={editing} />
+                <MusicControls settings={settings} update={update} disabled={disabled} />
+              </div>
+              </div>
+            </Tabs.Content>
+            <Tabs.Content value="appearance" className="module-tab-panel">
+              <div className="inspector-scroll" key={`appearance-${selected}`}>
+              <div className="module-settings-content">
+                <AppearancePanel settings={settings} region={selected} update={update} disabled={disabled} />
+                <details className="module-advanced"><summary>音乐响应映射</summary><MappingControls settings={settings} region={selected} disabled={disabled} /></details>
+              </div>
+              </div>
+            </Tabs.Content>
+            <Tabs.Content value="position" className="module-tab-panel">
+              <div className="inspector-scroll" key={`position-${selected}`}>
+              <div className="module-settings-content"><PositionPanel settings={settings} update={update} disabled={disabled || editing} /></div>
+              </div>
+            </Tabs.Content>
+          </Tabs.Root>
         </>
       ) : (
         <div className={`inspector-scroll global-inspector-scroll${panel === 'rail' ? ' rail-inspector-pane' : ''}`} key={panel}>

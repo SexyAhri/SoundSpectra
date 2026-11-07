@@ -20,6 +20,9 @@ import { WorkspaceFooter } from "./workspace-footer";
 import { useRail } from "../rail/use-rail";
 import { useRailDrop } from "../rail/use-rail-drop";
 import { useRailPaste } from "../rail/use-rail-paste";
+import { WorkspaceTools } from './workspace-tools';
+import { PerformanceProvider } from '../performance/runtime';
+import { PerformancePanel } from '../performance/panel';
 
 export function SettingsWorkspace() {
   const {
@@ -34,6 +37,7 @@ export function SettingsWorkspace() {
     recover,
     flush,
     commitScene,
+    undo, redo, canUndo, canRedo,
   } = useSettings();
   const updateScene: SettingsUpdate = useCallback(change => persistScene(current => {
     const patch = typeof change === 'function' ? change(current) : change;
@@ -49,6 +53,7 @@ export function SettingsWorkspace() {
   const update = useCallback((patch: Partial<SpectrumSettings>) =>
     updateScene((current) => regionPatch(current, selected, 'color' in patch && !('followCover' in patch) ? { ...patch, followCover: false } : patch)), [updateScene, selected]);
   const [arrangeRequest, requestArrange] = useState(0);
+  const [libraryRequest, requestLibrary] = useState(0);
   const [demo, setDemo] = useState(!native);
   const [applicationOpen, setApplicationOpen] = useState(false);
   const navigation = useWorkspaceNavigation();
@@ -83,7 +88,7 @@ export function SettingsWorkspace() {
     sceneSettings.desktopCard.enabled ||
     sceneSettings.lyrics.enabled;
   return (
-    <div className="app-shell studio-shell">
+    <PerformanceProvider info={nowPlaying}><div className="app-shell studio-shell">
       <aside className="sidebar" aria-label="主导航">
         <div
           className="brand-mark"
@@ -172,6 +177,13 @@ export function SettingsWorkspace() {
               </div>
             )}
             <DesktopPreview
+              sceneActions={<PerformancePanel settings={settings} region={selected} disabled={!loaded || busy || status.editing} />}
+              activePanel={navigation.panel}
+              libraryRequest={libraryRequest}
+              editActions={<WorkspaceTools settings={sceneSettings} status={status} rail={rail} lyrics={lyricDocument}
+                loaded={loaded} busy={busy} saveState={saveState} disabled={!loaded || busy || status.editing}
+                update={updateScene} commitScene={commitScene} undo={undo} redo={redo} canUndo={canUndo} canRedo={canRedo}
+                onLibrary={() => requestLibrary(value => value + 1)} onArrange={() => requestArrange(value => value + 1)} />}
               onShow={() => setApplicationOpen(false)}
               settings={sceneSettings}
               nowPlaying={nowPlaying}
@@ -180,6 +192,7 @@ export function SettingsWorkspace() {
               rail={rail}
               selectedRail={selectedRailItem ?? selectedRail}
               railEditing={navigation.panel === "rail"}
+              wallpaperEditing={navigation.panel === "wallpaper"}
               onSelectRail={onSelectRail}
               selectedRegion={selected}
               onSelectRegion={(id) => {
@@ -221,7 +234,7 @@ export function SettingsWorkspace() {
           />
         </div>
         <WorkspaceFooter
-          rail={navigation.panel === "rail" ? rail : undefined}
+          rail={rail}
           settings={sceneSettings}
           status={status}
           loaded={loaded}
@@ -240,6 +253,6 @@ export function SettingsWorkspace() {
           demo={demo}
         />
       </div>
-    </div>
+    </div></PerformanceProvider>
   );
 }

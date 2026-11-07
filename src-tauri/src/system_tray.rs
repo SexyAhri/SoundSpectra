@@ -71,6 +71,7 @@ pub fn dispatch(app: &AppHandle, action: &str) {
 
 pub fn setup(app: &App) -> tauri::Result<()> {
     let open = MenuItem::with_id(app, "open", "打开主界面", true, None::<&str>)?;
+    let quick = MenuItem::with_id(app, "quick", "快捷控制…", true, None::<&str>)?;
     let collection = MenuItem::with_id(app, "library", "场景收藏…", true, None::<&str>)?;
     let warm = MenuItem::with_id(app, "warm-sand", "暖砂日常", true, None::<&str>)?;
     let dusk = MenuItem::with_id(app, "dusk-blue", "暮蓝听歌", true, None::<&str>)?;
@@ -98,6 +99,7 @@ pub fn setup(app: &App) -> tauri::Result<()> {
         app,
         &[
             &open,
+            &quick,
             &scenes,
             &desktop,
             &settings_separator,
@@ -143,8 +145,8 @@ pub fn setup(app: &App) -> tauri::Result<()> {
                 crate::show_settings(app);
                 let _ = app.emit_to("settings", "scene-shortcut", id);
             }
-            "rail" | "scene" | "lyrics" | "card" | "wallpaper" | "settings" | "updates"
-            | "about" | "quit" => dispatch(app, event.id.as_ref()),
+            "quick" | "rail" | "scene" | "lyrics" | "card" | "wallpaper" | "settings"
+            | "updates" | "about" | "quit" => dispatch(app, event.id.as_ref()),
             _ => (),
         })
         .build(app)?;

@@ -1,0 +1,131 @@
+/* Scene-local layout. Other editors keep their own controls and materials. */
+.studio-shell .effect-inspector .inspector-heading { padding: 18px 20px 16px; margin-bottom: 14px; }
+.studio-shell .effect-inspector .inspector-heading > svg { width: 34px; height: 34px; padding: 8px; border: 1px solid var(--border); border-radius: 10px; background: var(--secondary); }
+.studio-shell .effect-inspector .inspector-heading h2 { font-size: 15px; }
+.studio-shell .effect-inspector .inspector-heading-copy p { font-size: 12px; }
+.studio-shell .effect-inspector .region-panel { margin: 0 16px 12px; padding: 12px; border: 1px solid var(--border); border-radius: 10px; background: color-mix(in srgb,var(--background) 50%,var(--card)); }
+.studio-shell .effect-inspector .region-panel-heading { margin-bottom: 9px; font-size: 11px; }
+.studio-shell .effect-inspector .region-panel-heading small { margin-left: 5px; padding: 2px 5px; border-radius: 4px; background: var(--secondary); color: var(--muted-foreground); font-size: 10px; }
+.studio-shell .effect-inspector .region-panel-heading label { font-size: 11px; }
+.studio-shell .effect-inspector .region-selector-row .choice-trigger,
+.studio-shell .effect-inspector .region-selector-row input { height: 32px; background: var(--card); border-color: var(--border); }
+.studio-shell .effect-inspector .region-selector-row .toolbar-button { width: 27px; height: 30px; }
+.studio-shell .effect-inspector .inspector-tab-list { margin: 0 16px; padding: 0; height: 42px; border: 0; border-bottom: 1px solid var(--border); border-radius: 0; background: transparent; gap: 10px; }
+.studio-shell .effect-inspector .inspector-tab-list > button { height: 100%; padding: 0 7px 9px; border: 0; border-bottom: 2px solid transparent; border-radius: 0; font-size: 12px; box-shadow: none; background: transparent; }
+.studio-shell .effect-inspector .inspector-tab-list > button[data-state="active"] { border-bottom-color: var(--primary); color: var(--primary); box-shadow: none; background: transparent; }
+.studio-shell .effect-inspector .inspector-content { padding: 16px; }
+.effect-inspector [role="tabpanel"] { min-width: 0; }
+.effect-current { display: flex; align-items: center; gap: 13px; padding: 10px; margin-bottom: 16px; border: 1px solid var(--border); border-radius: 10px; background: var(--background); }
+.effect-current > img.effect-art { width: 91px; height: 78px; object-fit: cover; border: 1px solid var(--border); border-radius: 6px; filter: none; }
+.effect-current-copy { min-width: 0; flex: 1; }
+.effect-current-copy > span { display: block; font-size: 10px; color: var(--muted-foreground); }
+.effect-current-copy h3 { margin: 8px 0 6px; color: var(--foreground); font-size: 15px; font-weight: 600; }
+.effect-current-copy p { font-size: 11px; color: var(--muted-foreground); }
+.effect-current-actions { display: flex; flex-direction: column; gap: 5px; align-self: stretch; justify-content: space-between; }
+.effect-current-actions > .toolbar-button { width: 26px; height: 26px; color: var(--muted-foreground); }
+.effect-browser-tools { position: sticky; top: 0; z-index: 2; margin: 0 -1px 16px; padding: 8px 1px 12px; background: var(--card); border-bottom: 1px solid var(--border); }
+.effect-browser-heading { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 12px; }
+.effect-browser-heading h3 { margin: 0; font-size: 13px; font-weight: 600; }
+.effect-browser-heading > span { color: var(--muted-foreground); font-size: 10px; font-variant-numeric: tabular-nums; }
+.effect-search { display: flex; align-items: center; gap: 8px; min-width: 0; height: 36px; padding: 0 10px; border: 1px solid var(--border); border-radius: 7px; background: var(--background); color: var(--muted-foreground); }
+.effect-search:focus-within { border-color: var(--primary); box-shadow: 0 0 0 2px color-mix(in srgb,var(--primary) 12%,transparent); }
+.effect-search input { flex: 1; min-width: 0; width: 100%; height: 100%; background: transparent; color: var(--foreground); border: 0; padding: 0; outline: none; font-size: 12px; }
+.effect-search input::placeholder { color: var(--muted-foreground); }
+.effect-search input:focus-visible { outline: none; }
+.effect-search input::-webkit-search-cancel-button { display: none; }
+.effect-search .toolbar-button { flex-shrink: 0; width: 22px; height: 25px; }
+.effect-category-filters { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 10px; }
+.effect-category-filters > button { min-height: 28px; padding: 5px 8px; border: 1px solid transparent; border-radius: 5px; background: transparent; color: var(--muted-foreground); font-size: 11px; line-height: 1.4; }
+.effect-category-filters > button:hover { background: var(--secondary); color: var(--foreground); }
+.effect-category-filters > button[aria-pressed="true"] { border-color: color-mix(in srgb,var(--primary) 35%,var(--border)); color: var(--primary); background: var(--accent); }
+.studio-shell .effect-inspector .effect-category + .effect-category { margin-top: 22px; }
+.studio-shell .effect-inspector .effect-category > .section-label { margin-bottom: 10px; font-size: 11px; font-weight: 500; color: var(--muted-foreground); letter-spacing: 0; }
+.studio-shell .effect-inspector .effect-options { gap: 9px; }
+.studio-shell .effect-inspector .effect-options .effect-tile { height: auto; min-height: 128px; border-radius: 8px; box-shadow: none; background: var(--background); }
+.studio-shell .effect-inspector .effect-tile > img.effect-art { height: auto; aspect-ratio: 1.85; width: 100%; min-height: 0; padding: 0; filter: none; }
+.studio-shell .effect-inspector .effect-tile-caption { display: flex; align-items: flex-start; flex-direction: column; gap: 5px; padding: 9px 10px 10px; font-size: 12px; }
+.studio-shell .effect-inspector .effect-tile-caption small { display: block; font-family: inherit; font-size: 10px; letter-spacing: 0; font-weight: 400; }
+.studio-shell .effect-inspector .effect-tile[aria-pressed="true"] { border-color: var(--primary); background: var(--accent); }
+.effect-selected-mark { position: absolute; right: 6px; top: 6px; display: flex; align-items: center; gap: 3px; padding: 3px 5px; border-radius: 4px; background: var(--art-scrim); color: var(--on-art); font-size: 9px; }
+.effect-search-empty { display: flex; align-items: center; flex-direction: column; gap: 10px; padding: 34px 12px; text-align: center; color: var(--muted-foreground); }
+.effect-search-empty p { color: var(--foreground); font-size: 13px; }
+.effect-search-empty > span { font-size: 12px; }
+.effect-search-empty button { margin-top: 6px; font-size: 12px; }
+.effect-inspector .effect-settings-block { min-width: 0; padding: 16px; margin-bottom: 12px; border: 1px solid var(--border); border-radius: 10px; background: color-mix(in srgb,var(--background) 35%,var(--card)); }
+.effect-block-heading { margin-bottom: 21px; }
+.effect-block-heading h3 { margin: 0; font-size: 13px; font-weight: 600; }
+.effect-block-heading p { margin: 6px 0 0; color: var(--muted-foreground); font-size: 11px; line-height: 1.65; }
+.studio-shell .effect-inspector .effect-settings-block .parameter { margin-bottom: 22px; }
+.studio-shell .effect-inspector .effect-settings-block .parameter-label { font-size: 12px; margin-bottom: 11px; }
+.studio-shell .effect-inspector .effect-settings-block .parameter-label output { font-size: 11px; color: var(--primary); font-variant-numeric: tabular-nums; }
+.effect-inspector .effect-color-settings { border-top: 1px solid var(--border); padding-top: 15px; }
+.effect-inspector .custom-color { min-width: 0; gap: 10px; margin-bottom: 14px; font-size: 12px; }
+.effect-inspector .custom-color > span { flex-shrink: 0; }
+.effect-inspector .custom-color .choice-trigger { max-width: 100%; min-width: 0; font-size: 11px; height: 32px; padding-inline: 8px; }
+.effect-inspector .effect-color-settings .custom-color:last-child { margin-bottom: 0; }
+.effect-response-note { margin: -7px 0 22px; color: var(--muted-foreground); font-size: 11px; }
+.effect-response-note summary { cursor: pointer; padding: 4px 0; }
+.effect-response-note p { padding: 10px 11px; margin-top: 8px; border-left: 2px solid var(--border-strong); background: var(--background); font-size: 11px; line-height: 1.8; }
+.effect-inspector .art-control { margin-bottom: 24px; }
+.effect-inspector .art-control small { margin-top: -9px; font-size: 10px; line-height: 1.6; }
+.effect-inspector .creative-details,
+.effect-inspector .inspector-advanced { margin: 16px 0 0; padding: 0; border-bottom: 0; }
+.effect-inspector .creative-details > summary,
+.effect-inspector .inspector-advanced > summary { padding: 14px 0; font-size: 11px; color: var(--muted-foreground); cursor: pointer; }
+.effect-inspector .reset-button { margin-top: 8px; font-size: 11px; background: transparent; color: var(--muted-foreground); }
+.effect-inspector .mapping-controls { padding: 16px; margin: 0; border: 1px solid var(--border); border-radius: 10px; background: color-mix(in srgb,var(--background) 35%,var(--card)); }
+.effect-inspector .mapping-controls > .section-label { font-size: 13px; margin-bottom: 16px; }
+.effect-inspector .effect-position-controls .layout-presets { grid-template-columns: repeat(3,minmax(0,1fr)); margin: 0; gap: 7px; }
+.effect-inspector .effect-position-controls .layout-presets > button { min-width: 0; padding: 8px 4px; font-size: 10px; }
+.effect-inspector .effect-position-controls .section-label { font-size: 12px; }
+.effect-bounds-overview { display: flex; align-items: center; gap: 16px; margin-bottom: 22px; }
+.effect-bounds-screen { position: relative; width: 104px; aspect-ratio: 16/9; flex-shrink: 0; overflow: hidden; border: 1px solid var(--border-strong); border-radius: 5px; background: var(--inset); }
+.effect-bounds-screen > span { position: absolute; border: 1px solid var(--primary); background: color-mix(in srgb,var(--primary) 22%,transparent); }
+.effect-bounds-overview dl { display: grid; grid-template-columns: 1fr 1fr; flex: 1; min-width: 0; gap: 9px 14px; margin: 0; font-size: 10px; }
+.effect-bounds-overview dl > div { display: flex; flex-direction: column; gap: 3px; }
+.effect-bounds-overview dt { color: var(--muted-foreground); }
+.effect-bounds-overview dd { margin: 0; font-size: 12px; font-variant-numeric: tabular-nums; }
+.effect-inspector .scene-view-presets { margin-top: 0; }
+.effect-inspector .scene-view-presets button { font-size: 11px; }
+.effect-inspector .scene-view-hint { margin-bottom: 0; font-size: 11px; }
+@media (max-width: 1199px) and (min-width: 761px) {
+  .studio-shell .effect-inspector .effect-tile-caption { padding: 8px; }
+  .studio-shell .effect-inspector .effect-options .effect-tile { min-height: 114px; }
+  .effect-current > img.effect-art { width: 76px; height: 70px; }
+  .effect-current { gap: 10px; }
+  .effect-current-copy > span { font-size: 9px; }
+  .effect-current-copy h3 { font-size: 14px; }
+  .effect-category-filters { gap: 3px; }
+  .effect-category-filters > button { padding-inline: 6px; font-size: 10px; }
+  .effect-bounds-screen { width: 90px; }
+  .effect-inspector .effect-settings-block,
+  .effect-inspector .mapping-controls { padding: 13px; }
+}
+@media (max-width: 760px) {
+  .studio-shell .effect-inspector .inspector-heading { margin-bottom: 14px; }
+  .studio-shell .effect-inspector .region-panel { width: auto; max-width: none; }
+  .effect-inspector .effect-browser-tools { position: static; }
+  .studio-shell .effect-inspector .inspector-tabs { width: 100%; max-width: none; }
+  .studio-shell .effect-inspector .inspector-content { max-width: 600px; margin-inline: auto; }
+}
+@media (max-height: 760px) and (min-width: 761px) {
+  .studio-shell .effect-inspector .inspector-heading { min-height: 56px; padding: 12px 18px; margin-bottom: 10px; }
+  .studio-shell .effect-inspector .inspector-heading-copy p { display: none; }
+  .studio-shell .effect-inspector .inspector-heading > svg { width: 30px; height: 30px; padding: 7px; }
+  .studio-shell .effect-inspector .region-panel { padding: 9px 10px; margin-bottom: 7px; }
+  .studio-shell .effect-inspector .region-panel-heading { margin-bottom: 6px; }
+  .studio-shell .effect-inspector .inspector-tab-list { height: 36px; }
+  .studio-shell .effect-inspector .inspector-tab-list > button { padding-bottom: 6px; }
+  .studio-shell .effect-inspector .inspector-content { padding: 12px 16px; }
+  .effect-current { padding: 7px; gap: 10px; margin-bottom: 12px; }
+  .effect-current > img.effect-art { width: 60px; height: 54px; }
+  .effect-current-copy h3 { margin: 5px 0 3px; font-size: 13px; }
+  .effect-current-copy p { font-size: 10px; }
+  .effect-current-actions { flex-direction: row; align-items: center; gap: 1px; }
+  .effect-current-copy > span { font-size: 9px; }
+  .effect-browser-tools { padding-top: 4px; padding-bottom: 9px; margin-bottom: 12px; }
+  .effect-browser-heading { margin-bottom: 9px; }
+  .effect-search { height: 32px; }
+  .effect-category-filters { margin-top: 7px; }
+  .effect-category-filters > button { min-height: 25px; padding-block: 4px; }
+}

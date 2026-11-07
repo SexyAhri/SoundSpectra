@@ -7,6 +7,7 @@ import './lyrics.css'
 import { useState } from 'react'
 import { invoke } from '@tauri-apps/api/core'
 import { native } from '../spectrum/bridge'
+import { StylePicker } from '@/components/ui/style-picker'
 
 export function LyricControls({ settings, document, update, disabled }: { settings: SpectrumSettings; document: LyricDocument; update: SettingsUpdate; disabled: boolean }) {
   const lyrics = settings.lyrics
@@ -30,18 +31,35 @@ export function LyricControls({ settings, document, update, disabled }: { settin
     change({ bounds: b })
   }
   return <section className="inspector-content lyric-controls" aria-label="歌词动效设置">
-    <SettingToggle className="card-enable" label="歌词动效" description="动态构图 · 文字编排" accessibleLabel="显示桌面歌词" disabled={disabled} checked={lyrics.enabled} onChange={enabled => change({ enabled })} />
-    {lyrics.enabled && <>
-      <p className="lyric-status" role="status">{document.status === 'ready' ? '歌词已就绪' : document.message}</p>
+    <SettingToggle className="module-enable" label="显示歌词" accessibleLabel="显示桌面歌词" disabled={disabled} checked={lyrics.enabled} onChange={enabled => change({ enabled })} />
+    <>
+      {lyrics.enabled && <p className="lyric-status" role="status">{document.status === 'ready' ? '歌词已就绪' : document.message}</p>}
       {document.issue && <p className="lyric-status" role="alert">{document.issue}</p>}
-      <div className="lyric-style-options" role="group" aria-label="歌词动效样式">{[['depth', '文字漫游', '呼吸 · 推镜'], ['stage', '错落排版', '拆句 · 留白'], ['stardust', '弧形流转', '弧线 · 环游']].map(([motion, label, detail]) => <Button key={motion} variant="outline" className={`composition-option composition-option-${motion}`} disabled={disabled} aria-label={label} aria-pressed={lyrics.motion === motion} onClick={() => chooseComposition(motion as LyricSettings['motion'])}><span className="composition-mark" aria-hidden="true">{motion === 'depth' ? '风 光' : motion === 'stage' ? '听\n见' : '时 光'}</span><span>{label}</span><small>{detail}</small></Button>)}</div>
+      <StylePicker label="歌词编排" value={lyrics.motion} disabled={disabled} onChange={motion => chooseComposition(motion as LyricSettings['motion'])}
+        options={[[ 'depth', '文字漫游', '镜域 · 穿行' ], [ 'stage', '错落排版', '切片 · 撞版' ], [ 'stardust', '弧形流转', '弧线 · 环游' ], [ 'folded', '折幕字场', '棱镜 · 翻幕' ]].map(([value, label, detail]) => ({ value, label, detail,
+          preview: <span className={`composition-option-${value}`}><span className="composition-mark">{value === 'folded' ? <><i>折</i><i>幕</i></> : value === 'depth' ? '风 光' : value === 'stage' ? '听\n见' : '时 光'}</span></span> }))} />
+      <section className="module-section" aria-label="歌词阅读"><h3>文字与可读性</h3>
       <Parameter label="歌词字号" value={lyrics.fontSize} min={18} max={72} unit=" px" disabled={disabled} onChange={fontSize => change({ fontSize })} />
+      <div className="lyric-font-options" role="group" aria-label="歌词字体风格">
+        {([['modern', '现代黑体'], ['poetry', '唱片诗页']] as const).map(([fontStyle, label]) =>
+          <Button key={fontStyle} variant="outline" className={`lyric-font-option lyric-font-${fontStyle}`} disabled={disabled} aria-pressed={(lyrics.fontStyle ?? 'modern') === fontStyle} onClick={() => change({ fontStyle })}>
+            <span>{label}</span>
+          </Button>)}
+      </div>
       <SettingToggle label="浅色壁纸增强" description="增加文字描边和轻底衬。" checked={lyrics.readability==='contrast'} disabled={disabled} onChange={value=>change({readability:value?'contrast':'soft'})} />
       <Parameter label="歌词背景" value={lyrics.backgroundOpacity} min={0} max={100} disabled={disabled} onChange={backgroundOpacity => change({ backgroundOpacity })} />
-      <details className="inspector-advanced"><summary>位置与同步</summary>
+      </section>
+      <section className="module-section" aria-label="歌词同步"><h3>同步</h3>
+      <div className="lyric-sync-actions" role="group" aria-label="歌词同步微调">
+        <Button size="sm" variant="outline" disabled={disabled || lyrics.offsetMs >= 10000} onClick={() => update(current => ({ lyrics: { ...current.lyrics, offsetMs: Math.min(10000, current.lyrics.offsetMs + 100) } }))}>提前 0.1 秒</Button>
+        <Button size="sm" variant="outline" disabled={disabled || lyrics.offsetMs <= -10000} onClick={() => update(current => ({ lyrics: { ...current.lyrics, offsetMs: Math.max(-10000, current.lyrics.offsetMs - 100) } }))}>延后 0.1 秒</Button>
+        <Button size="sm" variant="ghost" disabled={disabled || lyrics.offsetMs === 0} onClick={() => change({ offsetMs: 0 })}>归零</Button>
+      </div>
       <Parameter label="歌词同步偏移" value={lyrics.offsetMs} min={-10000} max={10000} step={100} unit=" ms"
         format={value => `${value > 0 ? '+' : ''}${value}`} disabled={disabled} onChange={offsetMs => change({ offsetMs })} />
       <p className="lyric-status">歌词慢了向右调，歌词快了向左调。</p>
+      </section>
+      <details className="inspector-advanced"><summary>位置与高级设置</summary>
       <Parameter label="歌词区域宽度" value={lyrics.bounds.width * 100} min={25} max={100} disabled={disabled} onChange={value => bounds('width', value)} />
       <Parameter label="歌词距左侧" value={lyrics.bounds.x * 100} min={0} max={Math.round((1 - lyrics.bounds.width) * 100)} disabled={disabled} onChange={value => bounds('x', value)} />
       <Parameter label="歌词距顶部" value={lyrics.bounds.y * 100} min={0} max={Math.round((1 - lyrics.bounds.height) * 100)} disabled={disabled} onChange={value => bounds('y', value)} />
@@ -49,6 +67,6 @@ export function LyricControls({ settings, document, update, disabled }: { settin
       <Button variant="ghost" className="reset-button" disabled={disabled || finding || !native} onClick={() => void findLocations()}>{finding ? '正在开始查找…' : '重新查找歌词目录'}</Button>
       {findMessage && <p className="lyric-status" role="status">{findMessage}</p>}
       </details>
-    </>}
+    </>
   </section>
 }

@@ -82,7 +82,7 @@
 .studio-shell .inspector-performance .choice-trigger { background: var(--secondary); border-color: var(--border-strong); color: var(--foreground); }
 .card-enable { padding: 0; margin-bottom: 17px; }
 .card-enable p { font-size: 10px; }
-.card-controls .scene-mode-options { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.card-controls .scene-mode-options { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 .card-controls .scene-mode-options button { padding-inline: 5px; font-size: 11px; }
 .card-position-label { margin-top: 25px; }
 .card-accent-control { display: flex; align-items: center; justify-content: space-between; gap: 9px; margin-top: 22px; font-size: 11px; color: var(--muted-foreground); }

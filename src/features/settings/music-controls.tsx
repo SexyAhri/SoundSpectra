@@ -8,24 +8,28 @@ import { recommendedMusic } from '../spectrum/effect-presets'
 import { effectDefinitions, applyArt, artValue } from '../spectrum/effect-definitions'
 import './creative-controls.css'
 
-export function MusicControls({ settings, update, disabled }: {
-  settings: SpectrumSettings; update: (patch: Partial<SpectrumSettings>) => void; disabled: boolean
-}) {
+interface Props { settings: SpectrumSettings; update: (patch: Partial<SpectrumSettings>) => void; disabled: boolean }
+
+export function SceneAppearanceControls({ settings, update, disabled }: Props) {
+  const music = settings.music
+  return <div className="effect-color-settings">
+    <label className="custom-color"><span>场景氛围</span><ChoiceSelect label="场景氛围" value={settings.sceneMode} disabled={disabled} onChange={value => update({ sceneMode: value as SpectrumSettings['sceneMode'] })}
+      options={[{ value: 'daily', label: '融入桌面' }, { value: 'immersive', label: '沉浸暗场' }]} /></label>
+    <label className="custom-color"><span>灯效配色</span><ChoiceSelect label="声场配色" value={music.fieldPalette} disabled={disabled} onChange={value => update({ music: { ...music, fieldPalette: value as PaletteId }, color: neutralEffectColor, followCover: false })}
+      options={(['iris', 'ember', 'lake'] as const).map(value => { const palette = effectPalettes[settings.effect][value]; return { value, label: palette.name, swatches: [palette.main, palette.accent, palette.high] } })} /></label>
+  </div>
+}
+
+export function MusicControls({ settings, update, disabled }: Props) {
   const music = settings.music
   const change = (patch: Partial<MusicSettings>) => update({ music: { ...music, ...patch } })
   const terrain = settings.effect === 'sound_field', definition = effectDefinitions[settings.effect]
   const fields = definition.controls
   const automatic = new Set(['speed','response','sensitivity','driftSpeed','rainSpeedMultiplier','skinFlowSpeedMultiplier','spinSpeed','fieldDrops'])
   const shapeFields=fields.filter(field=>!automatic.has(field.key)&&!['fieldScale','fieldBrightness'].includes(field.key))
-  return <div className="music-controls">
-    <>
-      <label className="custom-color"><span>场景氛围</span><ChoiceSelect label="场景氛围" value={settings.sceneMode} disabled={disabled} onChange={value => update({ sceneMode: value as SpectrumSettings['sceneMode'] })}
-        options={[{ value: 'daily', label: '融入桌面' }, { value: 'immersive', label: '沉浸暗场' }]} /></label>
-      <label className="custom-color"><span>灯效配色</span><ChoiceSelect label="声场配色" value={music.fieldPalette} disabled={disabled} onChange={value => update({ music: { ...music, fieldPalette: value as PaletteId }, color: neutralEffectColor, followCover: false })}
-        options={(['iris', 'ember', 'lake'] as const).map(value => { const palette = effectPalettes[settings.effect][value]; return { value, label: palette.name, swatches: [palette.main, palette.accent, palette.high] } })} /></label>
-    </>
-
-    <p className="creative-rule">速度与活跃程度随音乐变化，节拍带出局部回应。{definition.rules[1]}。</p>
+  return <section className="music-controls effect-settings-block" aria-label="造型与光感">
+    <header className="effect-block-heading"><h3>造型与光感</h3><p>调整这款灯效的空间、光线和参与程度</p></header>
+    <details className="effect-response-note"><summary>音乐如何影响这款灯效</summary><p>速度与活跃程度随音乐变化，节拍带出局部回应。{definition.rules[1]}。</p></details>
     {definition.art.filter(control=>control.id!=='mood').map(control => <div className="art-control" key={control.id}>
       <Parameter label={control.label} value={artValue(control,music)} min={0} max={100} disabled={disabled}
         onChange={value => update({music:applyArt(control,value,music)})}/>
@@ -44,5 +48,5 @@ export function MusicControls({ settings, update, disabled }: {
       const recommended = recommendedMusic(settings.effect)
       update({ music: { ...music, ...Object.fromEntries(keys.map(key => [key, recommended[key]])) }, color: neutralEffectColor, followCover: false })
     }}>恢复当前灯效参数</Button>
-  </div>
+  </section>
 }
