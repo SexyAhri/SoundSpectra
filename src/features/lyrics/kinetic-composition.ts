@@ -2,7 +2,7 @@ import { defaultLyricPalette, type LyricPalette } from './lyric-palette'
 import { isLyricBreakMark, lyricDisplayText, type LyricLine } from './model'
 
 export type CompositionMode = 'depth' | 'stardust' | 'stage'
-export interface TimedGlyph { text: string; start: number; end: number; hidden?: boolean }
+export interface TimedGlyph { text: string; start: number; end: number; timed: boolean; hidden?: boolean }
 interface PlacedGlyph extends TimedGlyph { x: number; y: number; size: number; angle: number; row: number; width: number; arcAngle?:number }
 interface Composition { glyphs: PlacedGlyph[]; font: number; rows: number }
 export interface CompositionFrame {
@@ -14,18 +14,26 @@ export interface CompositionFrame {
 const face = '"Microsoft YaHei UI", "Segoe UI", "Noto Sans CJK SC", sans-serif'
 const clamp = (n: number) => Math.max(0, Math.min(1, n))
 const smooth = (n: number) => { const t = clamp(n); return t * t * (3 - 2 * t) }
-const easeOut = (n: number) => 1 - (1 - clamp(n)) ** 3
 const font = (size: number, weight = 500) => `${weight} ${size}px ${face}`
 const segmenter = new Intl.Segmenter(undefined, { granularity: 'grapheme' })
 const wordSegmenter = new Intl.Segmenter(undefined, { granularity: 'word' })
 
+export function hasTimedWords(line: LyricLine) {
+  if (!line.words.length || line.words.map(word => word.text).join('') !== line.text) return false
+  let previous = line.start
+  return line.words.every(word => {
+    const valid = word.start >= line.start && word.end > word.start && word.end <= line.end && word.start >= previous
+    previous = word.end
+    return valid
+  })
+}
+
 export function timedGlyphs(line: LyricLine): TimedGlyph[] {
-  const words = line.words.length && line.words.map(word => word.text).join('') === line.text
-    ? line.words : [{ text: line.text, start: line.start, end: line.end }]
+  const timed = hasTimedWords(line)
+  const words = timed ? line.words : [{ text: line.text, start: line.start, end: line.end }]
   const glyphs = words.flatMap(word => {
     const letters = [...segmenter.segment(word.text)].map(item => item.segment)
-    return letters.map((text, i) => ({ text, start: word.start + (word.end - word.start) * i / letters.length,
-      end: word.start + (word.end - word.start) * (i + 1) / letters.length }))
+    return letters.map(text => ({ text, start: word.start, end: word.end, timed }))
   })
   return glyphs.map((glyph, index) => ({ ...glyph, hidden: isLyricBreakMark(glyph.text, glyphs[index - 1]?.text, glyphs[index + 1]?.text) }))
 }
@@ -106,11 +114,75 @@ function compose(context: CanvasRenderingContext2D, line: LyricLine, frame: Comp
 export class KineticComposition {
   private cache = new Map<string,Composition>()
   private glow: HTMLCanvasElement | null = null
+  private previous?: Pick<CompositionFrame, 'lines' | 'index' | 'time' | 'width' | 'height' | 'fontSize' | 'regionWidth' | 'mode' | 'reduced'>
+  private handoff?: LyricLine
+  private transitioning = false
+  get isTransitioning() { return this.transitioning }
   private composition(context:CanvasRenderingContext2D,line:LyricLine,frame:CompositionFrame){
     const key=`${frame.mode}|${frame.width}|${frame.height}|${frame.fontSize}|${frame.regionWidth}|${line.start}|${line.end}|${line.text}|${line.words.map(w=>`${w.text}:${w.start}:${w.end}`).join(',')}`
     let composition=this.cache.get(key)
     if(!composition){composition=compose(context,line,frame);this.cache.set(key,composition);if(this.cache.size>4)this.cache.delete(this.cache.keys().next().value!)}
     return composition
+  }
+  private continuousHandoff(frame: CompositionFrame) {
+    const previous = this.previous
+    const compatible = previous && previous.lines === frame.lines && previous.mode === frame.mode && previous.reduced === frame.reduced &&
+      previous.width === frame.width && previous.height === frame.height && previous.fontSize === frame.fontSize && previous.regionWidth === frame.regionWidth
+    const continuous = compatible && frame.time >= previous.time && frame.time - previous.time <= 280 && frame.index === previous.index + 1
+    const continuing = compatible && frame.time >= previous.time && frame.time - previous.time <= 280 && frame.index === previous.index
+    if (continuous && !frame.reduced) this.handoff = frame.lines[previous.index]
+    const age = frame.time - (frame.lines[frame.index]?.start ?? frame.time)
+    if (!continuous && !continuing) this.handoff = undefined
+    if (age < 0 || age >= 360) this.handoff = undefined
+    this.transitioning = !!this.handoff
+    this.previous = { lines: frame.lines, index: frame.index, time: frame.time, width: frame.width, height: frame.height,
+      fontSize: frame.fontSize, regionWidth: frame.regionWidth, mode: frame.mode, reduced: frame.reduced }
+    return this.handoff
+  }
+  private pose(glyph: PlacedGlyph, frame: CompositionFrame, progress: number, exit = 0) {
+    const { width: w, height: h, mode } = frame
+    let x = glyph.x, y = glyph.y, angle = glyph.angle, scale = 1
+    if (mode === 'depth') {
+      scale = .99 + progress * .035
+      x = w / 2 + (x - w / 2) * scale
+      y = h / 2 + (y - h / 2) * scale + glyph.size * .14 * exit
+    } else if (mode === 'stardust') {
+      const arc = (glyph.arcAngle ?? 0) + (progress - .5) * .18 + exit * .12
+      x = w * (.5 + Math.sin(arc) / Math.sin(.95) * .40)
+      y = h * (.40 + (1 - Math.cos(arc)) / (1 - Math.cos(.95)) * .22)
+      angle = Math.atan2(h * .22 * Math.sin(arc) / (1 - Math.cos(.95)), w * .40 * Math.cos(arc) / Math.sin(.95))
+    } else {
+      const direction = glyph.row % 2 ? 1 : -1
+      x += direction * glyph.size * .08 * exit
+      y += glyph.size * (.04 * progress + .14 * exit)
+    }
+    return { x, y, angle, scale }
+  }
+  private drawLine(context: CanvasRenderingContext2D, composition: Composition, line: LyricLine, frame: CompositionFrame,
+    progress: number, opacity: number, exit = 0, lightOnly = false) {
+    const { mode, reduced } = frame, palette = frame.palette ?? defaultLyricPalette
+    const age = frame.time - line.start
+    const reveal = reduced ? 1 : .86 + .14 * smooth(age / 140)
+    context.save()
+    for (const glyph of composition.glyphs) {
+      if (glyph.hidden) continue
+      const pose = this.pose(glyph, frame, progress, exit)
+      const sung = glyph.timed ? smooth((frame.time - glyph.start) / Math.max(1, glyph.end - glyph.start)) : 0
+      context.save(); context.translate(pose.x, pose.y); context.rotate(pose.angle); context.scale(pose.scale, pose.scale)
+      context.font = font(glyph.size, mode === 'stage' && glyph.row === 1 ? 600 : 500)
+      context.textAlign = 'center'; context.textBaseline = 'middle'; context.globalAlpha = opacity * reveal
+      if (!lightOnly) {
+        if (frame.readability === 'contrast') { context.strokeStyle = palette.shadow; context.lineWidth = Math.max(1, glyph.size * .045); context.lineJoin = 'round'; context.strokeText(glyph.text, 0, 0) }
+        context.fillStyle = palette.unsung; context.fillText(glyph.text, 0, 0)
+      }
+      if (sung > 0) {
+        context.fillStyle = lightOnly ? palette.glow : palette.sung
+        context.globalAlpha = opacity * reveal * (lightOnly ? .62 : 1) * (.26 + sung * .74)
+        context.fillText(glyph.text, 0, 0)
+      }
+      context.restore()
+    }
+    context.restore()
   }
   draw(context: CanvasRenderingContext2D, frame: CompositionFrame) {
     const {width:w,height:h,lines,index,time,mode,reduced}=frame,palette=frame.palette??defaultLyricPalette
@@ -120,59 +192,21 @@ export class KineticComposition {
     if(!line){context.save();context.fillStyle=palette.unsung;context.font=font(Math.min(h*.14,w*.05));context.textAlign='center';context.textBaseline='middle';context.fillText('·  ·  ·',w*.5,h*.48);context.restore();return}
     const composition=this.composition(context,line,frame),age=time-line.start
     const progress=clamp(age/Math.max(1,line.end-line.start))
-    this.contextLines(context,frame,progress,palette)
-    if(!reduced&&index>0&&age>=0&&age<250){
-      const outgoing=this.composition(context,lines[index-1],frame),exit=smooth(age/250)
-      context.save();context.globalAlpha=(1-exit)*.45;context.fillStyle=palette.unsung;context.textAlign='center';context.textBaseline='middle'
-      for(const glyph of outgoing.glyphs){if(glyph.hidden)continue;context.save();context.translate(glyph.x,glyph.y+glyph.size*.06*exit);context.rotate(glyph.angle);context.font=font(glyph.size);context.fillText(glyph.text,0,0);context.restore()}
-      context.restore()
-    }
-    const glyphs=composition.glyphs
-    let frontier=0,cursor=0
-    for(const glyph of glyphs){if(time>=glyph.start)frontier=cursor+glyph.width*clamp((time-glyph.start)/Math.max(1,glyph.end-glyph.start));cursor+=glyph.width}
-    const render=(ctx:CanvasRenderingContext2D,lightOnly:boolean)=>{
-      ctx.save()
-      if(!reduced&&mode==='depth'){
-        const zoom=.96+progress*.08;ctx.translate(w/2,h/2);ctx.scale(zoom,zoom);ctx.translate(-w/2,-h/2)
-      }
-      let offset=0
-      for(let i=0;i<glyphs.length;i++){
-        const g=glyphs[i],distance=offset;offset+=g.width;if(g.hidden)continue
-        const delay=(index>0?150:0)+i*24+(mode==='stage'?g.row*120:0)
-        const arrival=reduced?1:easeOut((age-delay)/420)
-        if(arrival<=0)continue
-        let x=g.x,y=g.y,angle=g.angle
-        if(mode==='stardust'){
-          const a=(g.arcAngle??0)+(reduced?0:(progress-.5)*.36)
-          x=w*(.5+Math.sin(a)/Math.sin(.95)*.40);y=h*(.40+(1-Math.cos(a))/(1-Math.cos(.95))*.22)
-          angle=Math.atan2(h*.22*Math.sin(a)/(1-Math.cos(.95)),w*.40*Math.cos(a)/Math.sin(.95))
-        }
-        if(!reduced)y+=(1-arrival)*g.size*.12
-        ctx.save();ctx.translate(x,y);ctx.rotate(angle)
-        ctx.beginPath();ctx.rect(-g.width*.7,-g.size*.8+g.size*1.6*(1-arrival),g.width*1.4,g.size*1.6*arrival);ctx.clip()
-        ctx.font=font(g.size,mode==='stage'&&g.row===1?600:500);ctx.textAlign='center';ctx.textBaseline='middle';ctx.globalAlpha=arrival
-        const edge=frontier-distance-g.width/2,soft=Math.max(2,g.size*.20)
-        if(!lightOnly){
-          if(frame.readability==='contrast'){ctx.strokeStyle=palette.shadow;ctx.lineWidth=Math.max(1,g.size*.045);ctx.lineJoin='round';ctx.strokeText(g.text,0,0)}
-          ctx.fillStyle=palette.unsung;ctx.fillText(g.text,0,0)
-        }
-        if(frontier>distance-soft){
-          const gradient=ctx.createLinearGradient(edge-soft,0,edge+soft,0)
-          gradient.addColorStop(0,lightOnly?palette.glow:palette.sung);gradient.addColorStop(1,'rgba(0,0,0,0)')
-          ctx.fillStyle=gradient;ctx.globalAlpha=arrival*(lightOnly?.65:1);ctx.fillText(g.text,0,0)
-        }
-        ctx.restore()
-      }
-      ctx.restore()
+    const outgoing = this.continuousHandoff(frame)
+    this.contextLines(context, frame, progress, palette, !!outgoing)
+    if (outgoing) {
+      const exit = smooth(age / 360)
+      const outgoingProgress = clamp((time - outgoing.start) / Math.max(1, outgoing.end - outgoing.start))
+      this.drawLine(context, this.composition(context, outgoing, frame), outgoing, frame, outgoingProgress, (1 - exit) * .46, exit)
     }
     // One half-resolution emissive layer and two whole-layer blurs replace per-glyph shadows.
     const glow=this.glow??=document.createElement('canvas'),gw=Math.max(1,Math.round(w/2)),gh=Math.max(1,Math.round(h/2))
     if(glow.width!==gw||glow.height!==gh){glow.width=gw;glow.height=gh}
     const gc=glow.getContext('2d')!
-    gc.setTransform(gw/w,0,0,gh/h,0,0);gc.clearRect(0,0,w,h);render(gc,true)
+    gc.setTransform(gw/w,0,0,gh/h,0,0);gc.clearRect(0,0,w,h);this.drawLine(gc, composition, line, frame, progress, 1, 0, true)
     context.save();context.globalAlpha=.23;context.filter=`blur(${composition.font*.35}px)`;context.drawImage(glow,0,0,w,h)
     context.globalAlpha=.10;context.filter=`blur(${composition.font*.9}px)`;context.drawImage(glow,0,0,w,h);context.restore()
-    render(context,false)
+    this.drawLine(context, composition, line, frame, progress, 1)
     if(mode==='stardust'){
       context.save();context.strokeStyle=palette.accent;context.globalAlpha=.18;context.lineWidth=.7;context.beginPath()
       for(let i=0;i<=70;i++){const a=(i/70-.5)*1.8,x=w*(.5+Math.sin(a)/Math.sin(.95)*.43),y=h*(.63+(1-Math.cos(a))/(1-Math.cos(.95))*.16);if(i)context.lineTo(x,y);else context.moveTo(x,y)}context.stroke()
@@ -182,14 +216,19 @@ export class KineticComposition {
       context.restore()
     }
   }
-  private contextLines(ctx:CanvasRenderingContext2D,frame:CompositionFrame,progress:number,palette:LyricPalette){
+  private contextLines(ctx:CanvasRenderingContext2D,frame:CompositionFrame,progress:number,palette:LyricPalette,handoff:boolean){
     const {width:w,height:h,lines,index,reduced}=frame
     ctx.save();ctx.fillStyle=palette.unsung;ctx.textBaseline='middle'
-    const breathe=reduced?1:1+Math.sin(progress*Math.PI*2)*.035
     for(const [delta,y,align]of [[-1,.10,'left'],[1,.91,'right']] as const){
       const line=lines[index+delta];if(!line)continue
-      ctx.globalAlpha=(delta<0?.24:.34)*breathe;ctx.font=font(Math.min(h*.09,w*.028)*(delta<0?.82:.95),400);ctx.textAlign=align
-      ctx.fillText(lyricDisplayText(line.text),w*(delta<0?.1:.9),h*y,w*.76)
+      if(delta<0&&handoff)continue
+      const alpha=delta<0 ? .18*smooth(progress/.12) : .15+.22*smooth((progress-.42)/.48)
+      let size=Math.min(h*.09,w*.028)*(delta<0?.82:.95)
+      const text=lyricDisplayText(line.text),limit=w*.76
+      ctx.font=font(size,400)
+      while(size>h*.038&&ctx.measureText(text).width>limit){size*=.92;ctx.font=font(size,400)}
+      ctx.globalAlpha=reduced?Math.min(alpha,.3):alpha;ctx.textAlign=align
+      ctx.fillText(text,w*(delta<0?.1:.9),h*y,limit)
     }ctx.restore()
   }
   private background(ctx:CanvasRenderingContext2D,frame:CompositionFrame,palette:LyricPalette){

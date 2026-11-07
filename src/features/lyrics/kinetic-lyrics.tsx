@@ -23,7 +23,7 @@ export function KineticLyrics(props:Props){
       context.setTransform(scale,0,0,scale,0,0)
       engine.current.draw(context,{...p,time,index,width,height,backgroundOpacity:p.backgroundOpacity??30})
       painted=signature
-      node.dataset.time=String(Math.round(time));node.dataset.composition=p.mode;node.dataset.line=String(index);node.dataset.backgroundOpacity=String(p.backgroundOpacity??30)
+      node.dataset.time=String(Math.round(time));node.dataset.composition=p.mode;node.dataset.line=String(index);node.dataset.backgroundOpacity=String(p.backgroundOpacity??30);node.dataset.transition=String(engine.current.isTransitioning)
     }
     const measure=()=>{width=node.clientWidth;height=node.clientHeight;draw.current()}
     const observer=new ResizeObserver(measure);observer.observe(node);measure()

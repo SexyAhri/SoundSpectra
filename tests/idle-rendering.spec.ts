@@ -5,22 +5,19 @@ async function fixture(page: Page) {
     const app = window as any
     app.lyricFrames = 0
     app.lyricHidden = false
+    app.lyricPaints = 0
     Object.defineProperty(document, 'hidden', { configurable: true, get: () => app.lyricHidden })
+    const clear = CanvasRenderingContext2D.prototype.clearRect
+    CanvasRenderingContext2D.prototype.clearRect = function (...args) {
+      if (this.canvas instanceof HTMLCanvasElement && this.canvas.classList.contains('kinetic-lyrics-canvas')) app.lyricPaints++
+      return clear.apply(this, args as [number, number, number, number])
+    }
     const request = window.requestAnimationFrame.bind(window)
     window.requestAnimationFrame = callback => request(now => { app.lyricFrames++; callback(now) })
   })
   await page.goto('/tests/fixtures/kinetic-lyrics.html')
   await expect(page.locator('canvas')).toHaveAttribute('data-time', '2600')
-  await page.evaluate(async () => {
-    const app = window as any
-    const { KineticComposition } = await import('/src/features/lyrics/kinetic-composition.ts')
-    const draw = KineticComposition.prototype.draw
-    app.lyricPaints = 0
-    KineticComposition.prototype.draw = function (...args: Parameters<typeof draw>) {
-      app.lyricPaints++
-      return draw.apply(this, args)
-    }
-  })
+  await page.evaluate(() => { (window as any).lyricPaints = 0 })
 }
 
 const set = (page: Page, patch: object) => page.evaluate(patch => (window as any).lyricProbe.set(patch), patch)

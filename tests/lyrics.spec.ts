@@ -2,7 +2,7 @@ import { expect, test } from '@playwright/test'
 import { defaults, normalizeSettings } from '../src/features/spectrum/model'
 import { emptyNowPlaying } from '../src/features/desktop-card/use-now-playing'
 import { activeLine, demoLyrics, playbackPosition, wordProgress, lyricDisplayText } from '../src/features/lyrics/model'
-import { timedGlyphs } from '../src/features/lyrics/kinetic-composition'
+import { hasTimedWords, timedGlyphs } from '../src/features/lyrics/kinetic-composition'
 import { displayBounds } from '../src/features/spectrum/regions'
 
 test('lyric clock respects pause, seek, stale sessions and word timing', () => {
@@ -69,6 +69,20 @@ test('phrase separators stay in the timeline while singer labels and semantic pu
   expect(lyricDisplayText('男: Let’s go, don’t stop! 3.14 和 1,000')).toBe('男: Let’s go don’t stop 3.14 和 1,000')
 })
 
+test('line-only timing stays phrase-level while word timing keeps its declared granularity', () => {
+  const lineOnly = { text: 'Moonlight stays', start: 1000, end: 3200, words: [] }
+  expect(hasTimedWords(lineOnly)).toBe(false)
+  expect(timedGlyphs(lineOnly).every(glyph => glyph.start === 1000 && glyph.end === 3200 && !glyph.timed)).toBe(true)
+  const timed = { text: '微光 glow', start: 1000, end: 3200, words: [
+    { text: '微光 ', start: 1000, end: 1900 }, { text: 'glow', start: 1900, end: 3200 },
+  ] }
+  const glyphs = timedGlyphs(timed)
+  expect(hasTimedWords(timed)).toBe(true)
+  expect(glyphs.filter(glyph => glyph.text !== ' ').map(glyph => [glyph.text, glyph.start, glyph.end, glyph.timed])).toEqual([
+    ['微', 1000, 1900, true], ['光', 1000, 1900, true], ['g', 1900, 3200, true], ['l', 1900, 3200, true], ['o', 1900, 3200, true], ['w', 1900, 3200, true],
+  ])
+})
+
 test('zero lyric background is actually transparent and the background fades smoothly at its edges', async ({ page }) => {
   await page.goto('/tests/fixtures/kinetic-lyrics.html')
   const canvas = page.locator('canvas')
@@ -131,6 +145,71 @@ test('composition pixels pause exactly, seek deterministically, and change betwe
   const reduced = await pixels()
   await page.waitForTimeout(250)
   expect(await pixels()).toBe(reduced)
+})
+
+test('adjacent lyric lines hand off only during continuous playback', async ({ page }) => {
+  await page.setViewportSize({ width: 1100, height: 600 })
+  await page.goto('/tests/fixtures/kinetic-lyrics.html')
+  const canvas = page.locator('canvas')
+  const set = (patch: object) => page.evaluate(patch => (window as any).lyricProbe.set(patch), patch)
+  const pixels = () => canvas.evaluate((node: HTMLCanvasElement) => node.toDataURL())
+  for (const mode of ['depth', 'stage', 'stardust']) {
+    await set({ mode, time: 4980, reduced: false })
+    await expect(canvas).toHaveAttribute('data-transition', 'false')
+    const before = await pixels()
+    await set({ time: 5000 })
+    await expect(canvas).toHaveAttribute('data-transition', 'true')
+    const entering = await pixels()
+    await set({ time: 2200 })
+    await expect(canvas).toHaveAttribute('data-transition', 'false')
+    await set({ time: 4980 })
+    await expect(canvas).toHaveAttribute('data-transition', 'false')
+    await set({ time: 5000 })
+    await expect(canvas).toHaveAttribute('data-transition', 'true')
+    await set({ time: 5200 })
+    await expect(canvas).toHaveAttribute('data-transition', 'true')
+    const leaving = await pixels()
+    await set({ time: 5400 })
+    await expect(canvas).toHaveAttribute('data-transition', 'false')
+    expect(new Set([before, entering, leaving]).size).toBe(3)
+    await page.screenshot({ path: `artifacts/lyric-handoff-${mode}.png` })
+  }
+  await set({ time: 14000 })
+  await expect(canvas).toHaveAttribute('data-transition', 'false')
+})
+
+test('overlapping lyric lines keep their position when the next line starts', async ({ page }) => {
+  await page.goto('/tests/fixtures/kinetic-lyrics.html')
+  const shifts = await page.evaluate(async () => {
+    const modulePath = '/src/features/lyrics/kinetic-composition.ts'
+    const { KineticComposition } = await import(modulePath)
+    const lines = [
+      { text: '微光沿着夜色慢慢流淌', start: 0, end: 8000, words: [] },
+      { text: '让风把心事轻轻收藏', start: 4000, end: 10000, words: [] },
+    ]
+    return ['depth', 'stage', 'stardust'].map(mode => {
+      const canvas = document.createElement('canvas')
+      canvas.width = 600; canvas.height = 450
+      const context = canvas.getContext('2d')!
+      const positions: { x: number; y: number }[] = []
+      const fillText = context.fillText.bind(context)
+      context.fillText = (text, x, y, maxWidth) => {
+        if (text === '微') {
+          const transform = context.getTransform()
+          positions.push({ x: transform.e, y: transform.f })
+        }
+        if (maxWidth === undefined) fillText(text, x, y)
+        else fillText(text, x, y, maxWidth)
+      }
+      const engine = new KineticComposition()
+      const frame = { lines, index: 0, time: 3980, width: 600, height: 450, fontSize: 72, regionWidth: .88, mode, reduced: false, backgroundOpacity: 30 }
+      engine.draw(context, frame)
+      engine.draw(context, { ...frame, index: 1, time: 4000 })
+      if (positions.length !== 2) throw new Error(`Expected two old-line positions for ${mode}`)
+      return { mode, distance: Math.hypot(positions[1].x - positions[0].x, positions[1].y - positions[0].y) }
+    })
+  })
+  for (const { mode, distance } of shifts) expect(distance, mode).toBeLessThan(1)
 })
 
 test('lyrics drag and resize directly without moving the visual effect, and Escape cancels', async ({ page }) => {
