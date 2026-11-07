@@ -24,8 +24,9 @@ export function CardMeter({ bands, receivedAt, active, desktop, demo, variant }:
         if (target === 0 && levels[index] < .001) levels[index] = 0
         moving ||= levels[index] > 0
         const height = 2 + levels[index] * 28
-        const top = (variant === 'afternoon' ? 20 - height / 2 : 34 - height).toFixed(2)
-        const bottom = (variant === 'afternoon' ? 20 + height / 2 : 34).toFixed(2)
+        const centered = variant === 'afternoon' || variant === 'floating'
+        const top = (centered ? 20 - height / 2 : 34 - height).toFixed(2)
+        const bottom = (centered ? 20 + height / 2 : 34).toFixed(2)
         if (node.getAttribute('y1') !== top) node.setAttribute('y1', top)
         if (node.getAttribute('y2') !== bottom) node.setAttribute('y2', bottom)
       })
@@ -40,6 +41,6 @@ export function CardMeter({ bands, receivedAt, active, desktop, demo, variant }:
     start()
     return () => { clearTimeout(timer); cancelAnimationFrame(frame); observer.disconnect(); document.removeEventListener('visibilitychange', start) }
   }, [active, desktop, demo, variant, bands, receivedAt])
-  const count = variant === 'compact' ? 4 : variant === 'afternoon' ? 7 : 9
+  const count = variant === 'floating' ? 21 : variant === 'compact' ? 4 : variant === 'afternoon' ? 7 : 9
   return <svg className={`mc-meter mc-meter-${variant}`} ref={root} viewBox="0 0 120 40" aria-label={demo ? '模拟声能' : '实时声能'} role="img">{Array.from({ length: count }, (_, index) => <line key={index} x1={8 + index * 104 / (count - 1)} x2={8 + index * 104 / (count - 1)} y1="32" y2="34" />)}</svg>
 }

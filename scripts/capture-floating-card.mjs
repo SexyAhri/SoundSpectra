@@ -1,0 +1,47 @@
+import { chromium } from '@playwright/test'
+import { mkdirSync, copyFileSync, writeFileSync } from 'node:fs'
+
+const output = 'artifacts/floating-card'
+mkdirSync(output, { recursive: true })
+const browser = await chromium.launch({ channel: 'chrome', headless: true })
+const errors = []
+try {
+  const context = await browser.newContext({ viewport: { width: 1440, height: 1110 }, deviceScaleFactor: 1, recordVideo: process.argv.includes('--video') ? { dir: output, size: { width: 1440, height: 1110 } } : undefined })
+  const page = await context.newPage()
+  page.on('pageerror', e => errors.push(e.message))
+  const origin = process.argv.find(arg => arg.startsWith('--origin='))?.slice(9) || 'http://127.0.0.1:1420'
+  await page.goto(`${origin}/tools/floating-card.html`)
+  await page.locator('.mc-float-cover img').waitFor()
+  await page.waitForTimeout(3500)
+  await page.screenshot({ path: `${output}/overview.png` })
+  await page.locator('.floating-stage').screenshot({ path: `${output}/sculpture.png` })
+  await page.getByRole('button', { name: '切换示例曲目' }).click()
+  await page.waitForTimeout(1800)
+  await page.locator('.floating-stage').screenshot({ path: `${output}/track-change.png` })
+  await page.getByRole('button', { name: '暂停示例' }).click()
+  await page.waitForTimeout(1000)
+  await page.locator('.floating-stage').screenshot({ path: `${output}/paused.png` })
+  await page.getByRole('button', { name: '继续示例' }).click()
+  await page.getByRole('button', { name: '层海 铺展型' }).click()
+  await page.waitForTimeout(1200)
+  await page.locator('.floating-stage').screenshot({ path: `${output}/expanse.png` })
+  await page.getByLabel('浅色壁纸', { exact: true }).check()
+  await page.waitForTimeout(300)
+  await page.locator('.floating-stage').screenshot({ path: `${output}/light.png` })
+  await page.getByLabel('小尺寸', { exact: true }).check()
+  await page.locator('.floating-stage').screenshot({ path: `${output}/small.png` })
+  await page.getByRole('button', { name: '切换示例曲目' }).click()
+  await page.waitForTimeout(400)
+  await page.locator('.floating-stage').screenshot({ path: `${output}/missing-cover.png` })
+  await page.getByLabel('浅色壁纸', { exact: true }).uncheck()
+  await page.getByLabel('小尺寸', { exact: true }).uncheck()
+  await page.getByRole('button', { name: '回声廊道 穿行型' }).click()
+  await page.waitForTimeout(1200)
+  await page.locator('.floating-stage').screenshot({ path: `${output}/passage.png` })
+  errors.push(...await page.locator('[role=alert]').allTextContents())
+  const video = page.video()
+  await context.close()
+  if (video) copyFileSync(await video.path(), `${output}/floating-card.webm`)
+  writeFileSync(`${output}/report.json`, JSON.stringify({ errors, input: 'Silent synthetic features, original example tracks and vector sleeves; production card and spatial renderer.', screenshots: ['overview', 'sculpture', 'track-change', 'paused', 'expanse', 'light', 'small', 'missing-cover', 'passage'] }, null, 2))
+  if (errors.length) throw Error(errors.join('\n'))
+} finally { await browser.close() }

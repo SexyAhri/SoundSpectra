@@ -36,7 +36,7 @@ export function CardControlWindow() {
       queueMicrotask(() => {
         queued = false
         if (disposed) return
-        const regions = settings.enabled && settings.desktopCard.enabled ? Array.from(root.current!.querySelectorAll('.mc-control, .mc-control-feedback:not(:empty)')).map(node => { const rect = node.getBoundingClientRect(); return { x: rect.x, y: rect.y, width: rect.width, height: rect.height } }) : []
+        const regions = settings.enabled && settings.desktopCard.enabled ? Array.from(root.current!.querySelectorAll('.mc-control, .mc-control-feedback:not(:empty)')).map(node => { const rect = node.getBoundingClientRect(); return { x: rect.x, y: rect.y, width: rect.width, height: rect.height } }).filter(rect => rect.width > 0 && rect.height > 0) : []
         void invoke('card_hit_regions', { regions }).catch(console.error)
       })
     }

@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import type { SpectrumSettings } from '../spectrum/model'
 import type { NowPlaying } from './use-now-playing'
 import { mixColor, readCoverAccent } from './cover-colors'
+import { resolveEffectPalette } from '../spectrum/effect-palette'
 
 export function useCoverColors(settings: SpectrumSettings, info: NowPlaying, active: boolean) {
   const [sample, setSample] = useState<{ cover: string; color: string | null; failed?: boolean } | null>(null)
@@ -60,5 +61,5 @@ export function useCoverColors(settings: SpectrumSettings, info: NowPlaying, act
     : currentSample.failed ? '封面暂不可读，使用固定配色'
     : !accent ? '封面颜色不足，使用固定配色'
     : info.playing ? '灯效与音乐卡片跟随封面' : '暂停时柔和收敛'
-  return { settings: display, cardColor: target ?? settings.color, message, available: !!accent }
+  return { settings: display, cardColor: target ?? resolveEffectPalette(settings).main, message, available: !!accent }
 }

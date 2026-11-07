@@ -5,7 +5,7 @@ import type { NowPlaying } from './use-now-playing'
 export const cardPosition = (info: NowPlaying, now: number) => info.issue || info.playbackAvailable === false || ![info.position, info.duration, info.updated, now].every(Number.isFinite) || info.updated > now + 2000 ? null : playbackPosition({ ...info, timelineAvailable: info.timelineAvailable ?? info.duration > 0 }, now)
 const stamp = (seconds: number) => `${Math.floor(seconds / 60)}:${String(Math.floor(seconds % 60)).padStart(2, '0')}`
 
-export function useCardClock(info: NowPlaying, root: RefObject<HTMLElement | null>, active: boolean, desktop: boolean, demo: boolean) {
+export function useCardClock(info: NowPlaying, root: RefObject<HTMLElement | null>, active: boolean, desktop: boolean, demo: boolean, layout: string) {
   const current = useRef(info)
   current.current = info
   useLayoutEffect(() => {
@@ -46,5 +46,5 @@ export function useCardClock(info: NowPlaying, root: RefObject<HTMLElement | nul
     visibility()
     if (!info.playing && info.updated) timer = window.setTimeout(publish, Math.max(0, 4001 - (Date.now() - info.updated)))
     return () => { cancelAnimationFrame(frame); clearTimeout(timer); observer.disconnect(); document.removeEventListener('visibilitychange', visibility) }
-  }, [info.updated, info.position, info.duration, info.playing, info.timelineAvailable, info.playbackAvailable, info.issue, active, desktop, demo, root])
+  }, [info.updated, info.position, info.duration, info.playing, info.timelineAvailable, info.playbackAvailable, info.issue, active, desktop, demo, root, layout])
 }
