@@ -38,11 +38,11 @@ test('pending prevents duplicate clicks; failures are visible and a source chang
   await expect(page.getByRole('button', { name: '暂停', exact: true })).toBeDisabled()
 })
 
-test('unsupported, stale and inactive media never dispatch; buttons fit all three small layouts', async ({ page }) => {
-  for (const variant of ['record', 'compact', 'afternoon']) {
+test('unsupported, stale and inactive media never dispatch; buttons fit all small layouts', async ({ page }) => {
+  for (const variant of ['record', 'compact', 'afternoon', 'floating']) {
     await page.evaluate(variant => { (window as any).cardProbe.layout({ variant, width: 240, height: 80, sound: false }); (window as any).cardProbe.set({ controls: { previous: false, next: true, play: true, pause: true } }) }, variant)
-    await expect(page.getByRole('button', { name: '上一首', exact: true })).toBeDisabled()
-    for (const button of await page.locator('.mc-control').all()) {
+    await expect(page.locator('.mc-control[aria-label="上一首"]')).toBeDisabled()
+    for (const button of await page.locator('.mc-control:visible').all()) {
       expect(await button.evaluate(node => { const rect = node.getBoundingClientRect(), card = node.closest('.mc-shell')!.getBoundingClientRect(); return rect.left >= card.left && rect.right <= card.right && rect.top >= card.top && rect.bottom <= card.bottom })).toBe(true)
     }
   }

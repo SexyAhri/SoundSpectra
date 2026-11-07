@@ -1,3 +1,4 @@
+import { settingsSection } from './helpers/module-settings'
 import { expect, test, type Page } from '@playwright/test'
 import { defaults } from '../src/features/spectrum/model'
 import { regionStyle } from '../src/features/spectrum/regions'
@@ -68,7 +69,7 @@ for (const desktop of [false, true]) test(`${desktop ? 'overlay' : 'workspace'}:
   const beforeEdit = Number(await canvases.first().getAttribute('data-frames'))
   if (desktop) await page.evaluate(() => (window as any).sceneIntegration.patch({ opacity: 62 }))
   else {
-    await page.getByRole('tab', { name: '外观', exact: true }).click()
+    await settingsSection(page, '外观')
     await page.getByRole('slider', { name: '不透明度', exact: true }).press('ArrowLeft')
   }
   await expect.poll(() => canvases.first().getAttribute('data-frames').then(Number)).toBeGreaterThan(beforeEdit)

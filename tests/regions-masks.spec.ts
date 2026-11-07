@@ -1,3 +1,5 @@
+import { chooseStyle } from './helpers/module-settings'
+import { settingsSection } from './helpers/module-settings'
 import { selectChoice } from './helpers/choices'
 import { test, expect, type Page } from '@playwright/test'
 import { defaults, normalizeSettings, effectIds } from '../src/features/spectrum/model'
@@ -21,10 +23,10 @@ test('selecting region two keeps preview gestures and inspector edits on that re
   await page.mouse.move(box.x + box.width * .1, box.y + box.height * .1)
   await page.mouse.down(); await page.mouse.move(box.x + box.width * .18, box.y + box.height * .15, { steps: 5 }); await page.mouse.up()
   await expect(page.getByRole('combobox', { name: '当前装饰区域' })).toContainText('区域 2')
-  await page.getByRole('button', { name: '雪花飘舞', exact: true }).click()
-  await page.getByRole('tab', { name: '外观', exact: true }).click()
+  await chooseStyle(page, '灯效', '雪花飘舞')
+  await settingsSection(page, '外观')
   await page.getByRole('slider', { name: '不透明度', exact: true }).focus(); await page.keyboard.press('Home')
-  await page.getByRole('tab', { name: '位置', exact: true }).click()
+  await settingsSection(page, '位置')
   await page.getByText('精细视角', { exact: true }).click()
   await page.getByRole('slider', { name: '左右旋转', exact: true }).press('ArrowRight'); await settled(page)
   const changed = await saved(page)
@@ -39,7 +41,7 @@ test('selecting region two keeps preview gestures and inspector edits on that re
   await page.screenshot({ path: 'artifacts/region-two-isolation.png' })
   await page.reload(); await settled(page)
   await selectChoice(page, '当前装饰区域', id)
-  await page.getByRole('tab', { name: '外观', exact: true }).click()
+  await settingsSection(page, '外观')
   await expect(page.getByRole('slider', { name: '不透明度', exact: true })).toHaveAttribute('aria-valuenow', '10')
   expect(regionStyle(await saved(page))).toEqual(regionStyle(original))
 })
@@ -73,7 +75,7 @@ test('regions keep independent appearance, visibility and placement through relo
   await page.getByLabel('重命名当前区域').click()
   await page.getByLabel('区域名称', { exact: true }).fill('天空')
   await page.getByLabel('区域名称', { exact: true }).press('Enter')
-  await page.getByRole('button', { name: '银河', exact: false }).click()
+  await chooseStyle(page, '灯效', '银河')
   await page.getByRole('button', { name: '布置', exact: true }).click()
   await page.getByRole('button', { name: '应用天空布局' }).click()
   await settled(page)

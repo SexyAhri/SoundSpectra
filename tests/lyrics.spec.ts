@@ -1,3 +1,4 @@
+import { chooseStyle } from './helpers/module-settings'
 import { expect, test } from '@playwright/test'
 import { defaults, normalizeSettings } from '../src/features/spectrum/model'
 import { emptyNowPlaying } from '../src/features/desktop-card/use-now-playing'
@@ -34,10 +35,10 @@ test('lyrics preview animates independently, persists controls and never fabrica
   await expect(sung).toBeVisible()
   const before = await sung.getAttribute('data-time')
   await expect.poll(() => sung.getAttribute('data-time')).not.toBe(before)
-  await page.getByRole('button', { name: '错落排版', exact: true }).click()
+  await chooseStyle(page, '歌词编排', '错落排版')
   await page.getByRole('slider', { name: '歌词字号', exact: true }).focus(); await page.keyboard.press('End')
   await page.getByRole('slider', { name: '歌词背景', exact: true }).focus(); await page.keyboard.press('Home')
-  await page.getByText('位置与同步', { exact: true }).click()
+  await page.getByText('位置与高级设置', { exact: true }).click()
   await page.getByRole('slider', { name: '歌词同步偏移', exact: true }).focus(); await page.keyboard.press('ArrowRight')
   await expect(page.getByText('已保存到此浏览器', { exact: true })).toBeVisible()
   const saved = await page.evaluate(() => JSON.parse(localStorage.getItem('soundspectra.settings.v1')!))
@@ -109,14 +110,14 @@ test('three lyric designs have distinct composition and respect reduced motion',
   await page.getByRole('button', { name: '歌词', exact: true }).click()
   const layer = page.getByTestId('lyric-layer')
   for (const [mode, name] of [['depth', '文字漫游'], ['stage', '错落排版'], ['stardust', '弧形流转']]) {
-    await page.getByRole('button', { name, exact: true }).click()
+    await chooseStyle(page, '歌词编排', name)
     await expect(layer).toHaveClass(new RegExp(`lyric-motion-${mode}`))
     await expect(layer.locator('.kinetic-lyrics-canvas')).toHaveAttribute('data-composition', mode)
     await expect(layer.getByLabel('当前歌词')).not.toBeEmpty()
     await page.locator('.desktop-preview').screenshot({ path: `artifacts/lyric-${mode}.png` })
   }
   await page.emulateMedia({ reducedMotion: 'reduce' })
-  await page.getByRole('button', { name: '文字漫游', exact: true }).click()
+  await chooseStyle(page, '歌词编排', '文字漫游')
   await expect(layer.locator('.kinetic-lyrics-canvas')).toBeVisible()
 })
 
@@ -147,7 +148,7 @@ test('composition pixels pause exactly, seek deterministically, and change betwe
   expect(await pixels()).toBe(reduced)
 })
 
-test('adjacent lyric lines hand off only during continuous playback', async ({ page }) => {
+test('lyric designs animate their adjacent-line handoffs', async ({ page }) => {
   await page.setViewportSize({ width: 1100, height: 600 })
   await page.goto('/tests/fixtures/kinetic-lyrics.html')
   const canvas = page.locator('canvas')
@@ -178,7 +179,7 @@ test('adjacent lyric lines hand off only during continuous playback', async ({ p
   await expect(canvas).toHaveAttribute('data-transition', 'false')
 })
 
-test('overlapping lyric lines keep their position when the next line starts', async ({ page }) => {
+test('redesigned lyrics clear old letters at handoff while the arc keeps a continuous outgoing position', async ({ page }) => {
   await page.goto('/tests/fixtures/kinetic-lyrics.html')
   const shifts = await page.evaluate(async () => {
     const modulePath = '/src/features/lyrics/kinetic-composition.ts'
@@ -204,12 +205,17 @@ test('overlapping lyric lines keep their position when the next line starts', as
       const engine = new KineticComposition()
       const frame = { lines, index: 0, time: 3980, width: 600, height: 450, fontSize: 72, regionWidth: .88, mode, reduced: false, backgroundOpacity: 30 }
       engine.draw(context, frame)
+      const before = positions.length
       engine.draw(context, { ...frame, index: 1, time: 4000 })
-      if (positions.length !== 2) throw new Error(`Expected two old-line positions for ${mode}`)
-      return { mode, distance: Math.hypot(positions[1].x - positions[0].x, positions[1].y - positions[0].y) }
+      if (before !== 1) throw new Error(`Expected one current old-line glyph for ${mode}`)
+      return { mode, oldLettersAfter: positions.length - before,
+        distance: positions.length === 2 ? Math.hypot(positions[1].x - positions[0].x, positions[1].y - positions[0].y) : 0 }
     })
   })
-  for (const { mode, distance } of shifts) expect(distance, mode).toBeLessThan(1)
+  for (const { mode, oldLettersAfter, distance } of shifts) {
+    expect(oldLettersAfter, mode).toBe(mode === 'stardust' ? 1 : 0)
+    expect(distance, mode).toBeLessThan(1)
+  }
 })
 
 test('lyrics drag and resize directly without moving the visual effect, and Escape cancels', async ({ page }) => {

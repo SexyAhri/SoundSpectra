@@ -19,7 +19,7 @@ test('live audio driver consumes true RMS without deriving volume from frequency
 })
 
 test('classic and ambient 3D scenes persist with independent region parameters and scene export', () => {
-  expect(classicMusicEffects).toHaveLength(7)
+  expect(classicMusicEffects).toHaveLength(11)
   for (const effect of musicEffects) {
     const settings = normalizeSettings({ ...defaults, effect: effect.value, music: { rainCount: 20, ballSpeedMultiplier: 1.7 } })
     const saved = importScene(sceneDocument({ name: effect.label, scene: layout(settings) }))

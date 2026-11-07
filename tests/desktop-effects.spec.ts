@@ -1,3 +1,4 @@
+import { settingsSection } from './helpers/module-settings'
 import { expect, test } from '@playwright/test'
 import { defaults, normalizeSettings } from '../src/features/spectrum/model'
 import { resizeBounds } from '../src/features/preview/preview-geometry'
@@ -17,7 +18,7 @@ test('desktop layout actions persist full-height scenes and preserve the music c
   await expect.poll(async () => (await saved()).bounds).toEqual({ x: 0, y: 0, width: 1, height: 1 })
   expect((await saved()).desktopCard).toEqual(before.desktopCard)
   await page.reload()
-  await page.getByRole('tab', { name: '位置', exact: true }).click()
+  await settingsSection(page, '位置')
   await page.getByText('精确位置', { exact: true }).click()
   await expect(page.getByRole('slider', { name: '高度', exact: true })).toHaveAttribute('aria-valuenow', '100')
   await expect(page.getByRole('slider', { name: '距顶部', exact: true })).toBeDisabled()

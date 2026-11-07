@@ -1,3 +1,4 @@
+import { settingsSection } from './helpers/module-settings'
 import { visualProbeHtml } from '../scripts/visual-probe-html.mjs'
 import { expect, test } from '@playwright/test'
 import { defaults, normalizeSettings } from '../src/features/spectrum/model'
@@ -5,12 +6,16 @@ import { musicEffects } from '../src/features/spectrum/music-engine/catalog'
 import { importScene, layout } from '../src/features/preview/scene-library'
 
 const replacements = {
+  ember_flow: 'caustic_light',
+  prism_cluster: 'caustic_light', kinetic_mobile: 'ginkgo_leaves', solar_corona: 'cosmic_web',
+  ink_marbling: 'caustic_light', harmonic_strings: 'ginkgo_leaves',
+  koi_dance: 'ginkgo_leaves', ferrofluid: 'caustic_light',
   spectrum_bars: 'sound_field', rhythm_bars: 'sound_field', pulse_ring: 'vortex',
   rhythm_fluid: 'rhythm_skin', water_ripple: 'ripple',
 } as const
 
 test('retired effects migrate in settings, additional regions and saved scenes without losing personal layout', () => {
-  expect(musicEffects).toHaveLength(11)
+  expect(new Set(musicEffects.map(e=>e.value)).size).toBe(musicEffects.length)
   for (const [effect, replacement] of Object.entries(replacements)) {
     const old = JSON.parse(JSON.stringify({ ...defaults, effect,
       music: { ...defaults.music, clusterCount: 30, rayCount: 1200, fluidWidth: 1.7 },
@@ -38,15 +43,15 @@ test('a saved retired selection reloads as a supported effect and exposes no ret
     ...defaults, quality: 'eco', effect: 'spectrum_bars', music: { ...defaults.music, clusterCount: 32 },
   })
   await page.goto('/')
-  await expect(page.getByRole('button', { name: '频谱回响', exact: true })).toHaveAttribute('aria-pressed', 'true')
+  await expect(page.getByRole('group', { name: '当前灯效', exact: true })).toContainText('频谱回响')
   for (const name of ['晶簇声境', '日冕回响', '熔金潮汐', '水波纹', '丹霞声谷']) {
     await expect(page.getByRole('button', { name, exact: true })).toHaveCount(0)
   }
-  await page.getByRole('tab', { name: '外观', exact: true }).click()
+  await settingsSection(page, '动效')
   await expect(page.getByRole('slider', { name: '晶簇数量', exact: true })).toHaveCount(0)
   await page.reload()
-  await page.getByRole('tab', { name: '动效', exact: true }).click()
-  await expect(page.getByRole('button', { name: '频谱回响', exact: true })).toHaveAttribute('aria-pressed', 'true')
+  await settingsSection(page, '动效')
+  await expect(page.getByRole('group', { name: '当前灯效', exact: true })).toContainText('频谱回响')
   await expect(page.locator('.three-scene-surface canvas').first()).toHaveAttribute('aria-label', '频谱回响 · 模拟音频预览')
 })
 

@@ -1,13 +1,19 @@
+import { chooseStyle } from './helpers/module-settings'
+import { settingsSection } from './helpers/module-settings'
 import { visualProbeHtml } from '../scripts/visual-probe-html.mjs'
 import { expect, test } from '@playwright/test'
 import { defaults, normalizeSettings } from '../src/features/spectrum/model'
 import { recommendedMusic, effectGroups } from '../src/features/spectrum/effect-presets'
 import { resolveEffectPalette } from '../src/features/spectrum/effect-palette'
 import { selectChoice } from './helpers/choices'
+import { musicEffects } from '../src/features/spectrum/music-engine/catalog'
 
-test('recommended appearances remain compatible and the picker contains eleven distinct choices', () => {
+test('recommended appearances remain compatible and the picker contains every registered effect once', () => {
   const effects = effectGroups.flatMap(group => group.effects)
-  expect(new Set(effects).size).toBe(11)
+  expect(effectGroups).toHaveLength(3)
+  expect(effectGroups.map(group=>group.effects.length)).toEqual([6,6,6])
+  expect(new Set(effects).size).toBe(musicEffects.length)
+  expect([...effects].sort()).toEqual(musicEffects.map(e=>e.value).sort())
   for (const effect of effects) {
     const music = recommendedMusic(effect)
     expect(normalizeSettings({ ...defaults, effect, music }).music).toEqual(music)
@@ -20,7 +26,7 @@ test('recommended appearances remain compatible and the picker contains eleven d
   }
 })
 
-test('every renderer responds to tint and palette changes while a repeated frame stays stable', async ({ page }) => {
+test('every renderer preserves its authored tint policy and responds to palettes while a repeated frame stays stable', async ({ page }) => {
   test.setTimeout(120000)
   await page.route('**/palette-probe', route => route.fulfill({ contentType: 'text/html', body: visualProbeHtml('<body></body>') }))
   await page.goto('/palette-probe')
@@ -49,7 +55,9 @@ test('every renderer responds to tint and palette changes while a repeated frame
     }
     return results
   })
-  for (const result of results) expect(result, result.effect).toMatchObject({ stable: true, tintChanged: true, paletteChanged: true, glError: 0 })
+  // Daylight seeds deliberately keep their cream body/highlight neutral. Their
+  // tint affects the immersive sky accent, which is absent in this daily view.
+  for (const result of results) expect(result, result.effect).toMatchObject({ stable: true, tintChanged: result.effect !== 'volume_rain', paletteChanged: true, glError: 0 })
   expect(errors).toEqual([])
 })
 
@@ -59,18 +67,18 @@ test('effect tuning survives switching and reload, and palette selection replace
   await page.goto('/')
   const saved = () => page.evaluate(() => JSON.parse(localStorage.getItem('soundspectra.settings.v1')!))
   await expect(page.getByText('已保存到此浏览器')).toBeVisible()
-  await page.getByRole('button', { name: '银河', exact: true }).click()
+  await chooseStyle(page, '灯效', '银河')
   await expect.poll(saved).toMatchObject({ effect: 'dream_stars', followCover: true, music: { speed: 1 } })
-  await page.getByRole('tab', { name: '外观', exact: true }).click()
+  await settingsSection(page, '外观')
   await selectChoice(page, '声场配色', 'ember')
   await expect.poll(saved).toMatchObject({ followCover: false, color: '#d4c3ff', music: { fieldPalette: 'ember' } })
   await expect(page.getByRole('combobox', { name: '声场配色' })).toContainText('暖夜微星')
   await expect(page.getByRole('combobox', { name: '声场配色' }).locator('.choice-swatches i')).toHaveCount(3)
-  await page.getByRole('tab', { name: '动效', exact: true }).click()
-  await page.getByRole('button', { name: '浮光水母', exact: true }).click()
+  await settingsSection(page, '动效')
+  await chooseStyle(page, '灯效', '浮光水母')
   await expect.poll(saved).toMatchObject({ effect: 'rhythm_balls', color: initial.color, music: { jellyCount: 7, speed: 3 } })
   await page.reload()
-  await page.getByRole('button', { name: '银河', exact: true }).click()
+  await chooseStyle(page, '灯效', '银河')
   await expect.poll(saved).toMatchObject({ effect: 'dream_stars', music: { speed: 1, fieldPalette: 'ember' } })
   expect((await saved()).bounds).toEqual(initial.bounds)
 })

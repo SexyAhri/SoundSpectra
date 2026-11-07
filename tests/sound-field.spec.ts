@@ -1,3 +1,5 @@
+import { chooseStyle } from './helpers/module-settings'
+import { settingsSection } from './helpers/module-settings'
 import { expect, test, type Locator } from '@playwright/test'
 import { SceneMotion, MAX_RIPPLES } from '../src/features/spectrum/three/motion'
 import { defaultMusicSettings, normalizeMusicSettings } from '../src/features/spectrum/music-engine/catalog'
@@ -99,6 +101,22 @@ test('terrain travels continuously with sound, stops its phase at silence and re
   }
 })
 
+test('rock ledges remain continuous as terrain height and sample position change', () => {
+  const motion=new SceneMotion()
+  const input={rms:.15,bands:Array(6).fill(.4),spectrum:Array(48).fill(.55),skin:[]}
+  for(let i=0;i<180;i++)motion.step(input,1/60,defaultMusicSettings,true)
+  for(const [x,z] of [[-8,-12],[2,-4],[11,3]]){
+    let previous=motion.sample(x,z,.4,{...defaultMusicSettings,fieldHeight:.4}).height
+    for(let i=1;i<=1200;i++){
+      const settings={...defaultMusicSettings,fieldHeight:.4+i*.001}
+      const current=motion.sample(x,z,.4,settings).height
+      expect(Math.abs(current-previous)).toBeLessThan(.06)
+      expect(Math.abs(current-motion.sample(x+.0001,z+.0001,.4,settings).height)).toBeLessThan(.02)
+      previous=current
+    }
+  }
+})
+
 test('GPU height pass matches the real audio CPU reference and does not sample each cell on the CPU', async ({ page }) => {
   await page.goto('/')
   const result = await page.evaluate(async () => {
@@ -172,7 +190,7 @@ test('3D scene fills preview, stays soft, responds to interaction and persists c
     if (message.type() === 'error' && !message.location().url.endsWith('/favicon.ico')) errors.push(message.text())
   })
   await page.goto('/')
-  await page.getByRole('button', { name: '频谱回响', exact: true }).click()
+  await chooseStyle(page, '灯效', '频谱回响')
   await page.getByRole('button', { name: '全屏展示当前灯效', exact: true }).click()
   const canvas = page.locator('.sound-field-surface canvas')
   await expect(canvas).toHaveAttribute('data-renderer', 'three')
@@ -183,16 +201,17 @@ test('3D scene fills preview, stays soft, responds to interaction and persists c
   expect(settings.bounds).toEqual({ x: 0, y: 0, width: 1, height: 1 })
   await expect.poll(async () => Number(await canvas.getAttribute('data-drops'))).toBeGreaterThan(1)
   await page.screenshot({ path: 'artifacts/sound-field-workspace.png', fullPage: true })
-  await page.getByRole('tab', { name: '外观', exact: true }).click()
+  await settingsSection(page, '外观')
   await selectChoice(page, '场景氛围', 'immersive')
   await selectChoice(page, '声场配色', 'ember')
+  await settingsSection(page, '动效')
   await page.getByText('造型细节', { exact: true }).click()
   await selectChoice(page, '涟漪落点', 'center')
   await page.getByRole('slider', { name: '层叠光感', exact: true }).focus(); await page.keyboard.press('Home')
   await expect(page.getByText('已保存到此浏览器')).toBeVisible()
   await page.reload()
-  await page.getByRole('tab', { name: '动效', exact: true }).click()
-  await expect(page.getByRole('button', { name: '频谱回响', exact: true })).toHaveAttribute('aria-pressed', 'true')
+  await settingsSection(page, '动效')
+  await expect(page.getByRole('group', { name: '当前灯效', exact: true })).toContainText('频谱回响')
   await expect.poll(async () => page.evaluate(() => JSON.parse(localStorage.getItem('soundspectra.settings.v1')!))).toMatchObject({ sceneMode: 'immersive', music: { fieldBrightness: 20, fieldPalette: 'ember', fieldRippleMode: 'center' } })
   await page.getByRole('switch', { name: '模拟预览', exact: true }).click()
   await expect.poll(async () => (await pixels(canvas)).visible, { timeout: 10000 }).toBe(0)
@@ -220,7 +239,7 @@ test('3D desktop masks clip in scene coordinates; switching releases the Three c
   const image = await pixels(canvas)
   expect(image.left).toBe(0); expect(image.right).toBeGreaterThan(500)
   await canvas.evaluate(node => { (window as unknown as { __oldField: WebGL2RenderingContext }).__oldField = (node as HTMLCanvasElement).getContext('webgl2')! })
-  await page.getByRole('button', { name: '浮光水母', exact: true }).click()
+  await chooseStyle(page, '灯效', '浮光水母')
   await expect.poll(() => page.evaluate(() => (window as unknown as { __oldField: WebGL2RenderingContext }).__oldField.isContextLost())).toBe(true)
   await expect(page.locator('.sound-field-surface')).toHaveCount(0)
 })

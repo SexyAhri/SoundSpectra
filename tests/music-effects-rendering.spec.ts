@@ -1,3 +1,5 @@
+import { chooseStyle } from './helpers/module-settings'
+import { settingsSection } from './helpers/module-settings'
 import { expect, test, type Page } from '@playwright/test'
 import { classicMusicEffects } from '../src/features/spectrum/music-engine/catalog'
 import { defaults } from '../src/features/spectrum/model'
@@ -44,7 +46,7 @@ for (const effect of classicMusicEffects) {
     const errors: string[] = []
     page.on('pageerror', error => errors.push(error.message))
     await page.goto('/')
-    await page.getByRole('button', { name: effect.label, exact: true }).click()
+    await chooseStyle(page, '灯效', effect.label)
     const canvas = page.locator('.three-scene-surface canvas').first()
     await expect(canvas).toHaveAttribute('data-renderer', 'three')
     await expect(canvas).toHaveAttribute('data-scene', effect.value)
@@ -55,7 +57,7 @@ for (const effect of classicMusicEffects) {
     await expect.poll(async () => { const next = await pixels(page); return next.visible > 0 && next.hash !== first.hash }, { timeout: 8000 }).toBe(true)
     await expect(page.getByText('已保存到此浏览器')).toBeVisible()
     await page.reload()
-    await expect(page.getByRole('button', { name: effect.label, exact: true })).toHaveAttribute('aria-pressed', 'true')
+    await expect(page.getByRole('group', { name: '当前灯效', exact: true })).toContainText(effect.label)
     await expect.poll(async () => (await pixels(page)).visible).toBeGreaterThan(30)
     await page.screenshot({ path: testInfo.outputPath(`music-engine-${effect.value}.png`) })
     await page.getByRole('switch', { name: '模拟预览' }).click()
@@ -83,7 +85,7 @@ test('repeated spatial effect switches release prior Three contexts; effect para
   let previous = await rememberContext()
   for (let i = 0; i < 3; i++) {
     for (const [id, label] of [['volume_rain', '晴空浮游'], ['rhythm_balls', '浮光水母']]) {
-      await page.getByRole('button', { name: label, exact: true }).click()
+      await chooseStyle(page, '灯效', label)
       await expect(canvas).toHaveAttribute('data-scene', id)
       await expect.poll(() => page.evaluate(index => (window as unknown as { __spatialContexts: WebGL2RenderingContext[] }).__spatialContexts[index].isContextLost(), previous)).toBe(true)
       previous = await rememberContext()
@@ -95,14 +97,16 @@ test('repeated spatial effect switches release prior Three contexts; effect para
   }
   await expect(page.getByRole('alert')).toHaveCount(0)
   expect(errors).toEqual([])
-  await page.getByRole('tab', { name: '外观', exact: true }).click()
+  await settingsSection(page, '动效')
+  await settingsSection(page, '动效')
   await page.getByText('造型细节', { exact: true }).click()
   const speed = page.getByRole('slider', { name: '伞体大小', exact: true })
   await speed.focus(); await speed.press('Home'); await speed.press('ArrowRight')
   await expect(speed).toHaveAttribute('aria-valuenow', '1.3')
   await expect(page.getByText('已保存到此浏览器')).toBeVisible()
   await page.reload()
-  await page.getByRole('tab', { name: '外观', exact: true }).click()
+  await settingsSection(page, '动效')
+  await settingsSection(page, '动效')
   await page.getByText('造型细节', { exact: true }).click()
   await expect(page.getByRole('slider', { name: '伞体大小', exact: true })).toHaveAttribute('aria-valuenow', '1.3')
 })
@@ -131,7 +135,7 @@ test('spatial effects respect global masks and live silence', async ({ page }) =
 test('all performance presets render spatial scenes', async ({ page }) => {
   test.setTimeout(60000)
   await page.goto('/')
-  await page.getByRole('button', { name: '银河', exact: true }).click()
+  await chooseStyle(page, '灯效', '银河')
   for (const quality of ['eco', 'balanced', 'smooth', 'unlimited']) {
     await selectChoice(page, '渲染性能', quality)
     await expect.poll(async () => (await pixels(page)).visible).toBeGreaterThan(30)
@@ -143,7 +147,7 @@ for (const label of ['银河', '浮光水母']) test(`${label}: reduced-motion s
   test.setTimeout(45000)
   await page.emulateMedia({ reducedMotion: 'reduce' })
   await page.goto('/')
-  await page.getByRole('button', { name: label, exact: true }).click()
+  await chooseStyle(page, '灯效', label)
   await expect.poll(async () => (await pixels(page)).visible).toBeGreaterThan(30)
   expect((await pixels(page)).error).toBe(0)
   let last = 0, stable = 0

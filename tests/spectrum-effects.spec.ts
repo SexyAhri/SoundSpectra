@@ -1,3 +1,4 @@
+import { settingsSection } from './helpers/module-settings'
 import { selectChoice } from './helpers/choices'
 import { test, expect, type Page } from '@playwright/test'
 import { budgets, drawingSize, FrameBudget } from '../src/features/spectrum/render-budget'
@@ -73,7 +74,7 @@ test('idle, obscured previews and offscreen previews stop drawing; quality remai
   expect((await sampleFrames()).frames).toBe(0)
   await page.getByRole('button', { name: '收起应用设置', exact: true }).click()
   await page.setViewportSize({ width: 390, height: 600 })
-  await page.getByRole('tab', { name: '外观', exact: true }).click()
+  await settingsSection(page, '动效')
   await page.getByRole('button', { name: '恢复当前灯效参数' }).scrollIntoViewIfNeeded()
   await page.waitForTimeout(300)
   // At the mobile breakpoint the page flows normally and this scroll hides the preview.

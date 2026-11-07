@@ -1,3 +1,5 @@
+import { fulfillFixtureEntry } from './helpers/fixture-entry'
+import { railSection } from './helpers/module-settings'
 import { expect, test, type Page } from '@playwright/test'
 import { clickCord } from './rail-helpers'
 
@@ -5,7 +7,7 @@ import { clickCord } from './rail-helpers'
 // starts a native drag, or writes to the user's mounted files/configuration.
 async function fixture(page: Page) {
   await page.addInitScript(() => Object.assign(window, { isTauri: true }))
-  await page.route('**/src/main.tsx*', route => route.fulfill({ contentType: 'text/javascript', body: `
+  await page.route('**/src/main.tsx*', route => fulfillFixtureEntry(route, `
     import React from '/node_modules/.vite/deps/react.js';
     import ReactDOM from '/node_modules/.vite/deps/react-dom_client.js';
     import { RailSurface } from '/src/features/rail/rail-surface.tsx';
@@ -16,6 +18,7 @@ async function fixture(page: Page) {
     import { changeRail } from '/src/features/rail/model.ts';
     import '/src/index.css';
     import '/src/features/rail/rail.css';
+    import '/src/features/settings/module-settings.css';
     window.commands = []; window.changes = []; window.drops = []; window.detaches = []; window.eventListeners = {}; window.callbacks = new Map();
     window.__TAURI_EVENT_PLUGIN_INTERNALS__ = { unregisterListener: () => {} };
     window.__TAURI_INTERNALS__ = { invoke: async (command, args) => {
@@ -73,7 +76,7 @@ async function fixture(page: Page) {
         React.createElement('div', { style: { width: 390 } }, React.createElement(RailControls, { controller, selectedGroup: 'apps', selectedItem: selection, onSelect: (_, id) => select(id), onApplyAfternoon: () => {} })));
     }
     ReactDOM.createRoot(document.getElementById('root')).render(React.createElement(Fixture));
-  ` }))
+  `))
   await page.goto('/?rail-transfer-fixture')
   await expect(page.locator('.rail-surface')).toBeVisible()
 }
@@ -216,7 +219,7 @@ test('paste is scoped away from text editors, serializes pending work, and repor
   await page.evaluate(() => (window as any).finishPaste(true))
   await expect(page.getByRole('alert')).toContainText('剪贴板里没有图片')
   expect(await page.evaluate(() => (window as any).currentSettings.groups[0].items.length)).toBe(3)
-  await page.getByRole('tab', { name: '添加', exact: true }).click()
+  await railSection(page, '添加')
   await page.getByRole('button', { name: '粘贴图片', exact: true }).click()
   await expect.poll(requests).toBe(2)
   await expect(page.getByRole('button', { name: '粘贴图片', exact: true })).toBeDisabled()

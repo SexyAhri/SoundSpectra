@@ -1,3 +1,4 @@
+import { settingsSection } from './helpers/module-settings'
 import { test, expect, type Page } from '@playwright/test'
 
 const sourceKey = 'soundspectra.audio-source.v1'
@@ -9,7 +10,7 @@ test('browser source persists independently of appearance and reports preview on
   await page.getByRole('option', { name: '网易云音乐', exact: false }).click()
   await expect(selector(page)).toHaveText('网易云音乐')
   await expect(page.getByText('仅预览设置', { exact: true })).toBeVisible()
-  await page.getByRole('tab', { name: '外观', exact: true }).click()
+  await settingsSection(page, '外观')
   await page.getByRole('slider', { name: '不透明度', exact: true }).focus()
   await page.keyboard.press('ArrowLeft')
   await expect(page.getByText('已保存到此浏览器')).toBeVisible()

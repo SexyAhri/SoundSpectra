@@ -1,43 +1,37 @@
 import { selectChoice } from './helpers/choices'
+import { openDetails, settingsSection } from './helpers/module-settings'
 import { test, expect } from '@playwright/test'
+import { defaults } from '../src/features/spectrum/model'
 
-test('inspector separates workflows and keeps region and performance controls reachable', async ({ page }) => {
-  await page.setViewportSize({ width: 1440, height: 940 })
-  await page.goto('/')
-  const inspector = page.getByRole('complementary', { name: '频谱设置' })
-  await expect(page.getByRole('tab', { name: '动效', exact: true })).toHaveAttribute('aria-selected', 'true')
-  await expect(page.getByRole('button', { name: '浮光水母', exact: true })).toBeVisible()
-  await expect(page.getByRole('slider', { name: '漂游速度', exact: true })).toHaveCount(0)
-  expect((await inspector.boundingBox())!.width).toBe(380)
-  await page.screenshot({ path: 'artifacts/inspector-effects-1440.png' })
-  await page.getByRole('tab', { name: '外观', exact: true }).click()
-  await page.getByRole('slider', { name: '不透明度', exact: true }).focus()
-  await page.keyboard.press('Home')
-  await expect(page.getByText('已保存到此浏览器')).toBeVisible()
-  await page.screenshot({ path: 'artifacts/inspector-appearance-1440.png' })
-  await page.setViewportSize({ width: 1000, height: 620 })
-  await page.getByRole('button', { name: '恢复当前灯效参数' }).scrollIntoViewIfNeeded()
-  const layout = await page.evaluate(() => ({
-    height: document.documentElement.scrollHeight, width: document.documentElement.scrollWidth,
-    scrolled: document.querySelector('.inspector-scroll')!.scrollTop,
-    region: document.querySelector('.region-panel')!.getBoundingClientRect().top,
-    quality: document.querySelector('.inspector-performance')!.getBoundingClientRect().bottom,
-  }))
-  expect(layout.height).toBeLessThanOrEqual(620); expect(layout.width).toBeLessThanOrEqual(1000)
-  expect(layout.scrolled).toBeGreaterThan(0); expect(layout.region).toBeGreaterThan(48); expect(layout.quality).toBeLessThanOrEqual(620)
-  await page.getByRole('tab', { name: '位置', exact: true }).click()
-  await page.getByRole('button', { name: '应用居中布局' }).click()
-  await expect(page.getByText('已保存到此浏览器')).toBeVisible()
-  await page.getByRole('tab', { name: '外观', exact: true }).click()
-  await expect(page.getByRole('slider', { name: '不透明度', exact: true })).toHaveAttribute('aria-valuenow', '10')
-  await page.screenshot({ path: 'artifacts/inspector-short.png' })
-  await page.setViewportSize({ width: 390, height: 844 })
-  await page.getByRole('combobox', { name: '渲染性能' }).scrollIntoViewIfNeeded()
-  await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(390)
-  await page.screenshot({ path: 'artifacts/inspector-narrow.png', fullPage: true })
+test.beforeEach(async ({ page }) => {
+  await page.addInitScript(settings => { if (!localStorage.getItem('soundspectra.settings.v1')) localStorage.setItem('soundspectra.settings.v1', JSON.stringify(settings)) }, { ...defaults, regionVisible: false })
 })
 
-test('rename is explicit, cancel preserves the name and tabs retain the selected region', async ({ page }) => {
+test('the inspector scrolls common controls while its heading, region and footer remain reachable', async ({ page }) => {
+  await page.setViewportSize({ width: 1000, height: 620 })
+  await page.goto('/')
+  const inspector = page.getByRole('complementary', { name: '对象属性' })
+  await expect(inspector.getByRole('tab')).toHaveCount(3)
+  await expect(page.getByRole('button', { name: '更换灯效', exact: true })).toBeVisible()
+  await settingsSection(page, '外观')
+  await page.getByRole('slider', { name: '不透明度', exact: true }).press('Home')
+  await settingsSection(page, '位置')
+  await page.getByRole('button', { name: '应用居中布局', exact: true }).click()
+  await page.getByRole('button', { name: '默认朝向', exact: true }).scrollIntoViewIfNeeded()
+  expect(await inspector.locator('.inspector-scroll').evaluate(node => node.scrollTop)).toBeGreaterThan(0)
+  await expect(inspector.locator('.inspector-heading')).toBeInViewport()
+  await expect(page.getByRole('combobox', { name: '当前装饰区域', exact: true })).toBeInViewport()
+  await expect(page.locator('.workspace-footer')).toBeInViewport()
+  await settingsSection(page, '外观')
+  await page.getByRole('slider', { name: '不透明度', exact: true }).scrollIntoViewIfNeeded()
+  await expect(page.getByRole('slider', { name: '不透明度', exact: true })).toHaveAttribute('aria-valuenow', '10')
+  await page.setViewportSize({ width: 390, height: 844 })
+  await settingsSection(page, '位置')
+  await page.getByRole('button', { name: '默认朝向', exact: true }).scrollIntoViewIfNeeded()
+  expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(390)
+})
+
+test('rename cancellation preserves the region and module switching keeps the edited region', async ({ page }) => {
   await page.goto('/')
   await page.getByLabel('添加装饰区域').click()
   await page.getByLabel('重命名当前区域').click()
@@ -48,10 +42,8 @@ test('rename is explicit, cancel preserves the name and tabs retain the selected
   const name = '山谷晚风与屋檐灯光的装饰区域名称'
   await page.getByLabel('区域名称', { exact: true }).fill(name)
   await page.getByLabel('区域名称', { exact: true }).press('Enter')
-  await expect(page.getByText('已保存到此浏览器')).toBeVisible()
-  await page.getByRole('tab', { name: '外观', exact: true }).focus()
-  await page.keyboard.press('ArrowRight')
-  await expect(page.getByRole('tab', { name: '位置', exact: true })).toHaveAttribute('aria-selected', 'true')
+  await page.getByRole('button', { name: '歌词', exact: true }).click()
+  await page.getByRole('button', { name: '灯效', exact: true }).click()
   await expect(page.getByRole('combobox', { name: '当前装饰区域' })).toContainText(name)
   await selectChoice(page, '渲染性能', 'eco')
   await expect(page.getByText('已保存到此浏览器')).toBeVisible()

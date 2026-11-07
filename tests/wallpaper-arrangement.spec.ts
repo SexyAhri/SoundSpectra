@@ -1,3 +1,4 @@
+import { settingsSection } from './helpers/module-settings'
 import { test, expect, type Page } from '@playwright/test'
 import { suggestPalette, luminance } from '../src/features/preview/wallpaper-palette'
 import { defaults } from '../src/features/spectrum/model'
@@ -69,7 +70,7 @@ test('layout presets apply only geometry, persist, and reflect custom positions'
   expect(right.bounds).toEqual({ x: .58, y: .24, width: .38, height: .6 })
   expect({ ...right, bounds: before.bounds }).toEqual(before)
   await page.getByRole('button', { name: '完成布置', exact: true }).click()
-  await page.getByRole('tab', { name: '位置', exact: true }).click()
+  await settingsSection(page, '位置')
   await expect(page.getByRole('button', { name: '应用右侧布局' })).toHaveAttribute('aria-pressed', 'true')
   await page.getByText('精确位置', { exact: true }).click()
   await page.getByRole('slider', { name: '距左侧', exact: true }).focus()

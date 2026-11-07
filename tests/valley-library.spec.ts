@@ -1,3 +1,4 @@
+import { chooseStyle } from './helpers/module-settings'
 import { test, expect, type Page } from '@playwright/test'
 import { readFile } from 'node:fs/promises'
 import { defaults, normalizeSettings } from '../src/features/spectrum/model'
@@ -27,7 +28,7 @@ test('unlimited frame pacing keeps pixel budgets and old configurations migrate'
 
 test('custom quality menu retains 120 and unlimited for multiple source regions and works with keyboard', async ({ page }) => {
   await page.goto('/'); await settled(page)
-  await page.getByRole('button', { name: '雪花飘舞', exact: false }).click()
+  await chooseStyle(page, '灯效', '雪花飘舞')
   await page.getByLabel('添加装饰区域').click(); await settled(page)
   await page.evaluate(async () => {
     const path = performance.getEntriesByType('resource').map(entry => entry.name).find(name => name.includes('/src/features/spectrum/render-budget.ts'))!
@@ -65,7 +66,7 @@ async function openLibrary(page: Page) {
 test('saved layouts restore on demand, preserve quality, undo and exchange without a wallpaper image', async ({ page }) => {
   await page.goto('/'); await settled(page)
   await page.getByRole('button', { name: '纯色预览背景' }).click()
-  await page.getByRole('button', { name: '雪花飘舞', exact: false }).click(); await settled(page)
+  await chooseStyle(page, '灯效', '雪花飘舞'); await settled(page)
   const original = await saved(page)
   await openLibrary(page)
   await page.getByLabel('收藏名称').fill('我的晚风')
@@ -86,7 +87,7 @@ test('saved layouts restore on demand, preserve quality, undo and exchange witho
   await expect(page.getByRole('dialog').getByRole('alert')).toContainText('不是受支持')
   expect(await library(page)).toHaveLength(2)
   await page.getByRole('button', { name: '关闭场景收藏' }).click()
-  await page.getByRole('button', { name: '浮光水母', exact: true }).click()
+  await chooseStyle(page, '灯效', '浮光水母')
   await selectChoice(page, '渲染性能', 'unlimited'); await settled(page)
   const changed = await saved(page)
   await page.reload(); await settled(page)

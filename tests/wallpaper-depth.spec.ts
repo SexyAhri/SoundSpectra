@@ -1,12 +1,12 @@
 import { visualProbeHtml } from '../scripts/visual-probe-html.mjs'
 import { expect,test } from '@playwright/test'
-import { defaults,normalizeSettings } from '../src/features/spectrum/model'
+import { defaults,defaultWallpaperDepth,normalizeSettings } from '../src/features/spectrum/model'
 import { displayBounds } from '../src/features/spectrum/regions'
 import { depthAt } from '../src/features/wallpaper-depth/depth-field'
 
 test('wallpaper parallax defaults off, validates settings and gives foreground more depth',()=>{
- expect(normalizeSettings({}).wallpaperDepth).toEqual({enabled:false,amount:25,profile:'landscape',revision:''})
- expect(normalizeSettings({wallpaperDepth:{enabled:true,amount:Infinity,profile:'unknown',revision:'../image'}}).wallpaperDepth).toEqual({enabled:true,amount:25,profile:'landscape',revision:''})
+ expect(normalizeSettings({}).wallpaperDepth).toEqual(defaultWallpaperDepth)
+ expect(normalizeSettings({wallpaperDepth:{enabled:true,amount:Infinity,profile:'unknown',revision:'../image'}}).wallpaperDepth).toEqual({...defaultWallpaperDepth,enabled:true})
  const settings=normalizeSettings({...defaults,wallpaperDepth:{enabled:true,amount:25,profile:'left-foreground',revision:'abcdef'}})
  expect(displayBounds(settings)).toEqual({x:0,y:0,width:1,height:1})
  expect(depthAt(.25,.4,'left-foreground')).toBeGreaterThan(depthAt(.8,.4,'left-foreground')+.3)
@@ -17,10 +17,14 @@ test('imported wallpaper previews parallax, preserves settings, reloads and can 
  const errors:string[]=[];page.on('pageerror',error=>errors.push(error.message))
  await page.goto('/')
  await page.getByRole('button',{name:'壁纸',exact:true}).click()
+ await page.getByText('空间视差 · 可选增强',{exact:true}).click()
  await expect(page.getByRole('switch',{name:'立体壁纸',exact:true})).toBeDisabled()
  const image=await page.evaluate(()=>{const c=document.createElement('canvas');c.width=960;c.height=540;const ctx=c.getContext('2d')!;const sky=ctx.createLinearGradient(0,0,0,540);sky.addColorStop(0,'#537a85');sky.addColorStop(1,'#bfa379');ctx.fillStyle=sky;ctx.fillRect(0,0,960,540);ctx.fillStyle='#725847';ctx.fillRect(0,120,350,420);ctx.fillStyle='#323e32';for(let x=0;x<960;x+=45)ctx.fillRect(x,450+x%60,25,90);return c.toDataURL('image/png').split(',')[1]})
  const before=await page.evaluate(()=>JSON.parse(localStorage.getItem('soundspectra.settings.v1')??'null'))
- await page.getByLabel('立体壁纸图片文件').setInputFiles({name:'landscape.png',mimeType:'image/png',buffer:Buffer.from(image,'base64')})
+ await page.getByLabel('壁纸图片文件',{exact:true}).setInputFiles({name:'landscape.png',mimeType:'image/png',buffer:Buffer.from(image,'base64')})
+ await expect(page.getByRole('switch',{name:'立体壁纸',exact:true})).toHaveAttribute('aria-checked','false')
+ await expect(page.getByTestId('preview-wallpaper')).toHaveCSS('background-image',/data:image/)
+ await page.getByRole('switch',{name:'立体壁纸',exact:true}).click()
  await expect(page.getByRole('switch',{name:'立体壁纸',exact:true})).toHaveAttribute('aria-checked','true')
  const layer=page.getByTestId('depth-wallpaper')
  await expect(layer).toHaveAttribute('data-ready','true')
@@ -35,7 +39,8 @@ test('imported wallpaper previews parallax, preserves settings, reloads and can 
  if(before){expect(saved.effect).toBe(before.effect);expect(saved.music).toEqual(before.music)}
  await page.reload();await expect(layer).toHaveAttribute('data-ready','true')
  await page.getByRole('switch',{name:'立体壁纸',exact:true}).click();await expect(layer).toHaveCount(0)
- await page.reload();await expect(page.getByRole('switch',{name:'立体壁纸',exact:true})).toHaveAttribute('aria-checked','false')
+ await expect(page.getByTestId('preview-wallpaper')).toHaveCSS('background-image',/data:image/)
+ await page.reload();await page.getByText('空间视差 · 可选增强',{exact:true}).click();await expect(page.getByRole('switch',{name:'立体壁纸',exact:true})).toHaveAttribute('aria-checked','false')
  expect(errors).toEqual([])
 })
 
@@ -43,8 +48,9 @@ test('wallpaper file failure stays visible and reduced motion holds the camera s
  await page.emulateMedia({reducedMotion:'reduce'})
  await page.goto('/')
  await page.getByRole('button',{name:'壁纸',exact:true}).click()
- await page.getByLabel('立体壁纸图片文件').setInputFiles({name:'invalid.jpg',mimeType:'image/jpeg',buffer:Buffer.from('invalid image')})
- await expect(page.getByRole('alert').filter({hasText:'无法读取立体壁纸'})).toBeVisible()
+ await page.getByText('空间视差 · 可选增强',{exact:true}).click()
+ await page.getByLabel('壁纸图片文件',{exact:true}).setInputFiles({name:'invalid.jpg',mimeType:'image/jpeg',buffer:Buffer.from('invalid image')})
+ await expect(page.getByRole('alert').filter({hasText:'无法读取壁纸'})).toBeVisible()
  await expect(page.getByRole('switch',{name:'立体壁纸',exact:true})).toHaveAttribute('aria-checked','false')
 })
 

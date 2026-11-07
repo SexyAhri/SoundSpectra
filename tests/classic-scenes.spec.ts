@@ -1,3 +1,4 @@
+import { settingsSection } from './helpers/module-settings'
 import { visualProbeHtml } from '../scripts/visual-probe-html.mjs'
 import { expect, test, type Page } from '@playwright/test'
 import { defaults, normalizeSettings } from '../src/features/spectrum/model'
@@ -9,6 +10,8 @@ const parameters = {
   rhythm_skin: ['dragonWidth', 1.7], ripple: ['rippleWidth', 1.6],
   volume_rain: ['meteorDensity', 90], dream_stars: ['starDensity', 4000],
   vortex: ['vortexArms', 5],
+  butterfly_flock: ['fieldHeight', 1.5],
+  ginkgo_leaves: ['fieldHeight', 1.5], cosmic_web: ['fieldHeight', 1.5], caustic_light: ['fieldHeight',1.5],
 } as const
 
 async function probePage(page: Page) {
@@ -18,8 +21,8 @@ async function probePage(page: Page) {
   await page.goto('/classic-render-probe')
 }
 
-test('all seven effect IDs and their settings round-trip through the old schema', () => {
-  expect(classicMusicEffects).toHaveLength(7)
+test('all classic effect IDs and their settings round-trip through the old schema', () => {
+  expect(classicMusicEffects).toHaveLength(11)
   for (const { value: effect } of classicMusicEffects) {
     const [key, value] = parameters[effect as keyof typeof parameters]
     const old = JSON.parse(JSON.stringify({ ...defaults, effect, music: { ...defaults.music, [key]: value },
@@ -48,12 +51,12 @@ for (const { value: effect, label } of classicMusicEffects) test(`${effect}: vis
     if (!localStorage.getItem('soundspectra.settings.v1')) localStorage.setItem('soundspectra.settings.v1', JSON.stringify(settings))
   }, old)
   await page.goto('/')
-  await expect(page.getByRole('button', { name: label, exact: true })).toHaveAttribute('aria-pressed', 'true')
+  await expect(page.getByRole('group', { name: '当前灯效', exact: true })).toContainText(label)
   const canvas = page.locator('.three-scene-surface canvas').first()
   await expect(canvas).toHaveAttribute('data-renderer', 'three')
   await expect(canvas).toHaveAttribute('data-scene', effect)
   await expect(canvas).toHaveAttribute('data-geometry', 'spatial')
-  await page.getByRole('tab', { name: '位置', exact: true }).click()
+  await settingsSection(page, '位置')
   await page.getByText('精细视角', { exact: true }).click()
   await page.getByRole('slider', { name: '左右旋转', exact: true }).focus()
   await page.keyboard.press('ArrowRight')

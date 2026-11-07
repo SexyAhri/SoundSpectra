@@ -4,6 +4,7 @@ import { cardPosition } from '../src/features/desktop-card/card-clock'
 import { defaults, normalizeDesktopCard } from '../src/features/spectrum/model'
 import { regionPatch } from '../src/features/spectrum/regions'
 import { desktopLayout, parseDesktopScene } from '../src/features/preview/desktop-scenes'
+import { resolveEffectPalette } from '../src/features/spectrum/effect-palette'
 
 test('media clock uses observation time and snaps pause, seek, stale and missing timelines', () => {
   const info = { ...emptyNowPlaying, playing: true, timelineAvailable: true, position: 12, duration: 100, updated: 1000 }
@@ -19,8 +20,9 @@ test('media clock uses observation time and snaps pause, seek, stale and missing
 })
 
 test('small and large cards preserve readable titles and scale the same composition in preview', async ({ page }) => {
+  test.setTimeout(90_000)
   await page.goto('/tests/fixtures/music-card.html?parity')
-  for (const variant of ['record', 'compact', 'afternoon']) {
+  for (const variant of ['record', 'compact', 'afternoon', 'floating']) {
     for (const [width, height] of [[240, 80], [320, 100], [480, 152], [720, 220]]) {
       await page.evaluate(({ variant, width, height }) => {
         (window as any).cardProbe.layout({ variant, width, height, sound: false });
@@ -52,6 +54,8 @@ test('quiet audio settles without DOM writes and never changes the reported play
     await new Promise(resolve => setTimeout(resolve, 500)); observer.disconnect()
     return writes
   })).toBe(0)
+  // This fixture has no media poller; keep the observation fresh for the state assertion.
+  await page.evaluate(() => (window as any).cardProbe.set({ updated: Date.now() }))
   await expect(page.locator('.mc')).toHaveAttribute('data-playing', 'true')
   await page.evaluate(() => (window as any).cardProbe.layout({ active: false }))
   await expect(page.locator('.mc')).toHaveAttribute('data-active', 'false')
@@ -79,9 +83,10 @@ test('cover inheritance drops the old palette when the next track has no artwork
   await page.goto('/tests/fixtures/music-card.html')
   await page.evaluate(() => (window as any).cardProbe.configure({ followCover: true, color: '#91bdeb' }))
   const accent = () => page.locator('.mc').evaluate(node => (node as HTMLElement).style.getPropertyValue('--mc-accent'))
-  await expect.poll(accent).not.toBe('#91bdeb')
+  const fallback = resolveEffectPalette({ ...defaults, color: '#91bdeb' }).main
+  await expect.poll(accent).not.toBe(fallback)
   await page.evaluate(() => (window as any).cardProbe.set({ trackId: 'new-without-cover', title: '新歌', cover: null }))
-  await expect.poll(accent).toBe('#91bdeb')
+  await expect.poll(accent).toBe(fallback)
   await expect(page.locator('.mc img')).toHaveCount(0)
 })
 
@@ -94,6 +99,9 @@ test('legacy cards inherit and invalid accent falls back while region edits keep
   const settings = { ...defaults, regions: [{ id: 'second', name: 'second', visible: true, ...defaults }] }
   expect(regionPatch(settings, 'second', { desktopCard: card }).desktopCard).toEqual(card)
   expect(regionPatch(settings, 'second', { desktopCard: card }).regions?.[0].color).toBe(defaults.color)
+  const floating = { ...card, variant: 'floating' as const }
+  expect(normalizeDesktopCard(floating)).toEqual(floating)
+  expect(parseDesktopScene({ ...scene, card: floating }).card).toEqual(floating)
 })
 
 test('rapid tracks and late covers cannot mix artwork, text or revive an old request', async ({ page }) => {
@@ -148,6 +156,40 @@ test('broken covers fall back and stale observations stop the record instead of 
   await expect(page.locator('.mc-kicker')).toContainText('媒体状态待确认')
 })
 
+test('switching to and from floating while paused immediately restores the frozen timeline', async ({ page }) => {
+  await page.goto('/tests/fixtures/music-card.html')
+  await page.evaluate(() => (window as any).cardProbe.set({ playing: false, position: 59, duration: 236 }))
+  for (const variant of ['floating', 'record', 'afternoon', 'floating']) {
+    await page.evaluate(variant => (window as any).cardProbe.layout({ variant }), variant)
+    await expect(page.locator('.mc-progress')).toHaveAttribute('aria-valuenow', '59')
+    await expect(page.locator('.mc-progress-fill')).toHaveAttribute('style', 'transform: scaleX(0.25);')
+  }
+})
+
+test('all cards keep the same hit positions with artwork or the native controls-only placeholder', async ({ page }) => {
+  test.setTimeout(90_000)
+  await page.goto('/tests/fixtures/music-card.html?native-parity')
+  for (const variant of ['record', 'compact', 'afternoon', 'floating']) {
+    for (const [width, height] of [[240, 80], [480, 152], [720, 220]]) {
+      for (const artwork of [true, false]) {
+        await page.evaluate(({ width, height, artwork, variant }) => {
+          const probe = (window as any).cardProbe
+          probe.layout({ variant, width, height, sound: false })
+          probe.set({ cover: artwork ? probe.cover : null, artist: '', album: '海风手记' })
+        }, { width, height, artwork, variant })
+        await expect(page.locator(`#card-frame .mc-${variant}`)).toBeVisible()
+        const positions = await page.evaluate(() => ['card-frame', 'native-frame'].map(id => {
+          const host = document.getElementById(id)!, box = host.getBoundingClientRect()
+          return Array.from(host.querySelectorAll('.mc-control')).map(node => node.getBoundingClientRect())
+            .filter(rect => rect.width > 0 && rect.height > 0)
+            .map(rect => [rect.left - box.left, rect.top - box.top, rect.width, rect.height])
+        }))
+        expect(positions[0]).toEqual(positions[1])
+      }
+    }
+  }
+})
+
 test('accent controls retain all placement parameters and isolate scene and lyric settings through round trips', async ({ page }) => {
   await page.goto('/tests/fixtures/music-card.html')
   const before = await page.evaluate(() => (window as any).cardProbe.settings())
@@ -163,4 +205,66 @@ test('accent controls retain all placement parameters and isolate scene and lyri
   await expect(page.getByRole('slider', { name: '卡片距顶部', exact: true })).toBeVisible()
   await page.getByRole('button', { name: '继承场景', exact: true }).click()
   expect((await page.evaluate(() => (window as any).cardProbe.settings())).desktopCard.accentColor).toBeUndefined()
+})
+
+test('all four cards render scene palettes and keep fixed colors through scene, cover and persistence changes', async ({ page }) => {
+  test.setTimeout(90_000)
+  await page.goto('/tests/fixtures/music-card.html')
+  const rendered = () => page.locator('#card-frame .mc').evaluate(node => {
+    const button = getComputedStyle(node.querySelector('.mc-control-primary')!)
+    const surface = getComputedStyle(node.querySelector('.mc-shell')!)
+    return { button: button.backgroundColor, surface: surface.backgroundImage + surface.backgroundColor }
+  })
+  for (const variant of ['record', 'compact', 'afternoon', 'floating']) {
+    await page.evaluate(variant => {
+      const probe = (window as any).cardProbe
+      const settings = probe.settings()
+      probe.layout({ variant, width: 480, height: 152, sound: false })
+      probe.configure({ followCover: false, color: '#d4c3ff', music: { ...settings.music, fieldPalette: 'iris' } })
+    }, variant)
+    await page.getByRole('button', { name: '继承场景', exact: true }).click()
+    const inherited = await rendered()
+    await page.evaluate(() => {
+      const probe = (window as any).cardProbe
+      probe.configure({ music: { ...probe.settings().music, fieldPalette: 'ember' } })
+    })
+    await expect.poll(async () => (await rendered()).button, variant).not.toBe(inherited.button)
+    await page.getByRole('button', { name: '蔷薇色卡片' }).click()
+    const fixed = await rendered()
+    const before = await page.evaluate(() => (window as any).cardProbe.settings())
+    await page.evaluate(() => {
+      const probe = (window as any).cardProbe
+      probe.configure({ followCover: true, music: { ...probe.settings().music, fieldPalette: 'lake' } })
+      probe.set({ trackId: 'color-cover', cover: probe.cover, playing: true })
+    })
+    expect(await rendered()).toEqual(fixed)
+    await page.getByRole('button', { name: '继承场景', exact: true }).click()
+    await expect.poll(async () => (await rendered()).button, variant).not.toBe(fixed.button)
+    const coverColor = await rendered()
+    await page.evaluate(() => (window as any).cardProbe.set({ cover: null }))
+    await expect.poll(async () => (await rendered()).button, variant).not.toBe(coverColor.button)
+    await page.getByRole('button', { name: '蔷薇色卡片' }).click()
+    expect(await rendered()).toEqual(fixed)
+    await page.evaluate(() => {
+      const probe = (window as any).cardProbe
+      probe.set({ trackId: 'another-cover', cover: probe.cover })
+      probe.configure(probe.roundTrip())
+    })
+    expect(await rendered()).toEqual(fixed)
+    const after = await page.evaluate(() => (window as any).cardProbe.settings())
+    expect(after.desktopCard).toEqual(before.desktopCard)
+    expect(after.lyrics).toEqual(before.lyrics)
+    expect(after.color).toEqual(before.color)
+    await page.getByRole('button', { name: '继承场景', exact: true }).click()
+    expect((await page.evaluate(() => (window as any).cardProbe.roundTrip())).desktopCard.accentColor).toBeUndefined()
+  }
+})
+
+test('compact keeps play visible at minimum size and restores skip controls when wider', async ({ page }) => {
+  await page.goto('/tests/fixtures/music-card.html')
+  for (const [width, count] of [[240, 1], [320, 3], [480, 3], [720, 3]]) {
+    await page.evaluate(width => (window as any).cardProbe.layout({ variant: 'compact', width, height: 80 }), width)
+    await expect(page.locator('#card-frame .mc-control:visible')).toHaveCount(count)
+    await expect(page.locator('#card-frame .mc-control-primary')).toBeVisible()
+  }
 })

@@ -1,10 +1,12 @@
+import { fulfillFixtureEntry } from './helpers/fixture-entry'
+import { railSection } from './helpers/module-settings'
 import { expect, test, type Page } from '@playwright/test'
 import { clickCord } from './rail-helpers'
 
 // Exercise real components with delayed IPC, without launching a desktop window
 // or touching the user's persisted configuration.
 async function fixture(page: Page, surface = false, popupWindow?: 'source' | 'host', surfaceWidth = 860) {
-  await page.route('**/src/main.tsx*', route => route.fulfill({ contentType: 'text/javascript', body: `
+  await page.route('**/src/main.tsx*', route => fulfillFixtureEntry(route, `
     import React from '/node_modules/.vite/deps/react.js';
     import ReactDOM from '/node_modules/.vite/deps/react-dom_client.js';
     import { RailSurface } from '/src/features/rail/rail-surface.tsx';
@@ -12,6 +14,7 @@ async function fixture(page: Page, surface = false, popupWindow?: 'source' | 'ho
     import { changeRail } from '/src/features/rail/model.ts';
     import '/src/index.css';
     import '/src/features/rail/rail.css';
+    import '/src/features/settings/module-settings.css';
     window.changes = []; window.popupCalls = []; window.popupRequests = []; window.panelSizes = []; window.hiddenPanels = []; window.hitRegions = []; window.eventListeners = {}; window.callbacks = new Map();
     window.__TAURI_EVENT_PLUGIN_INTERNALS__ = { unregisterListener: () => {} };
     window.__TAURI_INTERNALS__ = { invoke: async (command, args) => {
@@ -54,17 +57,19 @@ async function fixture(page: Page, surface = false, popupWindow?: 'source' | 'ho
         React.createElement('input', { 'aria-label': 'other input' }), children);
     }
     ReactDOM.createRoot(document.getElementById('root')).render(React.createElement(Fixture));
-  ` }));
+  `));
   await page.addInitScript(() => { Object.assign(window, { isTauri: true }) })
   await page.goto('/?rail-input-fixture')
 }
 
 test('desktop discovery finishing or refreshing cannot steal an edited field', async ({ page }) => {
   await fixture(page)
-  await page.getByRole('tab', { name: '添加', exact: true }).click()
+  await railSection(page, '添加')
   await page.getByRole('button', { name: '从桌面添加', exact: true }).click()
   await expect(page.getByRole('status').filter({ hasText: '正在读取' })).toBeVisible()
-  const other = page.getByRole('textbox', { name: 'other input' })
+  // The chooser is modal; an editable field inside it must keep focus.
+  await page.getByRole('dialog').evaluate(dialog => { const input = document.createElement('input'); input.setAttribute('aria-label', 'chooser input'); dialog.append(input) })
+  const other = page.getByRole('textbox', { name: 'chooser input' })
   await other.fill('continue typing')
   await page.evaluate(() => (window as any).finishDesktop())
   await expect(page.getByRole('searchbox', { name: '搜索桌面图标' })).toBeVisible()
@@ -80,7 +85,7 @@ test('desktop discovery finishing or refreshing cannot steal an edited field', a
 
 test('layout slider remains enabled through a drag and saves once on release', async ({ page }) => {
   await fixture(page)
-  await page.getByRole('tab', { name: '布局', exact: true }).click()
+  await railSection(page, '布局')
   const slider = page.getByRole('slider', { name: '距屏幕顶部' })
   const thumb = (await slider.boundingBox())!
   const track = (await page.locator('[data-slot=slider]').filter({ has: slider }).boundingBox())!

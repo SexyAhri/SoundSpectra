@@ -1,3 +1,4 @@
+import { chooseStyle } from './helpers/module-settings'
 import { visualProbeHtml } from '../scripts/visual-probe-html.mjs'
 import { expect, test, type Page } from '@playwright/test'
 import { defaults } from '../src/features/spectrum/model'
@@ -14,7 +15,7 @@ test('full-screen current effect preserves the selected scene and its tuning aft
     if (!localStorage.getItem('soundspectra.settings.v1')) localStorage.setItem('soundspectra.settings.v1', JSON.stringify(settings))
   }, original)
   await page.goto('/')
-  await expect(page.getByRole('button', { name: '旋涡', exact: true })).toHaveAttribute('aria-pressed', 'true')
+  await expect(page.getByRole('group', { name: '当前灯效', exact: true })).toContainText('旋涡')
   await page.getByRole('button', { name: '全屏展示当前灯效', exact: true }).click()
   await expect(page.getByText('已保存到此浏览器', { exact: true })).toBeVisible()
   const expected = { effect: 'vortex', sceneMode: 'immersive', opacity: 100,
@@ -24,7 +25,7 @@ test('full-screen current effect preserves the selected scene and its tuning aft
   expect(await readSaved()).toMatchObject(expected)
   await page.reload()
   expect(await readSaved()).toMatchObject(expected)
-  await expect(page.getByRole('button', { name: '旋涡', exact: true })).toHaveAttribute('aria-pressed', 'true')
+  await expect(page.getByRole('group', { name: '当前灯效', exact: true })).toContainText('旋涡')
   await expect(page.locator('.three-scene-surface canvas').first()).toHaveAttribute('data-scene', 'vortex')
 })
 
@@ -34,8 +35,8 @@ test('effect picker omits retired scenes and shortcuts while retaining preferred
     await expect(page.getByRole('button', { name, exact: true })).toHaveCount(0)
   }
   for (const [name, effect] of [['晴空浮游', 'volume_rain'], ['雪花飘舞', 'ripple']]) {
-    await page.getByRole('button', { name, exact: true }).click()
-    await expect(page.getByRole('button', { name, exact: true })).toHaveAttribute('aria-pressed', 'true')
+    await chooseStyle(page, '灯效', name)
+    await expect(page.getByRole('group', { name: '当前灯效', exact: true })).toContainText(name)
     await expect(page.locator('.three-scene-surface canvas').first()).toHaveAttribute('data-scene', effect)
   }
 })
@@ -74,7 +75,7 @@ for (const { value: effect } of classicMusicEffects) test(`${effect}: foreground
   page.on('pageerror', error => errors.push(error.message))
   const result = await panoramaCoverage(page, effect)
   await testInfo.attach('panorama-coverage', { body: JSON.stringify(result), contentType: 'application/json' })
-  if (effect === 'rhythm_balls') {
+  if (['rhythm_balls','butterfly_flock','ginkgo_leaves','cosmic_web'].includes(effect)) {
     // Geometric desktop effects deliberately leave empty space around their
     // silhouette; they must remain visible without filling the viewport edges.
     expect(result.coverage).toBeGreaterThan(.002)

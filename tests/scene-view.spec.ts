@@ -1,3 +1,5 @@
+import { chooseStyle } from './helpers/module-settings'
+import { settingsSection } from './helpers/module-settings'
 import { test, expect } from '@playwright/test'
 import { defaults, normalizeSettings } from '../src/features/spectrum/model'
 import { defaultSceneView, normalizeSceneView, rotateSceneView } from '../src/features/spectrum/three/view'
@@ -9,8 +11,8 @@ const saved = (page: import('@playwright/test').Page) => page.evaluate(() => JSO
 test('precise view sliders, presets and drift directions persist independently', async ({ page }) => {
   test.setTimeout(60000)
   await page.goto('/')
-  await page.getByRole('button', { name: '雪花飘舞', exact: true }).click()
-  await page.getByRole('tab', { name: '位置', exact: true }).click()
+  await chooseStyle(page, '灯效', '雪花飘舞')
+  await settingsSection(page, '位置')
   await page.getByText('精细视角', { exact: true }).click()
   await page.getByRole('button', { name: '恢复三维视角', exact: true }).click()
   await page.getByRole('slider', { name: '左右旋转', exact: true }).press('ArrowRight')
@@ -30,19 +32,22 @@ test('precise view sliders, presets and drift directions persist independently',
   await expect.poll(async () => (await saved(page)).view.yaw).toBeCloseTo(-6, 0)
   await canvas.press('Home')
   await expect.poll(async () => (await saved(page)).view).toEqual(defaultSceneView)
-  await page.getByRole('tab', { name: '外观', exact: true }).click()
+  await settingsSection(page, '动效')
+  await settingsSection(page, '动效')
   await page.getByText('造型细节', { exact: true }).click()
   await page.getByRole('slider', { name: '飘雪风向', exact: true }).press('Home')
   await expect.poll(async () => (await saved(page)).music.rippleTwist).toBe(-1.5)
   await page.reload()
-  await page.getByRole('tab', { name: '外观', exact: true }).click()
+  await settingsSection(page, '动效')
+  await settingsSection(page, '动效')
   await page.getByText('造型细节', { exact: true }).click()
   await expect(page.getByRole('slider', { name: '飘雪风向', exact: true })).toHaveAttribute('aria-valuenow', '-1.5')
   await expect.poll(async () => (await saved(page)).view).toEqual(defaultSceneView)
   await page.screenshot({ path: 'artifacts/snow-direction-controls.png' })
-  await page.getByRole('tab', { name: '动效', exact: true }).click()
-  await page.getByRole('button', { name: '晴空浮游', exact: true }).click()
-  await page.getByRole('tab', { name: '外观', exact: true }).click()
+  await settingsSection(page, '动效')
+  await chooseStyle(page, '灯效', '晴空浮游')
+  await settingsSection(page, '动效')
+  await settingsSection(page, '动效')
   await page.getByText('造型细节', { exact: true }).click()
   await page.getByRole('slider', { name: '风向倾角', exact: true }).press('End')
   await expect.poll(async () => (await saved(page)).music.meteorAngle).toBe(45)
@@ -91,7 +96,7 @@ test('preview drag saves while held, supports controlled rotation, pan, roll, do
   await page.getByRole('button',{name:'关闭放大预览',exact:true}).click()
   await page.reload()
   await expect.poll(async () => JSON.parse((await canvas.getAttribute('data-view'))!)).toEqual(expected)
-  await page.getByRole('tab',{name:'位置',exact:true}).click()
+  await settingsSection(page, '位置')
   await page.getByText('精细视角', { exact: true }).click()
   await expect(page.getByRole('slider',{name:'左右旋转',exact:true})).toHaveAttribute('aria-valuemin','-180')
   await expect(page.getByRole('slider',{name:'上下旋转',exact:true})).toHaveAttribute('aria-valuemax','180')

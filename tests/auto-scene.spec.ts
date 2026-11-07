@@ -1,3 +1,4 @@
+import { settingsSection } from './helpers/module-settings'
 import { selectChoice } from './helpers/choices'
 import { test, expect, type Page } from '@playwright/test'
 import { analyzeWallpaper, composeSuggestion, composition } from '../src/features/preview/scene-suggestions'
@@ -87,7 +88,7 @@ test('preview and cancel are isolated; apply, global edits and undo preserve the
   await expect(page.getByRole('slider', { name: '搭配氛围强度' })).toHaveAttribute('aria-valuenow', '100')
   expect(await saved(page)).toEqual({ ...before, quality: 'eco', masks })
   await page.getByRole('button', { name: '应用搭配', exact: true }).click(); await settled(page)
-  await page.getByRole('tab', { name: '外观', exact: true }).click()
+  await settingsSection(page, '外观')
   await page.getByRole('slider', { name: '不透明度', exact: true }).focus(); await page.keyboard.press('ArrowLeft'); await settled(page)
   await expect(page.getByRole('button', { name: '撤销搭配' })).toHaveCount(0)
   await expect(page.getByText('搭配已应用，可撤销。')).toHaveCount(0)

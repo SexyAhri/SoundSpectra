@@ -1,3 +1,5 @@
+import { chooseStyle } from './helpers/module-settings'
+import { settingsSection } from './helpers/module-settings'
 import { expect, test, type Locator } from '@playwright/test'
 import { defaults, normalizeSettings } from '../src/features/spectrum/model'
 import { normalizeMusicSettings } from '../src/features/spectrum/music-engine/catalog'
@@ -42,15 +44,16 @@ for (const [effect, label] of scenes) test(`${effect}: real geometry moves, pers
   test.setTimeout(60000)
   const errors: string[] = []; page.on('pageerror', error => errors.push(error.message))
   await page.goto('/')
-  await page.getByRole('button', { name: label, exact: true }).click()
+  await chooseStyle(page, '灯效', label)
   const canvas = page.locator('.ambient-scene-surface canvas')
   await expect(canvas).toHaveAttribute('data-scene', effect)
   await expect.poll(async () => (await pixels(canvas)).lit, { timeout: 10000 }).toBeGreaterThan(50)
   const before = await pixels(canvas); expect(before.error).toBe(0)
   await expect.poll(async () => (await pixels(canvas)).hash).not.toBe(before.hash)
   const items = Number(await canvas.getAttribute('data-items'))
-  await page.getByRole('tab', { name: '外观', exact: true }).click()
+  await settingsSection(page, '外观')
   await selectChoice(page, '场景氛围', 'immersive'); await selectChoice(page, '声场配色', 'lake')
+  await settingsSection(page, '动效')
   await page.getByText('造型细节', { exact: true }).click()
   await page.getByRole('slider', { name: '细节密度', exact: true }).focus(); await page.keyboard.press('Home')
   await expect.poll(async () => Number(await canvas.getAttribute('data-items'))).toBeLessThan(items)
@@ -67,7 +70,8 @@ for (const [effect, label] of scenes) test(`${effect}: real geometry moves, pers
   await expect(page.getByRole('dialog').locator('canvas')).toHaveAttribute('data-scene', effect)
   await page.getByRole('button', { name: '关闭放大预览', exact: true }).click()
   await page.setViewportSize({ width: 390, height: 844 })
-  await page.getByRole('tab', { name: '外观', exact: true }).click()
+  await settingsSection(page, '外观')
+  await settingsSection(page, '动效')
   await page.getByText('造型细节', { exact: true }).click()
   await expect(page.getByRole('slider', { name: effect==='star_flight'?'航道空间':effect==='aurora_flow'?'薄幕空间':'花境空间', exact: true })).toBeVisible()
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
@@ -85,7 +89,7 @@ test('switching 3D themes releases the previous context; a hard mask hides the w
   for (const [effect, label] of [...scenes, ['sound_field', '频谱回响']] as const) {
     await canvas.evaluate(node => { (window as any).__oldSceneGL = (node as HTMLCanvasElement).getContext('webgl2') })
     const previous = await page.evaluate(() => JSON.parse(localStorage.getItem('soundspectra.settings.v1')!).effect)
-    await page.getByRole('button', { name: label, exact: true }).click()
+    await chooseStyle(page, '灯效', label)
     await expect(canvas).toHaveAttribute('data-renderer', 'three')
     if (previous !== effect) await expect.poll(() => page.evaluate(() => (window as any).__oldSceneGL.isContextLost())).toBe(true)
     expect((await pixels(canvas)).visible).toBe(0)

@@ -1,3 +1,4 @@
+import { railSection } from './helpers/module-settings'
 import { expect, test, type Page } from '@playwright/test'
 import { defaults } from '../src/features/spectrum/model'
 import { railDefaults } from '../src/features/rail/model'
@@ -85,7 +86,7 @@ for (const theme of ['light', 'dark'] as const) {
       ].map(([fg, bg]) => { const a = luminance(fg), b = luminance(bg); return { pair: `${fg}/${bg}`, contrast: (Math.max(a, b) + .05) / (Math.min(a, b) + .05) } })
     })
     for (const { pair, contrast } of pairs) expect(contrast, pair).toBeGreaterThanOrEqual(4.5)
-    await expect(page.getByRole('tab', { name: '外观', exact: true })).toHaveCSS('color', theme === 'light' ? 'rgb(92, 102, 110)' : 'rgb(168, 181, 191)')
+    await expect(page.locator('.module-style-copy > span').first()).toHaveCSS('color', theme === 'light' ? 'rgb(92, 102, 110)' : 'rgb(168, 181, 191)')
     await page.getByRole('combobox', { name: '当前装饰区域' }).click()
     await expect(page.getByRole('listbox')).toHaveCSS('background-color', theme === 'light' ? 'rgb(253, 251, 247)' : 'rgb(41, 51, 60)')
     await page.keyboard.press('Escape')
@@ -107,10 +108,11 @@ for (const theme of ['light', 'dark'] as const) {
       expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
       await page.screenshot({ path: `artifacts/theme-${theme}-${name}.png` })
     }
-    await page.getByRole('tab', { name: '添加', exact: true }).click()
+    await railSection(page, '添加')
     await page.getByRole('button', { name: '写便签', exact: true }).click()
     await expect(page.getByRole('textbox', { name: '便签内容' })).toHaveCSS('color', theme === 'light' ? 'rgb(52, 60, 66)' : 'rgb(228, 232, 235)')
     await page.screenshot({ path: `artifacts/theme-${theme}-note-editor.png` })
+    await page.getByRole('button', { name: '关闭添加挂件', exact: true }).click()
     await openSettings(page)
     await page.screenshot({ path: `artifacts/theme-${theme}-settings.png` })
     await page.setViewportSize({ width: 390, height: 620 })

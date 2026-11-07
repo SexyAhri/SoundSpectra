@@ -1,3 +1,4 @@
+import { settingsSection } from './helpers/module-settings'
 import { expect, test } from '@playwright/test'
 import { visualProbeHtml } from '../scripts/visual-probe-html.mjs'
 import { SceneMotion } from '../src/features/spectrum/three/motion'
@@ -108,7 +109,7 @@ test('galaxy carrier has no uncovered pixels through camera rotation and roll', 
 })
 
 test('appearance starts with three preferences and keeps music timing automatic',async({page})=>{
-  await page.goto('/');await page.getByRole('tab',{name:'外观',exact:true}).click()
+  await page.goto('/');await settingsSection(page, '动效')
   await expect(page.locator('.art-control')).toHaveCount(3)
   await expect(page.getByRole('slider',{name:'音乐参与度',exact:true})).toBeVisible()
   await page.getByText('造型细节',{exact:true}).click()

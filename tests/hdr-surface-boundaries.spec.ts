@@ -69,7 +69,7 @@ test('face-on silk and jellyfish surfaces keep source and bloom finite across no
     try {
       for (let index = 0; index < scenes.length; index++) {
         const original = scenes[index].group.children.map(o => (o as T.Mesh).material as T.ShaderMaterial)
-          .find(m => m?.fragmentShader?.includes(index ? 'float grazing=' : 'float diffuse=.2+'))!
+          .find(m => m?.fragmentShader?.includes(index ? 'float grazing=' : 'float shellAlpha='))!
         if (!original) throw Error('Authored surface material missing')
         const material = original.clone(); material.vertexShader = vertex; material.depthTest = false; material.blending = T.NoBlending
         const scene = new T.Scene(), camera = new T.Camera(), mesh = new T.Mesh(geometry, material); mesh.frustumCulled = false; scene.add(mesh)

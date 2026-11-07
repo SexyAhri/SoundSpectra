@@ -1,3 +1,4 @@
+import { settingsSection } from './helpers/module-settings'
 import { expect, test } from '@playwright/test'
 import { defaults } from '../src/features/spectrum/model'
 
@@ -7,7 +8,7 @@ test('global editors have their own scope and preserve the selected effect regio
   await page.setViewportSize({ width: 1440, height: 940 })
   await page.goto('/')
   await page.getByLabel('添加装饰区域', { exact: true }).click()
-  await page.getByRole('tab', { name: '外观', exact: true }).click()
+  await settingsSection(page, '外观')
   const before = await stored(page)
   await page.getByRole('button', { name: '歌词', exact: true }).click()
   await expect(page.getByRole('combobox', { name: '当前装饰区域' })).toHaveCount(0)
@@ -19,11 +20,11 @@ test('global editors have their own scope and preserve the selected effect regio
   await expect(page.getByRole('switch', { name: '显示桌面歌词' })).toHaveCount(0)
   await expect(page.getByRole('switch', { name: '显示桌面音乐卡片' })).toBeVisible()
   await page.getByRole('button', { name: '壁纸', exact: true }).click()
-  await expect(page.getByRole('switch', { name: '立体壁纸', exact: true })).toBeVisible()
+  await expect(page.getByRole('switch', { name: '局部音乐微光', exact: true })).toBeVisible()
   await expect(page.getByRole('combobox', { name: '当前装饰区域' })).toHaveCount(0)
   await page.getByRole('button', { name: '灯效', exact: true }).click()
   await expect(page.getByRole('combobox', { name: '当前装饰区域' })).toContainText('区域 2')
-  await expect(page.getByRole('tab', { name: '外观', exact: true })).toHaveAttribute('aria-selected', 'true')
+  await expect(page.getByRole('region', { name: '画面与配色', exact: true })).toBeVisible()
   await page.getByRole('button', { name: '歌词', exact: true }).click()
   await page.reload()
   await expect(page.getByRole('button', { name: '歌词', exact: true })).toHaveAttribute('aria-pressed', 'true')
@@ -49,21 +50,32 @@ test('preview and transport stay visible while each inspector scrolls independen
     await page.setViewportSize({ width, height })
     for (const name of ['灯效', '歌词', '音乐卡片', '壁纸']) {
       await page.getByRole('button', { name, exact: true }).click()
-      if (name === '歌词') { await page.getByText('位置与同步', { exact: true }).click(); await page.getByRole('button', { name: '恢复歌词位置' }).scrollIntoViewIfNeeded() }
+      if (name === '歌词') { await page.getByText('位置与高级设置', { exact: true }).click(); await page.getByRole('button', { name: '恢复歌词位置' }).scrollIntoViewIfNeeded() }
       if (name === '音乐卡片') { await page.getByText('精确位置', { exact: true }).click(); await page.getByRole('button', { name: '恢复卡片位置' }).scrollIntoViewIfNeeded() }
-      const geometry = await page.evaluate(() => {
-        const main = document.querySelector('.main-pane')!, footer = document.querySelector('.workspace-footer')!.getBoundingClientRect()
-        const preview = document.querySelector('.desktop-preview')!.getBoundingClientRect()
-        return { documentHeight: document.documentElement.scrollHeight, documentWidth: document.documentElement.scrollWidth,
-          mainHeight: main.clientHeight, mainScroll: main.scrollHeight, footerBottom: footer.bottom, previewTop: preview.top, previewBottom: preview.bottom, previewWidth: preview.width }
-      })
-      expect(geometry.documentHeight).toBeLessThanOrEqual(height)
-      expect(geometry.documentWidth).toBeLessThanOrEqual(width)
-      expect(geometry.mainScroll).toBeLessThanOrEqual(geometry.mainHeight)
-      expect(geometry.footerBottom).toBeLessThanOrEqual(height)
-      expect(geometry.previewBottom).toBeLessThanOrEqual(height - 60)
-      expect(geometry.previewTop).toBeGreaterThan(54)
-      expect(geometry.previewWidth).toBeGreaterThan(width === 1440 ? 850 : 440)
+      // Changing wallpaper controls can change the footer height. Wait for the
+      // ResizeObserver measurement and React layout to agree before asserting.
+      await expect(async () => {
+        const geometry = await page.evaluate(() => {
+          const main = document.querySelector('.main-pane')!, footer = document.querySelector('.workspace-footer')!.getBoundingClientRect()
+          const preview = document.querySelector('.desktop-preview')!.getBoundingClientRect()
+          const holder = document.querySelector('.preview-stage-holder')!.getBoundingClientRect()
+          return { documentHeight: document.documentElement.scrollHeight, documentWidth: document.documentElement.scrollWidth,
+            mainHeight: main.clientHeight, mainScroll: main.scrollHeight, footerBottom: footer.bottom, previewTop: preview.top, previewBottom: preview.bottom, previewWidth: preview.width,
+            previewHeight: preview.height, holderWidth: holder.width, holderHeight: holder.height }
+        })
+        expect(geometry.documentHeight).toBeLessThanOrEqual(height)
+        expect(geometry.documentWidth).toBeLessThanOrEqual(width)
+        expect(geometry.mainScroll).toBeLessThanOrEqual(geometry.mainHeight)
+        expect(geometry.footerBottom).toBeLessThanOrEqual(height)
+        expect(geometry.previewBottom).toBeLessThanOrEqual(height - 60)
+        expect(geometry.previewTop).toBeGreaterThan(54)
+        // Wrapped toolbars and transport can make height the limiting dimension.
+        // The preview should use the available holder without overflowing it.
+        expect(geometry.previewWidth).toBeGreaterThan(300)
+        expect(geometry.previewWidth).toBeLessThanOrEqual(geometry.holderWidth + 1)
+        expect(geometry.previewHeight).toBeLessThanOrEqual(geometry.holderHeight + 1)
+        expect(Math.min(Math.abs(geometry.holderWidth - geometry.previewWidth), Math.abs(geometry.holderHeight - geometry.previewHeight))).toBeLessThan(2)
+      }).toPass({ timeout: 5000 })
     }
   }
   await page.getByRole('button', { name: '歌词', exact: true }).click()

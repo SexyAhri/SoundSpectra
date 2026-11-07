@@ -1,3 +1,5 @@
+import { chooseStyle } from './helpers/module-settings'
+import { settingsSection } from './helpers/module-settings'
 import { test, expect, type Page } from '@playwright/test'
 import { defaults, normalizeSettings } from '../src/features/spectrum/model'
 import { displayBounds } from '../src/features/spectrum/regions'
@@ -10,16 +12,19 @@ test('studio uses the real effect catalog and persists choices through illustrat
   const errors: string[] = []; page.on('pageerror', error => errors.push(error.message))
   await page.goto('/')
   await expect(page.getByRole('heading', { name: '桌面预览', exact: true })).toBeVisible()
-  await expect(page.locator('.effect-tile')).toHaveCount(musicEffects.length)
-  await expect(page.locator('.effect-tile .effect-art')).toHaveCount(musicEffects.length)
-  await page.getByRole('button', { name: '雪花飘舞', exact: true }).click()
+  await page.getByRole('button', { name: '更换灯效', exact: true }).click()
+  await expect(page.locator('.module-style-option')).toHaveCount(musicEffects.length)
+  await expect(page.locator('.module-style-option .effect-art')).toHaveCount(musicEffects.length)
+  await page.keyboard.press('Escape')
+  await chooseStyle(page, '灯效', '雪花飘舞')
   await expect.poll(async () => (await saved(page)).effect).toBe('ripple')
-  await expect(page.getByRole('button', { name: '雪花飘舞', exact: true })).toHaveAttribute('aria-pressed', 'true')
+  await expect(page.getByRole('group', { name: '当前灯效', exact: true })).toContainText('雪花飘舞')
   await page.reload()
-  await expect(page.getByRole('button', { name: '雪花飘舞', exact: true })).toHaveAttribute('aria-pressed', 'true')
+  await expect(page.getByRole('group', { name: '当前灯效', exact: true })).toContainText('雪花飘舞')
   await page.screenshot({ path: 'artifacts/studio-desktop.png' })
-  await page.getByRole('tab', { name: '外观', exact: true }).click()
+  await settingsSection(page, '外观')
   await expect(page.getByRole('slider', { name: '不透明度', exact: true })).toBeVisible()
+  await settingsSection(page, '动效')
   await page.getByText('造型细节', { exact: true }).click()
   await expect(page.getByRole('slider', { name: '雪片大小', exact: true })).toBeVisible()
   expect(errors).toEqual([])
@@ -32,7 +37,7 @@ test('music card supports persistent style, scale and keyboard placement without
   const card = page.getByTestId('music-card-layer')
   await expect(card.getByRole('article', { name: '桌面音乐信息卡' })).toBeVisible()
   await expect(card.getByText('音乐信息预览', { exact: true })).toBeVisible()
-  await page.getByRole('button', { name: '简约', exact: true }).click()
+  await chooseStyle(page, '卡片样式', '简约')
   await expect(card.locator('.music-card')).toHaveClass(/music-card-compact/)
   await page.getByRole('button', { name: '琥珀色卡片' }).click()
   await expect.poll(async () => (await saved(page)).desktopCard.accentColor).toBe('#efb273')

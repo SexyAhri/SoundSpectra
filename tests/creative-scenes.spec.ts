@@ -1,11 +1,12 @@
+import { settingsSection } from './helpers/module-settings'
 import { expect, test } from '@playwright/test'
 import { defaults, normalizeSettings } from '../src/features/spectrum/model'
 import { effectDefinitions, applyArt } from '../src/features/spectrum/effect-definitions'
 import { musicEffects } from '../src/features/spectrum/music-engine/catalog'
 import { visualProbeHtml } from '../scripts/visual-probe-html.mjs'
 
-test('all eleven authoring definitions map art controls into compatible existing settings',()=>{
-  expect(Object.keys(effectDefinitions)).toHaveLength(11)
+test('all authoring definitions map art controls into compatible existing settings',()=>{
+  expect(Object.keys(effectDefinitions).sort()).toEqual(musicEffects.map(e=>e.value).sort())
   for(const {value:effect} of musicEffects){
     const definition=effectDefinitions[effect]
     expect(definition.rules).toHaveLength(4)
@@ -24,14 +25,14 @@ test('art controls persist through the old schema and resetting jellyfish preser
   const initial={...structuredClone(defaults),music:{...defaults.music,dragonWidth:1.9,meteorDensity:91}}
   await page.addInitScript(value=>{if(!localStorage.getItem('soundspectra.settings.v1'))localStorage.setItem('soundspectra.settings.v1',JSON.stringify(value))},initial)
   await page.goto('/')
-  await page.getByRole('tab',{name:'外观',exact:true}).click()
+  await settingsSection(page, '动效')
   await expect(page.getByRole('slider',{name:'漂游速度',exact:true})).toHaveCount(0)
   await page.getByRole('slider',{name:'深水空间',exact:true}).press('Home')
   await page.getByRole('slider',{name:'音乐参与度',exact:true}).press('Home')
   const saved=()=>page.evaluate(()=>JSON.parse(localStorage.getItem('soundspectra.settings.v1')!))
   await expect.poll(saved).toMatchObject({effect:'rhythm_balls',music:{fieldScale:1.65,ambientSpread:.65,sensitivity:.5,dragonWidth:1.9,meteorDensity:91}})
   await page.screenshot({path:'artifacts/visual-studies/art-controls.png'})
-  await page.reload();await page.getByRole('tab',{name:'外观',exact:true}).click()
+  await page.reload();await settingsSection(page, '动效')
   await expect(page.getByRole('slider',{name:'深水空间',exact:true})).toHaveAttribute('aria-valuenow','0')
   await page.getByRole('button',{name:'恢复当前灯效参数',exact:true}).click()
   await expect.poll(saved).toMatchObject({effect:'rhythm_balls',music:{sensitivity:1,dragonWidth:1.9,meteorDensity:91}})
