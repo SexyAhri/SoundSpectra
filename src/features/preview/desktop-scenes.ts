@@ -5,7 +5,7 @@ import type { SceneLayout } from './scene-library'
 export interface DesktopScene {
   version: 1;
   card: DesktopCardSettings;
-  lyrics: Omit<LyricSettings, 'folder' | 'offsetMs'>;
+  lyrics: Omit<LyricSettings, 'folder' | 'offsetMs' | 'fontStyle'> & Partial<Pick<LyricSettings, 'fontStyle'>>;
   followCover: boolean;
   layerOrder?: string[];
 }
@@ -26,7 +26,9 @@ export function parseDesktopScene(value: unknown): DesktopScene {
       && Object.entries(a).every(([key, value]) => same(value, (b as Record<string, unknown>)[key]))
     return a === b
   }
-  const comparable = { ...source, card: { ...source.card } }
+  const comparable = { ...source, card: { ...source.card }, lyrics: { ...source.lyrics } }
+  // Older desktop scenes preserve the user's current font selection on apply.
+  if (!Object.prototype.hasOwnProperty.call(source.lyrics, 'fontStyle')) delete result.lyrics.fontStyle
   if ('accentColor' in comparable.card && !result.card.accentColor) delete comparable.card.accentColor
   if (typeof source.followCover !== 'boolean' || !same(result, comparable)) throw Error('桌面方案版本或展示参数无效。')
   return result

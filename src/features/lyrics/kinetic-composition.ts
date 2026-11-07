@@ -1,132 +1,59 @@
 import { defaultLyricPalette, type LyricPalette } from './lyric-palette'
-import { isLyricBreakMark, lyricDisplayText, type LyricLine } from './model'
+import { lyricDisplayText, type LyricLine } from './model'
+import { timedGlyphs, type TimedGlyph } from './lyric-glyphs'
+import { ExpressiveComposition } from './expressive-composition'
+import { lyricFont, lyricInk, lyricWeight, measureLyricGlyphs, type LyricFontStyle } from './lyric-typography'
+export { hasTimedWords, timedGlyphs, type TimedGlyph } from './lyric-glyphs'
 
 export type CompositionMode = 'depth' | 'stardust' | 'stage'
-export interface TimedGlyph { text: string; start: number; end: number; timed: boolean; hidden?: boolean }
-interface PlacedGlyph extends TimedGlyph { x: number; y: number; size: number; angle: number; row: number; width: number; arcAngle?:number }
+interface PlacedGlyph extends TimedGlyph { x: number; y: number; size: number; angle: number; row: number; width: number; arcAngle?:number; weight: number; baseline: number; opacity: number }
 interface Composition { glyphs: PlacedGlyph[]; font: number; rows: number }
 export interface CompositionFrame {
   lines: LyricLine[]; index: number; time: number; width: number; height: number;
   fontSize: number; regionWidth: number; mode: CompositionMode; reduced: boolean;
-  backgroundOpacity: number; palette?:LyricPalette;readability?:'soft'|'contrast';
+  backgroundOpacity: number; fontStyle?: LyricFontStyle; palette?:LyricPalette;readability?:'soft'|'contrast';
 }
 
-const face = '"Microsoft YaHei UI", "Segoe UI", "Noto Sans CJK SC", sans-serif'
 const clamp = (n: number) => Math.max(0, Math.min(1, n))
 const smooth = (n: number) => { const t = clamp(n); return t * t * (3 - 2 * t) }
-const font = (size: number, weight = 500) => `${weight} ${size}px ${face}`
-const segmenter = new Intl.Segmenter(undefined, { granularity: 'grapheme' })
-const wordSegmenter = new Intl.Segmenter(undefined, { granularity: 'word' })
-
-export function hasTimedWords(line: LyricLine) {
-  if (!line.words.length || line.words.map(word => word.text).join('') !== line.text) return false
-  let previous = line.start
-  return line.words.every(word => {
-    const valid = word.start >= line.start && word.end > word.start && word.end <= line.end && word.start >= previous
-    previous = word.end
-    return valid
-  })
-}
-
-export function timedGlyphs(line: LyricLine): TimedGlyph[] {
-  const timed = hasTimedWords(line)
-  const words = timed ? line.words : [{ text: line.text, start: line.start, end: line.end }]
-  const glyphs = words.flatMap(word => {
-    const letters = [...segmenter.segment(word.text)].map(item => item.segment)
-    return letters.map(text => ({ text, start: word.start, end: word.end, timed }))
-  })
-  return glyphs.map((glyph, index) => ({ ...glyph, hidden: isLyricBreakMark(glyph.text, glyphs[index - 1]?.text, glyphs[index + 1]?.text) }))
-}
-
-/** Prefer punctuation/word boundaries; Chinese passages split at balanced glyph counts. */
-function phrases(glyphs: TimedGlyph[], count: number): TimedGlyph[][] {
-  const groups: TimedGlyph[][] = []; let cursor = 0
-  let glyphCount = 0
-  const boundaries = [...wordSegmenter.segment(glyphs.map(glyph => glyph.text).join(''))].map(word => {
-    glyphCount += [...segmenter.segment(word.segment)].length
-    return glyphCount
-  })
-  for (let row = 0; row < count - 1; row++) {
-    const target = cursor + Math.ceil((glyphs.length - cursor) / (count - row))
-    let cut = target, distance = Infinity
-    for (const boundary of boundaries) {
-      if (boundary <= cursor || boundary > glyphs.length - 2 * (count - row - 1)) continue
-      if (/^[一不的在和与把将为向被从]$/u.test(glyphs[boundary - 1].text)) continue
-      if (Math.abs(boundary - target) < distance) { cut = boundary; distance = Math.abs(boundary - target) }
-    }
-    distance = Infinity
-    for (let i = Math.max(cursor + 2, target - 2); i < Math.min(glyphs.length - 1, target + 3); i++) {
-      if (/^[\s，。！？、,.!?;；]$/u.test(glyphs[i].text) && Math.abs(i - target) < distance) { cut = i + 1; distance = Math.abs(i - target) }
-    }
-    if (cut > cursor + 1 && /^[一不的在和与把将为向被从]$/u.test(glyphs[cut - 1].text)) cut--
-    groups.push(glyphs.slice(cursor, cut)); cursor = cut
-  }
-  groups.push(glyphs.slice(cursor)); return groups.filter(group => group.some(glyph => !glyph.hidden && glyph.text.trim()))
-}
-
-function textWidth(context: CanvasRenderingContext2D, glyphs: TimedGlyph[], size: number) {
-  context.font = font(size)
-  return glyphs.reduce((sum, glyph) => sum + (glyph.hidden ? size * .18 : context.measureText(glyph.text).width), 0)
-}
-
 function compose(context: CanvasRenderingContext2D, line: LyricLine, frame: CompositionFrame): Composition {
-  const { width: w, height: h, mode } = frame, letters = timedGlyphs(line)
+  const { width: w, height: h } = frame, letters = timedGlyphs(line), style = frame.fontStyle ?? 'modern'
   const desired = frame.fontSize * w / (1920 * frame.regionWidth) * 2.35
-  const visibleCount = letters.filter(glyph => !glyph.hidden && glyph.text.trim()).length
-  const groups = phrases(letters, mode === 'stage' ? visibleCount > 8 ? 3 : 2 : visibleCount > 7 ? 2 : 1)
-  let base = Math.min(desired, mode === 'stage' ? h * .22 : h * .30)
-  const placed: PlacedGlyph[] = []
-  if (mode === 'stardust') {
-    base = Math.min(desired, h * .32)
-    base *= Math.min(1, w * .82 / Math.max(1, textWidth(context, letters, base)))
-    const total = textWidth(context, letters, base); let cursor = 0
-    context.font = font(base)
-    for (const glyph of letters) {
-      const width = glyph.hidden ? base * .18 : context.measureText(glyph.text).width
-      const t = (cursor + width / 2) / Math.max(1, total), angle = (t - .5) * 1.5
-      placed.push({ ...glyph, x: w * (.5 + Math.sin(angle) / Math.sin(.75) * .40),
-        y: h * (.42 + (1 - Math.cos(angle)) / (1 - Math.cos(.75)) * .22),
-        angle: angle * .42, arcAngle:angle, size: base, row: 0, width }); cursor += width
-    }
-    return { glyphs: placed, font: base, rows: 1 }
-  }
-  const parity = Math.floor(line.start / 1000) % 2
-  const scales = mode === 'stage' ? [1, 1.22, .91] : [1, .93]
-  const maxWidth = w * (mode === 'stage' ? .66 : .80)
-  groups.forEach((group, row) => { base *= Math.min(1, maxWidth / Math.max(1, textWidth(context, group, base * (scales[row] ?? 1)))) })
-  groups.forEach((group, row) => {
-    const size = base * (scales[row] ?? 1), rowWidth = textWidth(context, group, size)
-    const left = mode === 'stage' ? [w * .10, w * .28, w * .16][row]
-      : row % 2 === parity ? w * .10 : w * .90 - rowWidth
-    const y = mode === 'stage' ? (groups.length === 2 ? [.35, .67] : [.24, .50, .76])[row] * h
-      : (groups.length === 1 ? .51 : [.37, .68][row]) * h
-    let x = left
-    context.font = font(size)
-    for (const glyph of group) {
-      const width = glyph.hidden ? size * .18 : context.measureText(glyph.text).width
-      const angle = 0
-      placed.push({ ...glyph, x: x + width / 2, y: y + (x - left + width / 2 - rowWidth / 2) * Math.tan(angle), size, width, row, angle }); x += width
-    }
+  let base = Math.min(desired, h * .32)
+  const weight = lyricWeight(style, base, 'stardust')
+  let metrics = measureLyricGlyphs(context, letters, base, style, 'stardust', weight)
+  base *= Math.min(1, w * .82 / Math.max(1, metrics.reduce((sum, metric) => sum + metric.advance, 0)))
+  metrics = measureLyricGlyphs(context, letters, base, style, 'stardust', weight)
+  const total = metrics.reduce((sum, metric) => sum + metric.advance, 0)
+  let cursor = 0
+  const glyphs = letters.map((glyph, index) => {
+    const metric = metrics[index], width = metric.advance
+    const t = (cursor + metric.leading + metric.width / 2) / Math.max(1, total), angle = (t - .5) * 1.5
+    cursor += width
+    return { ...glyph, x: w * (.5 + Math.sin(angle) / Math.sin(.75) * .40),
+      y: h * (.42 + (1 - Math.cos(angle)) / (1 - Math.cos(.75)) * .22),
+      angle: angle * .42, arcAngle: angle, size: base * metric.scale, row: 0, width,
+      weight, baseline: metric.baseline, opacity: metric.opacity }
   })
-  return { glyphs: placed, font: base, rows: groups.length }
+  return { glyphs, font: base, rows: 1 }
 }
 
 export class KineticComposition {
+  private expressive = new ExpressiveComposition()
   private cache = new Map<string,Composition>()
-  private glow: HTMLCanvasElement | null = null
-  private previous?: Pick<CompositionFrame, 'lines' | 'index' | 'time' | 'width' | 'height' | 'fontSize' | 'regionWidth' | 'mode' | 'reduced'>
+  private previous?: Pick<CompositionFrame, 'lines' | 'index' | 'time' | 'width' | 'height' | 'fontSize' | 'regionWidth' | 'mode' | 'reduced' | 'fontStyle'>
   private handoff?: LyricLine
   private transitioning = false
   get isTransitioning() { return this.transitioning }
   private composition(context:CanvasRenderingContext2D,line:LyricLine,frame:CompositionFrame){
-    const key=`${frame.mode}|${frame.width}|${frame.height}|${frame.fontSize}|${frame.regionWidth}|${line.start}|${line.end}|${line.text}|${line.words.map(w=>`${w.text}:${w.start}:${w.end}`).join(',')}`
+    const key=`${frame.fontStyle}|${frame.mode}|${frame.width}|${frame.height}|${frame.fontSize}|${frame.regionWidth}|${line.start}|${line.end}|${line.text}|${line.words.map(w=>`${w.text}:${w.start}:${w.end}`).join(',')}`
     let composition=this.cache.get(key)
     if(!composition){composition=compose(context,line,frame);this.cache.set(key,composition);if(this.cache.size>4)this.cache.delete(this.cache.keys().next().value!)}
     return composition
   }
   private continuousHandoff(frame: CompositionFrame) {
     const previous = this.previous
-    const compatible = previous && previous.lines === frame.lines && previous.mode === frame.mode && previous.reduced === frame.reduced &&
+    const compatible = previous && previous.lines === frame.lines && previous.mode === frame.mode && previous.fontStyle === frame.fontStyle && previous.reduced === frame.reduced &&
       previous.width === frame.width && previous.height === frame.height && previous.fontSize === frame.fontSize && previous.regionWidth === frame.regionWidth
     const continuous = compatible && frame.time >= previous.time && frame.time - previous.time <= 280 && frame.index === previous.index + 1
     const continuing = compatible && frame.time >= previous.time && frame.time - previous.time <= 280 && frame.index === previous.index
@@ -136,7 +63,7 @@ export class KineticComposition {
     if (age < 0 || age >= 360) this.handoff = undefined
     this.transitioning = !!this.handoff
     this.previous = { lines: frame.lines, index: frame.index, time: frame.time, width: frame.width, height: frame.height,
-      fontSize: frame.fontSize, regionWidth: frame.regionWidth, mode: frame.mode, reduced: frame.reduced }
+      fontSize: frame.fontSize, regionWidth: frame.regionWidth, mode: frame.mode, fontStyle: frame.fontStyle, reduced: frame.reduced }
     return this.handoff
   }
   private pose(glyph: PlacedGlyph, frame: CompositionFrame, progress: number, exit = 0) {
@@ -159,8 +86,8 @@ export class KineticComposition {
     return { x, y, angle, scale }
   }
   private drawLine(context: CanvasRenderingContext2D, composition: Composition, line: LyricLine, frame: CompositionFrame,
-    progress: number, opacity: number, exit = 0, lightOnly = false) {
-    const { mode, reduced } = frame, palette = frame.palette ?? defaultLyricPalette
+    progress: number, opacity: number, exit = 0) {
+    const { reduced } = frame, palette = frame.palette ?? defaultLyricPalette
     const age = frame.time - line.start
     const reveal = reduced ? 1 : .86 + .14 * smooth(age / 140)
     context.save()
@@ -169,17 +96,19 @@ export class KineticComposition {
       const pose = this.pose(glyph, frame, progress, exit)
       const sung = glyph.timed ? smooth((frame.time - glyph.start) / Math.max(1, glyph.end - glyph.start)) : 0
       context.save(); context.translate(pose.x, pose.y); context.rotate(pose.angle); context.scale(pose.scale, pose.scale)
-      context.font = font(glyph.size, mode === 'stage' && glyph.row === 1 ? 600 : 500)
-      context.textAlign = 'center'; context.textBaseline = 'middle'; context.globalAlpha = opacity * reveal
-      if (!lightOnly) {
-        if (frame.readability === 'contrast') { context.strokeStyle = palette.shadow; context.lineWidth = Math.max(1, glyph.size * .045); context.lineJoin = 'round'; context.strokeText(glyph.text, 0, 0) }
-        context.fillStyle = palette.unsung; context.fillText(glyph.text, 0, 0)
+      context.font = lyricFont(glyph.size, frame.fontStyle, glyph.weight)
+      context.textAlign = 'center'; context.textBaseline = 'middle'; context.globalAlpha = opacity * reveal * glyph.opacity
+      if (frame.readability === 'contrast') {
+        context.strokeStyle = palette.shadow; context.lineWidth = Math.max(1, glyph.size * .045); context.lineJoin = 'round'
+        context.strokeText(glyph.text, 0, glyph.baseline)
       }
-      if (sung > 0) {
-        context.fillStyle = lightOnly ? palette.glow : palette.sung
-        context.globalAlpha = opacity * reveal * (lightOnly ? .62 : 1) * (.26 + sung * .74)
-        context.fillText(glyph.text, 0, 0)
-      }
+      const members = composition.glyphs.filter(g => g.start === glyph.start && g.end === glyph.end && !g.hidden)
+      const wordWidth = members.reduce((sum, g) => sum + g.width, 0)
+      const offset = members.slice(0, members.indexOf(glyph)).reduce((sum, g) => sum + g.width, 0) + glyph.width / 2 - wordWidth / 2
+      const wordProgress = glyph.timed ? clamp((frame.time - glyph.start) / Math.max(1, glyph.end - glyph.start)) : clamp((frame.time - glyph.start) / 650)
+      const active = frame.time >= glyph.start && frame.time < (glyph.timed ? glyph.end : glyph.start + 650)
+      context.fillStyle = lyricInk(context, palette, wordWidth, glyph.size, glyph.timed ? sung : 1, wordProgress, active, reduced, offset)
+      context.fillText(glyph.text, 0, glyph.baseline)
       context.restore()
     }
     context.restore()
@@ -188,8 +117,13 @@ export class KineticComposition {
     const {width:w,height:h,lines,index,time,mode,reduced}=frame,palette=frame.palette??defaultLyricPalette
     context.clearRect(0,0,w,h)
     this.background(context,frame,palette)
+    if (mode !== 'stardust') {
+      this.previous = undefined; this.handoff = undefined
+      this.transitioning = this.expressive.draw(context, frame)
+      return
+    }
     const line=lines[index]
-    if(!line){context.save();context.fillStyle=palette.unsung;context.font=font(Math.min(h*.14,w*.05));context.textAlign='center';context.textBaseline='middle';context.fillText('·  ·  ·',w*.5,h*.48);context.restore();return}
+    if(!line){context.save();context.fillStyle=palette.unsung;context.font=lyricFont(Math.min(h*.14,w*.05),frame.fontStyle);context.textAlign='center';context.textBaseline='middle';context.fillText('·  ·  ·',w*.5,h*.48);context.restore();return}
     const composition=this.composition(context,line,frame),age=time-line.start
     const progress=clamp(age/Math.max(1,line.end-line.start))
     const outgoing = this.continuousHandoff(frame)
@@ -199,13 +133,6 @@ export class KineticComposition {
       const outgoingProgress = clamp((time - outgoing.start) / Math.max(1, outgoing.end - outgoing.start))
       this.drawLine(context, this.composition(context, outgoing, frame), outgoing, frame, outgoingProgress, (1 - exit) * .46, exit)
     }
-    // One half-resolution emissive layer and two whole-layer blurs replace per-glyph shadows.
-    const glow=this.glow??=document.createElement('canvas'),gw=Math.max(1,Math.round(w/2)),gh=Math.max(1,Math.round(h/2))
-    if(glow.width!==gw||glow.height!==gh){glow.width=gw;glow.height=gh}
-    const gc=glow.getContext('2d')!
-    gc.setTransform(gw/w,0,0,gh/h,0,0);gc.clearRect(0,0,w,h);this.drawLine(gc, composition, line, frame, progress, 1, 0, true)
-    context.save();context.globalAlpha=.23;context.filter=`blur(${composition.font*.35}px)`;context.drawImage(glow,0,0,w,h)
-    context.globalAlpha=.10;context.filter=`blur(${composition.font*.9}px)`;context.drawImage(glow,0,0,w,h);context.restore()
     this.drawLine(context, composition, line, frame, progress, 1)
     if(mode==='stardust'){
       context.save();context.strokeStyle=palette.accent;context.globalAlpha=.18;context.lineWidth=.7;context.beginPath()
@@ -225,8 +152,8 @@ export class KineticComposition {
       const alpha=delta<0 ? .18*smooth(progress/.12) : .15+.22*smooth((progress-.42)/.48)
       let size=Math.min(h*.09,w*.028)*(delta<0?.82:.95)
       const text=lyricDisplayText(line.text),limit=w*.76
-      ctx.font=font(size,400)
-      while(size>h*.038&&ctx.measureText(text).width>limit){size*=.92;ctx.font=font(size,400)}
+      ctx.font=lyricFont(size,frame.fontStyle,lyricWeight(frame.fontStyle??'modern',size,'stardust'))
+      while(size>h*.038&&ctx.measureText(text).width>limit){size*=.92;ctx.font=lyricFont(size,frame.fontStyle,lyricWeight(frame.fontStyle??'modern',size,'stardust'))}
       ctx.globalAlpha=reduced?Math.min(alpha,.3):alpha;ctx.textAlign=align
       ctx.fillText(text,w*(delta<0?.1:.9),h*y,limit)
     }ctx.restore()

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type CSSProperties } from 'react'
+import { lazy, Suspense, useEffect, useMemo, useState, type CSSProperties } from 'react'
 import type { LyricSettings, SceneBounds, SpectrumSettings } from '../spectrum/model'
 import { relativeBounds } from '../spectrum/regions'
 import type { NowPlaying } from '../desktop-card/use-now-playing'
@@ -10,19 +10,23 @@ import { avoidRail } from './avoid-rail'
 import { lyricPalette } from './lyric-palette'
 import { LyricSceneFocus } from '../spectrum/scene-focus'
 
-export function LyricLayer({ settings, document, info, demo = false, active = true, desktop = false, host, onBoundsChange, draggable = false, onSelect, obstacles = [], zIndex, selected, appearance }: {
+const FoldedLyrics = lazy(() => import('./folded-lyrics').then(module => ({ default: module.FoldedLyrics })))
+
+export function LyricLayer({ settings, document, info, demo = false, active = true, desktop = false, host, onBoundsChange, draggable = false, onSelect, obstacles = [], zIndex, selected, appearance, cardAccent, onSnap }: {
   settings: LyricSettings; document: LyricDocument; info: NowPlaying; demo?: boolean; active?: boolean; desktop?: boolean; host?: SceneBounds;
   onBoundsChange?: (bounds: SceneBounds, resized?: boolean) => void; draggable?: boolean;
   onSelect?: () => void;
   obstacles?: SceneBounds[]; zIndex?: number; selected?: boolean;
   appearance?:Pick<SpectrumSettings,'effect'|'music'|'color'>;
+  cardAccent?: string;
+  onSnap?: (guides: { x: number | null; y: number | null }) => void;
 }) {
   const movable = draggable && !desktop && !!onBoundsChange
   const safe = useMemo(() => avoidRail(settings.bounds, obstacles), [settings.bounds, obstacles])
-  const placement = useLyricPlacement(safe.bounds, movable, onBoundsChange)
+  const placement = useLyricPlacement(safe.bounds, movable, onBoundsChange, onSnap)
   const [clock, setClock] = useState(Date.now()), [demoStart] = useState(Date.now)
   const [reduced, setReduced] = useState(false)
-  const palette=useMemo(()=>lyricPalette(appearance),[appearance])
+  const palette=useMemo(()=>lyricPalette(appearance,cardAccent),[appearance?.effect,appearance?.music.fieldPalette,appearance?.color,cardAccent])
   useEffect(() => {
     const media = matchMedia('(prefers-reduced-motion: reduce)'), change = () => setReduced(media.matches)
     change(); media.addEventListener('change', change)
@@ -46,12 +50,12 @@ export function LyricLayer({ settings, document, info, demo = false, active = tr
   if (desktop && (!canShow || safe.crowded)) return null
   const b = host ? relativeBounds(placement.bounds, host) : placement.bounds
   const displayFontSize = Math.max(18, Math.min(72, settings.fontSize * Math.sqrt(placement.bounds.width * placement.bounds.height / (settings.bounds.width * settings.bounds.height))))
-  return <div className={`lyric-layer lyric-motion-${settings.motion}${movable ? ' is-draggable' : ''}`} data-testid="lyric-layer" data-preview-object="lyrics" data-selected={selected || undefined} data-rail-crowded={safe.crowded || undefined} style={{ zIndex, left: `${b.x * 100}%`, top: `${b.y * 100}%`, width: `${b.width * 100}%`, height: `${b.height * 100}%` } as CSSProperties}
+  return <div className={`lyric-layer lyric-motion-${settings.motion}${movable ? ' is-draggable' : ''}`} data-testid="lyric-layer" data-preview-object="lyrics" data-selected={selected || undefined} data-rail-crowded={safe.crowded || undefined} data-light-palette={palette.prism.join(',')} style={{ zIndex, left: `${b.x * 100}%`, top: `${b.y * 100}%`, width: `${b.width * 100}%`, height: `${b.height * 100}%` } as CSSProperties}
     role={movable ? 'group' : undefined} tabIndex={movable ? 0 : undefined} aria-label={movable ? '歌词位置，拖动或方向键移动' : undefined}
     onFocus={movable ? onSelect : undefined} onPointerDown={event => placement.begin(event)} onPointerMove={placement.moving} onPointerUp={event => placement.end(event)} onPointerCancel={event => placement.end(event, true)} onLostPointerCapture={event => placement.end(event, true)} onKeyDown={placement.keyboard}>
     {canShow && !safe.crowded ? <>
       {line && lyricDisplayText(line.text).trim() && <LyricSceneFocus bounds={placement.bounds} lineKey={`${simulated?'demo':document.key}:${index}:${line.start}`} />}
-      <KineticLyrics lines={lines} index={index} time={time} readTime={()=>((simulated?(Date.now()-demoStart)%demoDuration:playbackPosition(info,Date.now())??0)+settings.offsetMs)} playing={simulated||info.playing} desktop={desktop} fontSize={displayFontSize} regionWidth={placement.bounds.width} mode={settings.motion} reduced={reduced} backgroundOpacity={settings.backgroundOpacity} palette={palette} readability={settings.readability} />
+      {settings.motion === 'folded' ? <Suspense fallback={null}><FoldedLyrics lines={lines} time={time} readTime={()=>((simulated?(Date.now()-demoStart)%demoDuration:playbackPosition(info,Date.now())??0)+settings.offsetMs)} playing={simulated||info.playing} desktop={desktop} fontStyle={settings.fontStyle} fontSize={displayFontSize} regionWidth={placement.bounds.width} reduced={reduced} backgroundOpacity={settings.backgroundOpacity} palette={palette} readability={settings.readability} /></Suspense> : <KineticLyrics lines={lines} index={index} time={time} readTime={()=>((simulated?(Date.now()-demoStart)%demoDuration:playbackPosition(info,Date.now())??0)+settings.offsetMs)} playing={simulated||info.playing} desktop={desktop} fontStyle={settings.fontStyle} fontSize={displayFontSize} regionWidth={placement.bounds.width} mode={settings.motion} reduced={reduced} backgroundOpacity={settings.backgroundOpacity} palette={palette} readability={settings.readability} />}
       <span className="sr-only" aria-label="当前歌词">{line ? lyricDisplayText(line.text) : '前奏'}</span>
       {simulated && <span className="lyric-demo-label">模拟歌词</span>}
     </> : !safe.crowded && <p className="lyric-empty">{valid && synced === null ? '播放器未提供有效播放进度，暂不能同步歌词' : document.message}</p>}
