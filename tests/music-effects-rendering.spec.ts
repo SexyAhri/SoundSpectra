@@ -96,13 +96,15 @@ test('repeated spatial effect switches release prior Three contexts; effect para
   await expect(page.getByRole('alert')).toHaveCount(0)
   expect(errors).toEqual([])
   await page.getByRole('tab', { name: '外观', exact: true }).click()
-  const speed = page.getByRole('slider', { name: '漂游速度', exact: true })
+  await page.getByText('造型细节', { exact: true }).click()
+  const speed = page.getByRole('slider', { name: '伞体大小', exact: true })
   await speed.focus(); await speed.press('Home'); await speed.press('ArrowRight')
-  await expect(speed).toHaveAttribute('aria-valuenow', '0.2')
+  await expect(speed).toHaveAttribute('aria-valuenow', '1.3')
   await expect(page.getByText('已保存到此浏览器')).toBeVisible()
   await page.reload()
   await page.getByRole('tab', { name: '外观', exact: true }).click()
-  await expect(page.getByRole('slider', { name: '漂游速度', exact: true })).toHaveAttribute('aria-valuenow', '0.2')
+  await page.getByText('造型细节', { exact: true }).click()
+  await expect(page.getByRole('slider', { name: '伞体大小', exact: true })).toHaveAttribute('aria-valuenow', '1.3')
 })
 
 test('spatial effects respect global masks and live silence', async ({ page }) => {

@@ -44,7 +44,8 @@ void main(){
   vec3 tint=mix(uColor,uAccent,.12+.16*sin(vUv.x*5.+vLane*1.7));
   float hot=pow(clamp(1.-vUv.x,0.,1.),2.5);
   tint=mix(tint,uAccent,hot*.55);
-  vec3 color=tint*(.025+cloudBody*.32+filaments*.045+vLight*.1);
+  float accent=uAccents.x*pow(.5+.5*sin(vUv.x*14.+vLane*2.),6.)+uAccents.y*pow(.5+.5*cos(vUv.x*23.+vLane),9.)*.6;
+  vec3 color=tint*(.025+cloudBody*.32+filaments*(.045+accent*.8)+vLight*.3);
   gl_FragColor=vec4(color,clamp(vAlpha,0.,1.)*body*(.25+cloudBody*.6));
 }`
 
@@ -53,7 +54,7 @@ ${stormSpace}
 attribute vec4 aSeed;
 varying float vAlpha;
 void main(){
-  float t=aSeed.x,arm=floor(aSeed.y*5.);
+  float t=fract(aSeed.x-uPhase*(.008+aSeed.z*.003)),arm=floor(aSeed.y*5.);
   float radius=(7.+pow(t,.78)*183.)*uRange;
   float theta=t*5.1+arm*6.2831853/max(2.,uCount)-uPhase*.095;
   vec3 q=vec3(cos(theta),sin(theta),0.)*radius;
@@ -62,7 +63,7 @@ void main(){
   vec4 mv=modelViewMatrix*vec4(storm(q),1.);
   gl_Position=projectionMatrix*mv;
   gl_PointSize=clamp((.6+aSeed.w)*120./max(25.,-mv.z),.7,2.5)*uPixelRatio;
-  vAlpha=arm<uCount?(.15+aSeed.w*.4):0.;
+  vAlpha=arm<uCount?(.15+aSeed.w*.4)*smoothstep(0.,.06,t)*(1.-smoothstep(.92,1.,t)):0.;
 }`
 const sparksFragment = `${uniformSource}
 varying float vAlpha;

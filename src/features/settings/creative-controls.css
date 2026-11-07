@@ -1,0 +1,6 @@
+.creative-details { border-block:1px solid var(--border); margin:12px 0; padding:10px 0; }
+.creative-details summary { cursor:pointer; color:var(--muted-foreground); font-size:11px; }
+.creative-details[open] summary { margin-bottom:16px; }
+.creative-rule { font-size:11px; line-height:1.8; color:var(--muted-foreground); margin:14px 0; }
+.art-control { margin:10px 0 16px; }
+.art-control small { display:block; color:var(--muted-foreground); font-size:10px; margin-top:-4px; }

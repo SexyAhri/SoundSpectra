@@ -4,21 +4,37 @@ function randomStream(seed = 41871) {
   return () => { seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0; return seed / 4294967296 }
 }
 
+const flowers = [[-3.1, -.6, -3, 1.2], [6.1, 2.2, -11, .82], [-8.2, 4.3, -19, .65]]
+
 export function petalGeometry(density: number) {
-  const plane = new T.PlaneGeometry(1, 1, 14, 28), geometry = new T.InstancedBufferGeometry()
+  const plane = new T.PlaneGeometry(1, 1, 20, 40), geometry = new T.InstancedBufferGeometry()
   geometry.setIndex(plane.getIndex()); geometry.setAttribute('position', plane.getAttribute('position')); geometry.setAttribute('uv', plane.getAttribute('uv'))
-  const flowers = [[-3.6, .2, -3, 1.45], [5.6, -1.6, -7, .95], [6.7, 4.5, -15, .5]]
-  const perRing = Math.round(9 + density * 3), count = flowers.length * perRing * 3
+  const perRing = Math.round(7 + Math.min(density,1.7) * 2), attached = flowers.length * perRing * 3, count = attached + 18
   const petals = new Float32Array(count * 4), origins = new Float32Array(count * 4), random = randomStream()
   for (let i = 0; i < count; i++) {
     const flower = Math.floor(i / (perRing * 3)), ring = Math.floor(i / perRing) % 3
-    petals.set([(i % perRing) / perRing * Math.PI * 2 + ring * .19, ring, random(), flower], i * 4)
-    origins.set(flowers[flower], i * 4)
+    if(i<attached){
+      petals.set([(i % perRing) / perRing * Math.PI * 2 + ring * .37 + random()*.09, ring, random(), flower], i * 4)
+      origins.set(flowers[flower], i * 4)
+    }else{
+      petals.set([random()*Math.PI*2,-1,random(),random()*3],i*4)
+      origins.set([(random()-.5)*34,(random()-.5)*22,-6-random()*30,.18+random()*.15],i*4)
+    }
   }
   geometry.setAttribute('aPetal', new T.InstancedBufferAttribute(petals, 4))
   geometry.setAttribute('aOrigin', new T.InstancedBufferAttribute(origins, 4)); geometry.instanceCount = count
   plane.dispose()
   return geometry
+}
+
+export function petalCoreGeometry() {
+  const positions:number[]=[],origins:number[]=[]
+  for(let flower=0;flower<flowers.length;flower++)for(let i=0;i<129;i++){
+    const angle=i*2.399963, radius=Math.sqrt(i/128)*.30
+    positions.push(Math.cos(angle)*radius,Math.sin(angle)*radius,.52+(1.-i/128)*.12+Math.sin(i*1.7)*.025)
+    origins.push(...flowers[flower])
+  }
+  return new T.BufferGeometry().setAttribute('position',new T.Float32BufferAttribute(positions,3)).setAttribute('aOrigin',new T.Float32BufferAttribute(origins,4))
 }
 
 export function auroraGeometry(density: number) {

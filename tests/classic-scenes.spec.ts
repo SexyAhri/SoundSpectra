@@ -1,3 +1,4 @@
+import { visualProbeHtml } from '../scripts/visual-probe-html.mjs'
 import { expect, test, type Page } from '@playwright/test'
 import { defaults, normalizeSettings } from '../src/features/spectrum/model'
 import { classicMusicEffects, isClassicEffect, isThreeEffect } from '../src/features/spectrum/music-engine/catalog'
@@ -13,7 +14,7 @@ const parameters = {
 async function probePage(page: Page) {
   // Serve a document without a second application animation competing with the probe.
   await page.route('**/classic-render-probe', route => route.fulfill({ contentType: 'text/html',
-    body: '<!doctype html><html><body style="margin:0;background:#000"></body></html>' }))
+    body: visualProbeHtml('<!doctype html><html><body style="margin:0;background:#000"></body></html>') }))
   await page.goto('/classic-render-probe')
 }
 
@@ -75,7 +76,7 @@ for (const { value: effect, label } of classicMusicEffects) test(`${effect}: vis
     const read = () => { const pixels = new Uint8Array(size * 4); gl.readPixels(0,0,640,360,gl.RGBA,gl.UNSIGNED_BYTE,pixels); return pixels }
     let disposed = false
     try {
-      world.resize(settings,1)
+      await world.resize(settings,1)
       for (let frame=0;frame<45;frame++) {
         motion.step(audio,1/30,settings.music,false); world.draw(motion,settings,false)
       }
@@ -136,7 +137,7 @@ test('aurora travels visibly over four audible seconds with every brightness inp
     const gl = world.renderer.getContext()
     const read = () => { const pixels = new Uint8Array(640*360*4); gl.readPixels(0,0,640,360,gl.RGBA,gl.UNSIGNED_BYTE,pixels); return pixels }
     try {
-      world.resize(config,1)
+      await world.resize(config,1)
       for(let frame=0;frame<120;frame++) motion.step(audio,1/60,config.music,false)
       const stable = { volume:motion.volume,bass:motion.bass,middle:motion.middle,treble:motion.treble,presence:motion.presence,frame:motion.frame }
       const start = motion.auroraPhase

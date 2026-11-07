@@ -2,6 +2,7 @@ import * as T from 'three'
 import type { SpectrumSettings } from '../../../model'
 import type { SceneMotion } from '../../motion'
 import { resolveEffectPalette, type EffectPalette } from '../../../effect-palette'
+import { effectDefinitions } from '../../../effect-definitions'
 
 export interface FlowEffect {
   group: T.Group
@@ -19,6 +20,8 @@ export const commonUniforms = () => ({
   uTwist: { value: 1 }, uDepth: { value: 1 }, uThreshold: { value: 0 },
   uPixelRatio: { value: 1 },
   uSlowBass:{value:0},uBassFast:{value:0},uSlowMid:{value:0},uFastHigh:{value:0},uBeatGlow:{value:0},
+  uSustain:{value:0},uOnsetAge:{value:10},uOnsetStrength:{value:0},uOnsetOrigin:{value:0},
+  uAccents:{value:new T.Vector3()},uSpectrum:{value:new Float32Array(48)},
 })
 export type FlowUniforms = ReturnType<typeof commonUniforms>
 export function applyFlowPalette(uniforms: FlowUniforms, config: SpectrumSettings) {
@@ -30,33 +33,38 @@ export function applyFlowPalette(uniforms: FlowUniforms, config: SpectrumSetting
 
 /** The frame clock only advances visible transport while actual audio is audible. */
 export function flowDriver(uniforms: FlowUniforms) {
-  let phase = 0, level = 0, palette: EffectPalette | undefined, last = -1, beat = -1
+  let level = 0, palette: EffectPalette | undefined, last = -1, beat = -1
   return (motion: SceneMotion, config: SpectrumSettings, reduced: boolean, speed = 1) => {
     const frame = motion.frame
     // Camera changes and offscreen passes may draw the same analysis frame again.
     // Transport and smoothing belong to that frame, not to the number of draws.
-    if (!frame || frame.now < last) { phase = 0; level = 0; last = -1; beat=-1
-      uniforms.uSlowBass.value=uniforms.uBassFast.value=uniforms.uSlowMid.value=uniforms.uFastHigh.value=uniforms.uBeatGlow.value=0 }
-    const dt = frame && frame.now !== last ? Math.max(0, Math.min(.1, frame.dt / 1000)) : 0
-    if (!reduced && frame?.audible) phase += dt * (.22 + motion.volume * 1.35) * speed
+    const dt = frame && motion.stepIndex !== last ? motion.stepSeconds : 0
+    const profile=effectDefinitions[config.effect].motion
+    const phase = motion.flowPhase(config.effect, speed, profile.sustainFlow, reduced)
     const tau = .06
     level += (motion.volume - level) * (1 - Math.exp(-dt / tau))
     const damp=(value:number,target:number,attack:number,release:number)=>value+(target-value)*(1-Math.exp(-dt/(target>value?attack:release)))
-    uniforms.uSlowBass.value=damp(uniforms.uSlowBass.value,motion.bass,.10,.75)
-    uniforms.uBassFast.value=damp(uniforms.uBassFast.value,motion.bass,.06,.4)
-    uniforms.uSlowMid.value=damp(uniforms.uSlowMid.value,motion.middle,.3,.3)
-    uniforms.uFastHigh.value=damp(uniforms.uFastHigh.value,motion.treble,.03,.12)
-    uniforms.uBeatGlow.value*=Math.exp(-dt/.45)
-    if(!reduced&&frame?.audible&&frame.onset&&frame.beatIndex!==beat){beat=frame.beatIndex;uniforms.uBeatGlow.value=Math.max(uniforms.uBeatGlow.value,frame.beatStrength*motion.bass)}
+    uniforms.uSlowBass.value=damp(uniforms.uSlowBass.value,motion.musicalBands[0],.08,profile.bassRelease)
+    uniforms.uBassFast.value=damp(uniforms.uBassFast.value,Math.max(motion.musicalBands[0],motion.accents[0]),.02,.16)
+    uniforms.uSlowMid.value=damp(uniforms.uSlowMid.value,motion.musicalBands[1],profile.middleAttack,profile.middleAttack)
+    uniforms.uFastHigh.value=damp(uniforms.uFastHigh.value,Math.max(motion.musicalBands[2],motion.accents[2]),.03,profile.highRelease)
+    uniforms.uSustain.value=damp(uniforms.uSustain.value,frame?.audible?frame.sustain:0,.3,.22)
+    uniforms.uOnsetAge.value=Number.isFinite(frame?.beatAge)?Math.min(10,Math.max(0,frame!.beatAge/1000)):10
+    uniforms.uOnsetStrength.value=motion.onsetStrength
+    uniforms.uOnsetOrigin.value=(((frame?.beatIndex??0)*.61803398875)%1+1)%1
+    uniforms.uBeatGlow.value*=Math.exp(-dt/Math.min(.25,profile.onsetLife))
+    if(!reduced&&frame?.audible){uniforms.uBeatGlow.value=Math.max(uniforms.uBeatGlow.value,motion.accents[0],motion.accents[1]*.65);if(frame.onset&&frame.beatIndex!==beat)beat=frame.beatIndex}
     if(reduced)uniforms.uBeatGlow.value=0
     uniforms.uPhase.value = phase; uniforms.uVolume.value = level
     uniforms.uBass.value = motion.bass; uniforms.uMiddle.value = motion.middle; uniforms.uTreble.value = motion.treble
     uniforms.uPulse.value = reduced ? 0 : Math.max(0, frame?.pulse ?? 0)
+    uniforms.uAccents.value.fromArray(motion.accents)
+    if(frame)uniforms.uSpectrum.value.set(frame.spectrum);else uniforms.uSpectrum.value.fill(0)
     uniforms.uTouch.value = motion.ripples.reduce((value, ripple) => ripple.source === 'pointer' ? Math.max(value, Math.exp(-ripple.lifetime * 1.3)) : value, 0)
     const nextPalette = resolveEffectPalette(config)
     if (palette !== nextPalette) { palette = applyFlowPalette(uniforms, config) }
     uniforms.uThreshold.value = 0
-    last = frame?.now ?? -1
+    last = motion.stepIndex
     return dt
   }
 }
@@ -64,7 +72,10 @@ export function flowDriver(uniforms: FlowUniforms) {
 export const uniformSource = `
 uniform float uPhase,uVolume,uBass,uMiddle,uTreble,uPulse,uTouch;
 uniform float uWidth,uTrail,uRange,uCount,uTwist,uDepth,uThreshold,uPixelRatio;
+uniform float uSustain,uOnsetAge,uOnsetStrength,uOnsetOrigin;
 uniform vec3 uColor,uAccent,uHighlight,uShade;
+uniform vec3 uAccents;
+uniform float uSpectrum[48];
 `
 
 /** UV coordinates describe a 3D tube/surface, never a texture billboard. */
@@ -98,11 +109,14 @@ varying vec2 vUv;
 varying float vLane,vAlpha,vLight;
 void main(){
   if(vAlpha<.008)discard;
-  vec3 n=normalize(cross(dFdx(vWorld),dFdy(vWorld)));
+  vec3 n=cross(dFdx(vWorld),dFdy(vWorld));n/=max(length(n),.00001);
   if(!gl_FrontFacing)n=-n;
-  vec3 view=normalize(cameraPosition-vWorld), light=normalize(vec3(-.5,.8,.7));
+  vec3 view=cameraPosition-vWorld;view/=max(length(view),.00001);
+  vec3 light=normalize(vec3(-.5,.8,.7));
   float diffuse=.2+.8*abs(dot(n,light));
-  float rim=pow(1.-abs(dot(n,view)),3.2);
+  // Unit-vector dot products can round above one at face-on fragments. A
+  // negative base with a fractional exponent produces NaN and poisons bloom.
+  float rim=pow(clamp(1.-abs(dot(n,view)),0.,1.),3.2);
   float shine=pow(max(0.,dot(reflect(-light,n),view)),52.);
   float tint=.5+.5*sin(vUv.x*6.2831853+vLane*1.4-uPhase*.12);
   vec3 lightColor=mix(uColor,uAccent,tint*.55);

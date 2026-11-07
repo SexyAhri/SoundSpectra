@@ -18,7 +18,7 @@ void main() {
   p.xz *= (.94 + aSeed * .04) * mix(.12, 1., coverage);
   p.y *= vField.r;
   p.xz += aOffset;
-  vWorld = p;
+  vWorld = (modelMatrix * vec4(p, 1.)).xyz;
   vec4 mv = modelViewMatrix * vec4(p, 1.);
   gl_Position = projectionMatrix * mv;
   vGrain = aSeed;
@@ -49,8 +49,10 @@ void main() {
   float top = max(0., normal.y);
   float shade = .23 + top * .77 + max(0., normal.x) * .22 + max(0., normal.z) * .12;
   color *= shade * mix(.6, 1., vFaceHeight) * (.92 + vGrain * .12) * uBrightness;
+  float strata = .5+.5*sin(vWorld.y*3.2+vGrain*.4);
+  color *= .91+strata*.09;
   float rim = 1. - smoothstep(.01, .05, min(min(vLocal.x, 1. - vLocal.x), min(vLocal.y, 1. - vLocal.y)));
-  color += uWarm * (rim * top * heat * .035 + vField.b * .025);
+  color += uWarm * (rim * top * heat * .06 + vField.b * .09);
   color = mix(color, uLow * .18, smoothstep(38., 95., vDepth) * .65);
   gl_FragColor = vec4(color, 1.);
 }`

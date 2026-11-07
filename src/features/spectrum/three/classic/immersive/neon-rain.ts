@@ -7,6 +7,8 @@ attribute vec4 aSeed;varying vec2 vUv;varying vec3 vColor;varying float vAlpha;
 void main(){
   float cycle=fract(aSeed.w+uPhase*(.23+aSeed.z*.1));
   float y=75.-cycle*80.;float length=(1.3+aSeed.z*4.)*(.7+uWidth*.3);
+  float strike=step(.8,aSeed.z)*exp(-uOnsetAge*9.)*uOnsetStrength;
+  length*=1.+strike*.85;
   float z=mix(-220.,40.,pow(aSeed.y,.55));
   float spread=mix(110.,32.,smoothstep(-150.,25.,z));
   vec3 p=vec3((aSeed.x-.5)*spread*2.+uWind*(y+5.)*.38,y,z);
@@ -15,7 +17,8 @@ void main(){
   p+=right*(uv.x-.5)*(.045+uWidth*.035+max(0.,24.-p.z)*.0023);
   vec4 mv=modelViewMatrix*vec4(p,1.);gl_Position=projectionMatrix*mv;
   vUv=uv;vColor=mix(depthTint(p),uAccent,step(.91,aSeed.z)*.65);
-  vAlpha=(.35+aSeed.z*.6)*depthFade(p)*smoothstep(0.,3.,-mv.z)*smoothstep(-5.,-3.,p.y)*step(hash(aSeed.w*127.),uCount);
+  vAlpha=(.35+aSeed.z*.6)*depthFade(p)*smoothstep(0.,3.,-mv.z)*smoothstep(-5.,-3.,p.y)
+    *smoothstep(0.,.025,cycle)*(1.-smoothstep(.975,1.,cycle))*step(hash(aSeed.w*127.),uCount);
 }`
 const rainFragment=`varying vec2 vUv;varying vec3 vColor;varying float vAlpha;
 void main(){float width=exp(-pow((vUv.x-.5)*5.,2.));float tail=pow(clamp(1.-vUv.y,0.,1.),.65);
@@ -39,9 +42,9 @@ void main(){
   float strokes=pow(.5+.5*sin(vP.x*.31+noise(vP.xz*.035)*8.),18.);
   float reflection=strokes*(.035+n*.07)*(.4+smoothstep(30.,180.,-vP.z));
   vec2 tile=floor(vP.xz/3.5),local=fract(vP.xz/3.5)-.5;
-  float seed=hash(tile.x+tile.y*73.),age=fract(seed+uPhase*.3);
+  float seed=hash(tile.x+tile.y*73.),age=max(0.,uOnsetAge-seed*.12)*1.4;
   float radius=length(local-vec2(sin(seed*32.),cos(seed*21.))*.22);
-  float ring=exp(-pow((radius-age*.53)*65.,2.))*pow(1.-age,2.)*step(seed,uCount);
+  float ring=exp(-pow((radius-age*.53)*65.,2.))*(1.-exp(-age*30.))*exp(-age*5.)*uOnsetStrength*step(hash(seed+uOnsetOrigin),uCount*.4);
   float sheen=reflection*fine+ring*.22;
   vec3 color=mix(vec3(.004,.012,.025),uColor*.055,n*.5)+depthTint(vP)*sheen;
   // Keep wet reflections on the desktop without laying an opaque dark floor

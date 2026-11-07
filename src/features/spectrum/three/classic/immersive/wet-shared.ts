@@ -7,6 +7,7 @@ export const wetUniforms = () => ({...commonUniforms(),uWind:{value:0},uReduced:
 export type WetUniforms=ReturnType<typeof wetUniforms>
 export const wetField=`
 uniform float uPhase,uVolume,uBass,uMiddle,uTreble,uWidth,uCount,uRange,uTrail,uWind,uReduced,uPixelRatio;
+uniform float uOnsetAge,uOnsetStrength,uOnsetOrigin;
 uniform vec3 uColor,uAccent;
 float hash(float x){return fract(sin(x*127.1+311.7)*43758.5453);}
 float noise(vec2 p){vec2 i=floor(p),f=fract(p);f=f*f*(3.-2.*f);float n=i.x+i.y*127.;

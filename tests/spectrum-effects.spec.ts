@@ -19,7 +19,7 @@ test('render budgets limit high-DPI surfaces and high-refresh drawing', () => {
   expect(normalizeSettings({ color: '#205aee' })).toMatchObject({ color: '#205aee', effect: 'rhythm_balls', quality: 'balanced' })
 })
 
-const visiblePixels = (page: Page) => page.locator('canvas').evaluate((canvas: HTMLCanvasElement) => {
+const visiblePixels = (page: Page) => page.locator('.three-scene-surface canvas').first().evaluate((canvas: HTMLCanvasElement) => {
   const gl = canvas.getContext('webgl2')!
   return new Promise<number>(resolve => {
     const draw = gl.drawArrays

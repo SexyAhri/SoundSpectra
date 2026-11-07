@@ -28,6 +28,7 @@
     "test:release": "node --test scripts/tests/*.test.mjs"
   },
   "dependencies": {
+    "@react-three/fiber": "9.8.2",
     "@tauri-apps/api": "^2.12.4",
     "@tauri-apps/plugin-autostart": "^2.7.0",
     "@tauri-apps/plugin-opener": "^2.7.2",

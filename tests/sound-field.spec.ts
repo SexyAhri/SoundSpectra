@@ -113,7 +113,7 @@ test('GPU height pass matches the real audio CPU reference and does not sample e
     try {
       for (let i = 0; i < 120; i++) motion.step({ rms: .15, bands: [.6,.4,.3,.5,.2,.1], spectrum: Array.from({ length: 48 }, (_, j) => .1 + j / 80), skin: [] }, 1 / 60, config.music, false)
       motion.touch(4, -7)
-      world.resize(config, 1)
+      await world.resize(config, 1)
       const reference = motion.sample.bind(motion)
       motion.sample = () => { throw new Error('Per-cell CPU height computation must not run during rendering') }
       world.draw(motion, config, false)
@@ -127,7 +127,7 @@ test('GPU height pass matches the real audio CPU reference and does not sample e
       }
       const samples = []
       for (const quality of ['balanced', 'eco', 'balanced']) {
-        const next = { ...config, quality }; world.resize(next, 1); world.draw(motion, next, false)
+        const next = { ...config, quality }; await world.resize(next, 1); world.draw(motion, next, false)
         world.renderer.setRenderTarget((world as any).image)
         const gl = world.renderer.getContext(); samples.push(gl.getParameter(gl.SAMPLES))
         world.renderer.setRenderTarget(null)
@@ -186,13 +186,14 @@ test('3D scene fills preview, stays soft, responds to interaction and persists c
   await page.getByRole('tab', { name: '外观', exact: true }).click()
   await selectChoice(page, '场景氛围', 'immersive')
   await selectChoice(page, '声场配色', 'ember')
+  await page.getByText('造型细节', { exact: true }).click()
   await selectChoice(page, '涟漪落点', 'center')
-  await page.getByRole('slider', { name: '声场亮度', exact: true }).focus(); await page.keyboard.press('Home')
+  await page.getByRole('slider', { name: '层叠光感', exact: true }).focus(); await page.keyboard.press('Home')
   await expect(page.getByText('已保存到此浏览器')).toBeVisible()
   await page.reload()
   await page.getByRole('tab', { name: '动效', exact: true }).click()
   await expect(page.getByRole('button', { name: '频谱回响', exact: true })).toHaveAttribute('aria-pressed', 'true')
-  await expect.poll(async () => page.evaluate(() => JSON.parse(localStorage.getItem('soundspectra.settings.v1')!))).toMatchObject({ sceneMode: 'immersive', music: { fieldBrightness: 15, fieldPalette: 'ember', fieldRippleMode: 'center' } })
+  await expect.poll(async () => page.evaluate(() => JSON.parse(localStorage.getItem('soundspectra.settings.v1')!))).toMatchObject({ sceneMode: 'immersive', music: { fieldBrightness: 20, fieldPalette: 'ember', fieldRippleMode: 'center' } })
   await page.getByRole('switch', { name: '模拟预览', exact: true }).click()
   await expect.poll(async () => (await pixels(canvas)).visible, { timeout: 10000 }).toBe(0)
   const bounds = (await canvas.boundingBox())!

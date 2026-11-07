@@ -1,6 +1,6 @@
 import { ModalContent } from '@/components/ui/modal'
 import { IconButton } from '@/components/ui/icon-button'
-import { useEffect, useLayoutEffect, useRef, useState, type KeyboardEvent, type PointerEvent, type RefObject } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useRef, useState, type KeyboardEvent, type PointerEvent, type RefObject } from 'react'
 import { Dialog } from 'radix-ui'
 import { ImagePlus, Maximize2, Monitor, Move, RefreshCw, Scan, Sparkles, Undo2, X, Bookmark } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -36,6 +36,7 @@ import { layerIndex } from './scene-layers'
 import { previewObjectActions } from './preview-object-actions'
 import { railObstacles } from '../lyrics/avoid-rail'
 import { railPlacementActions } from '../rail/rail-placement-actions'
+import { SceneFocusProvider } from '../spectrum/scene-focus'
 
 interface Props {
   settings: SpectrumSettings; update: SettingsUpdate;
@@ -62,6 +63,10 @@ function PreviewStage(props: StageProps) {
   const { settings, update, screen, desktop, image, arranging, expanded, disabled } = props
   const colors = useCoverColors(settings, props.nowPlaying ?? emptyNowPlaying, props.active)
   const [selectedObject, setSelectedObject] = useState(`effect:${props.selectedRegion}`)
+  const selectRail = useCallback((groupId: string, itemId?: string) => {
+    if (arranging) setSelectedObject(`rail:${groupId}`)
+    props.onSelectRail?.(groupId, itemId)
+  }, [arranging, props.onSelectRail])
   useEffect(() => setSelectedObject(`effect:${props.selectedRegion}`), [props.selectedRegion])
   const selectObject = (key: string) => {
     setSelectedObject(key)
@@ -84,7 +89,8 @@ function PreviewStage(props: StageProps) {
       const available = holder.current!.clientWidth
       const maxHeight = expanded || window.innerWidth > 760 ? Math.max(1, holder.current!.clientHeight) : Infinity
       const width = Math.min(available, maxHeight * screen.width / screen.height)
-      setSize({ width, height: width * screen.height / screen.width })
+      const height = width * screen.height / screen.width
+      setSize(previous => previous.width === width && previous.height === height ? previous : { width, height })
     }
     const observer = new ResizeObserver(measure)
     observer.observe(holder.current!)
@@ -130,7 +136,7 @@ function PreviewStage(props: StageProps) {
     update(latest => regionPatch(latest, region, { bounds: (resize ? resizeBounds : moveBounds)(settingsForRegion(latest, region).bounds, dx, dy) }))
   }
   const regions = sceneRegions(settings), count = Math.max(1, regions.filter(region => region.visible).length)
-  return <><div className="preview-stage-holder" ref={holder}>
+  return <SceneFocusProvider><div className="preview-stage-holder" ref={holder}>
     <ContextMenu {...menu} disabled={!arranging || disabled || props.viewPreviewOnly} onReturnFocus={() => {
       surface.current?.querySelector<HTMLElement>(`[data-preview-object="${CSS.escape(selectedObject)}"]`)?.focus({ preventScroll: true })
     }}>
@@ -163,14 +169,11 @@ function PreviewStage(props: StageProps) {
       {settings.lyrics.enabled && <LyricLayer settings={settings.lyrics} appearance={settings} document={props.lyricDocument ?? emptyLyrics} info={props.nowPlaying ?? emptyNowPlaying} demo={props.demo} active={props.active}
         obstacles={obstacles} zIndex={layerIndex(settings, 'lyrics')} selected={selectedObject === 'lyrics'} draggable={!disabled && !props.masking && !props.viewPreviewOnly} onSelect={() => selectObject('lyrics')} onBoundsChange={(bounds, resized) => update(current => ({ lyrics: { ...current.lyrics, bounds,
           fontSize: resized ? Math.round(Math.max(18, Math.min(72, current.lyrics.fontSize * Math.sqrt(bounds.width * bounds.height / (current.lyrics.bounds.width * current.lyrics.bounds.height))))) : current.lyrics.fontSize } }))} />}
-      {props.rail && !props.viewPreviewOnly && <RailLayer desktopWidth={logicalScreen.width} controller={props.rail} selected={arranging ? selectedObject.startsWith('rail:') ? selectedObject.slice(5) : null : props.selectedRail ?? null} arranging={arranging && !disabled} editing={!!props.railEditing && !disabled} interactive={!props.masking && !disabled} onSelect={(groupId, itemId) => {
-        if (arranging) setSelectedObject(`rail:${groupId}`)
-        props.onSelectRail?.(groupId, itemId)
-      }} />}
+      {props.rail && !props.viewPreviewOnly && <RailLayer desktopWidth={logicalScreen.width} controller={props.rail} selected={arranging ? selectedObject.startsWith('rail:') ? selectedObject.slice(5) : null : props.selectedRail ?? null} arranging={arranging && !disabled} editing={!!props.railEditing && !disabled} interactive={!props.masking && !disabled} onSelect={selectRail} />}
       {props.masking && <MaskEditor masks={settings.masks} selected={props.selectedMask} onSelect={props.onSelectMask} disabled={disabled} onChange={masks => update({ masks })} />}
     </div>
     </ContextMenu>
-  </div>{!props.viewPreviewOnly && <CoverColorControl settings={settings} display={colors.settings} message={colors.message} available={colors.available} disabled={disabled} update={update} />}</>
+  </div>{!props.viewPreviewOnly && <CoverColorControl settings={settings} display={colors.settings} message={colors.message} available={colors.available} disabled={disabled} update={update} />}</SceneFocusProvider>
 }
 
 export function DesktopPreview(props: Props) {

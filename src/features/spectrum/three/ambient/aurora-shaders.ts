@@ -1,10 +1,11 @@
-import { audioUniforms } from './ambient-shaders'
+import { audioUniforms } from "./ambient-shaders";
 
 // The transport phase advances only while music is audible and motion is allowed.
 // It is separate from the older raw-RMS phase used by other scene families.
 const flowUniforms = `${audioUniforms}
 uniform float uAuroraPhase;
-`
+uniform float uImpulse;
+`;
 
 export const auroraVertex = `${flowUniforms}
 attribute float aLayer;
@@ -30,7 +31,7 @@ void main() {
   p.xy+=uPointer*(.1+layer*.06)*(.3+uv.y*.7);
   vUv=uv; vLayer=layer; vEnergy=energy;
   gl_Position=projectionMatrix*modelViewMatrix*vec4(p,1.);
-}`
+}`;
 
 export const auroraFragment = `${flowUniforms}
 varying vec2 vUv;
@@ -42,7 +43,9 @@ float auroraNoise(float p) {
   return mix(auroraHash(i),auroraHash(i+1.),f);
 }
 void main() {
-  float x=vUv.x, y=vUv.y, flow=uAuroraPhase;
+  // MSAA helper samples can extrapolate beyond a thin curtain triangle. Bound
+  // its material coordinates before the exponential falloff (Inf * 0 is NaN).
+  float x=clamp(vUv.x,0.,1.), y=clamp(vUv.y,0.,1.), flow=uAuroraPhase;
   // Fine light travels along the surface as well as moving with the geometry.
   // Each layer has a different, steady drift, so changes stay local instead of flashing.
   float movingX=x-flow*(.018+vLayer*.003);
@@ -54,11 +57,20 @@ void main() {
   float rays=.35+.65*(fine*.75+detail*.25);
   float bundles=.55+.45*auroraNoise(movingX*9.+vLayer*17.);
   float veil=exp(-y*(2.2+fine*.7))*smoothstep(0.,.075,y)*(1.-smoothstep(.6,1.,y));
-  float hem=exp(-pow((y-.075)/.065,2.))*smoothstep(0.,.035,y);
+  // GLSL pow has an undefined result for negative bases, even with exponent 2.
+  // Explicit squares keep the lower-rim samples finite before HDR bloom.
+  float hemDistance=(y-.075)/.065;
+  float hem=exp(-hemDistance*hemDistance)*smoothstep(0.,.035,y);
+  // A fine luminous lower rim carries the local spectrum. The broad veil keeps
+  // its slow transport while captured transients briefly illuminate individual folds.
+  float filamentDistance=(y-.042)/.018;
+  float filament=exp(-filamentDistance*filamentDistance)*smoothstep(0.,.018,y);
+  float spectralLight=clamp(vEnergy*1.6+uImpulse*.65*bundles,0.,.9);
   float ends=smoothstep(0.,.16,x)*smoothstep(0.,.16,1.-x);
   float layerWeight=vLayer<.5?.3:vLayer<1.5?1.15:.48;
-  float alpha=ends*bundles*(veil*rays*.4+hem*.08)*layerWeight*(.9+uBands.y*.35+vEnergy*.3);
+  float alpha=ends*bundles*(veil*rays*.4+hem*.11+filament*(.045+spectralLight*.28))*layerWeight*(.9+uBands.y*.35+vEnergy*.3);
   vec3 color=mix(uWarm,uMid,smoothstep(.04,.65,y));
   color=mix(color,uHigh,smoothstep(.35,.95,y)*.35);
+  color=mix(color,uHigh,filament*(.16+spectralLight*.32));
   gl_FragColor=vec4(color*alpha*uBrightness,alpha);
-}`
+}`;

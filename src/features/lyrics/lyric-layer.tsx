@@ -8,6 +8,7 @@ import { KineticLyrics } from './kinetic-lyrics'
 import { useLyricPlacement } from './use-lyric-placement'
 import { avoidRail } from './avoid-rail'
 import { lyricPalette } from './lyric-palette'
+import { LyricSceneFocus } from '../spectrum/scene-focus'
 
 export function LyricLayer({ settings, document, info, demo = false, active = true, desktop = false, host, onBoundsChange, draggable = false, onSelect, obstacles = [], zIndex, selected, appearance }: {
   settings: LyricSettings; document: LyricDocument; info: NowPlaying; demo?: boolean; active?: boolean; desktop?: boolean; host?: SceneBounds;
@@ -49,6 +50,7 @@ export function LyricLayer({ settings, document, info, demo = false, active = tr
     role={movable ? 'group' : undefined} tabIndex={movable ? 0 : undefined} aria-label={movable ? '歌词位置，拖动或方向键移动' : undefined}
     onFocus={movable ? onSelect : undefined} onPointerDown={event => placement.begin(event)} onPointerMove={placement.moving} onPointerUp={event => placement.end(event)} onPointerCancel={event => placement.end(event, true)} onLostPointerCapture={event => placement.end(event, true)} onKeyDown={placement.keyboard}>
     {canShow && !safe.crowded ? <>
+      {line && lyricDisplayText(line.text).trim() && <LyricSceneFocus bounds={placement.bounds} lineKey={`${simulated?'demo':document.key}:${index}:${line.start}`} />}
       <KineticLyrics lines={lines} index={index} time={time} readTime={()=>((simulated?(Date.now()-demoStart)%demoDuration:playbackPosition(info,Date.now())??0)+settings.offsetMs)} playing={simulated||info.playing} desktop={desktop} fontSize={displayFontSize} regionWidth={placement.bounds.width} mode={settings.motion} reduced={reduced} backgroundOpacity={settings.backgroundOpacity} palette={palette} readability={settings.readability} />
       <span className="sr-only" aria-label="当前歌词">{line ? lyricDisplayText(line.text) : '前奏'}</span>
       {simulated && <span className="lyric-demo-label">模拟歌词</span>}

@@ -51,6 +51,7 @@ for (const [effect, label] of scenes) test(`${effect}: real geometry moves, pers
   const items = Number(await canvas.getAttribute('data-items'))
   await page.getByRole('tab', { name: '外观', exact: true }).click()
   await selectChoice(page, '场景氛围', 'immersive'); await selectChoice(page, '声场配色', 'lake')
+  await page.getByText('造型细节', { exact: true }).click()
   await page.getByRole('slider', { name: '细节密度', exact: true }).focus(); await page.keyboard.press('Home')
   await expect.poll(async () => Number(await canvas.getAttribute('data-items'))).toBeLessThan(items)
   await expect(page.getByText('已保存到此浏览器')).toBeVisible()
@@ -67,7 +68,8 @@ for (const [effect, label] of scenes) test(`${effect}: real geometry moves, pers
   await page.getByRole('button', { name: '关闭放大预览', exact: true }).click()
   await page.setViewportSize({ width: 390, height: 844 })
   await page.getByRole('tab', { name: '外观', exact: true }).click()
-  await expect(page.getByRole('slider', { name: '空间展开', exact: true })).toBeVisible()
+  await page.getByText('造型细节', { exact: true }).click()
+  await expect(page.getByRole('slider', { name: effect==='star_flight'?'航道空间':effect==='aurora_flow'?'薄幕空间':'花境空间', exact: true })).toBeVisible()
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
   await page.screenshot({ path: `artifacts/ambient-${effect}-mobile.png`, fullPage: true })
   await expect(page.getByRole('alert')).toHaveCount(0); expect(errors).toEqual([])
@@ -96,7 +98,10 @@ for (const effect of ['petal_bloom', 'star_flight', 'aurora_flow'] as const) tes
   await page.emulateMedia({ reducedMotion: 'reduce' }); await page.goto('/')
   await page.evaluate(async effect => {
     const { mountSoundFieldProbe } = await import('/tests/fixtures/sound-field-probe.tsx')
-    const probe = mountSoundFieldProbe({ effect })
+    const probe = mountSoundFieldProbe({ effect, quality:'eco' })
+    // Software-GPU readPixels must finish within the 350ms live-source expiry.
+    // HD resolution and particle size are covered by hd-scenes.spec.ts.
+    document.getElementById('sound-field-probe')!.style.cssText='width:320px;height:180px;background:#11151b'
     const state = { probe, live: true, timer: 0 }; (window as any).__ambientProbe = state
     state.timer = window.setInterval(() => { if (state.live) probe.push({ rms: .15, bands: Array(6).fill(.4), spectrum: Array(48).fill(.5), skin: [] }) }, 25)
   }, effect)

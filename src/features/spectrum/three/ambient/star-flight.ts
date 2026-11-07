@@ -14,7 +14,7 @@ export function flightSheetGeometry(lanes: number, segments: number) {
 const flightPath = `
 const float pathLength=72.;
 const float ringSpacing=14.4;
-float pathRadius() { return (5.1+uBands.x*.5+uTouch*.2)*uSpread; }
+float pathRadius() { return (5.1+uSustain*.12+uTouch*.2)*uSpread; }
 vec3 pathPoint(float angle,float depth,float radius) { return vec3(cos(angle)*radius,sin(angle)*radius,10.-depth); }
 float pathNear(vec3 p) { return 1.-smoothstep(15.,75.,length((modelViewMatrix*vec4(p,1.)).xyz)); }
 float pathFade(float depth,vec3 p) {
@@ -58,7 +58,7 @@ void main() {
   float core=exp(-edge*edge*65.);
   float arc=.5+.5*sin(vUv.x*6.2831853*2.+vLane*2.-uPhase*.35);
   float nodes=pow(max(0.,cos(vUv.x*6.2831853*12.+vLane)),24.);
-  float alpha=(core*.7+exp(-edge*edge*5.)*.12)*(.5+pow(arc,3.)*.3+vEnergy*.25+nodes*.06)*vFade;
+  float alpha=(core*.7+exp(-edge*edge*5.)*.12)*(.5+pow(arc,3.)*.3+vEnergy*.25+nodes*(.06+uAccents.x*.8))*vFade;
   vec3 color=mix(uMid,uWarm,vTint);
   color=mix(color,uHigh,core*(.2+vEnergy*.3));
   gl_FragColor=vec4(color*alpha*uBrightness*(1.+vEnergy*.4),alpha);

@@ -16,5 +16,5 @@ export function daylightSky(group:T.Group,uniforms:ReturnType<typeof daylightUni
      float sun=pow(max(0.,dot(d,normalize(vec3(-.5,.35,-1.)))),32.);
      color+=vec3(1.,.84,.62)*sun*.09;
      gl_FragColor=vec4(color,1.);}`,
- }));sky.renderOrder=-10;group.add(sky)
+ }));sky.name='scene-backdrop';sky.renderOrder=-10;group.add(sky)
 }

@@ -1,3 +1,4 @@
+import { visualProbeHtml } from '../scripts/visual-probe-html.mjs'
 import { expect, test, type Page } from '@playwright/test'
 import { defaults } from '../src/features/spectrum/model'
 import { classicMusicEffects, type MusicEffect } from '../src/features/spectrum/music-engine/catalog'
@@ -40,7 +41,7 @@ test('effect picker omits retired scenes and shortcuts while retaining preferred
 })
 
 async function panoramaCoverage(page: Page, effect: MusicEffect) {
-  await page.route('**/immersive-probe',route=>route.fulfill({contentType:'text/html',body:'<body style="margin:0"></body>'}))
+  await page.route('**/immersive-probe',route=>route.fulfill({contentType:'text/html',body: visualProbeHtml('<body style="margin:0"></body>')}))
   await page.goto('/immersive-probe')
   const result=await page.evaluate(async effect=>{
     const {ClassicSceneRenderer}=await import('/src/features/spectrum/three/classic/classic-renderer.ts')
@@ -50,7 +51,7 @@ async function panoramaCoverage(page: Page, effect: MusicEffect) {
     const canvas=document.createElement('canvas');canvas.style.cssText='width:640px;height:360px';document.body.append(canvas)
     const config={...defaults,effect,opacity:100,sceneMode:'immersive' as const,bounds:{x:0,y:0,width:1,height:1}},world=new ClassicSceneRenderer(canvas),motion=new SceneMotion()
     try{
-      world.resize(config,1)
+      await world.resize(config,1)
       for(let i=0;i<90;i++){motion.step(demoAnalysis(i/30),1/30,config.music,false);world.draw(motion,config,false)}
       const gl=world.renderer.getContext(),read=()=>{const data=new Uint8Array(canvas.width*canvas.height*4);gl.readPixels(0,0,canvas.width,canvas.height,gl.RGBA,gl.UNSIGNED_BYTE,data);return data}
       const image=read();world.scene.visible=false;world.draw(motion,config,false);const backdrop=read()

@@ -1,3 +1,4 @@
+import { visualProbeHtml } from '../scripts/visual-probe-html.mjs'
 import { expect, test } from '@playwright/test'
 import { defaults, normalizeSettings } from '../src/features/spectrum/model'
 import { recommendedMusic, effectGroups } from '../src/features/spectrum/effect-presets'
@@ -21,7 +22,7 @@ test('recommended appearances remain compatible and the picker contains eleven d
 
 test('every renderer responds to tint and palette changes while a repeated frame stays stable', async ({ page }) => {
   test.setTimeout(120000)
-  await page.route('**/palette-probe', route => route.fulfill({ contentType: 'text/html', body: '<body></body>' }))
+  await page.route('**/palette-probe', route => route.fulfill({ contentType: 'text/html', body: visualProbeHtml('<body></body>') }))
   await page.goto('/palette-probe')
   const errors: string[] = []; page.on('pageerror', error => errors.push(error.message))
   const results = await page.evaluate(async () => {
@@ -37,7 +38,7 @@ test('every renderer responds to tint and palette changes while a repeated frame
       const world = createThreeSceneRenderer(canvas, effect), motion = new SceneMotion()
       const config = { ...structuredClone(defaults), effect, music: recommendedMusic(effect), bounds: { x: 0, y: 0, width: 1, height: 1 } }
       try {
-        world.resize(config, 1)
+        await world.resize(config, 1)
         for (let i = 0; i < 60; i++) motion.step(demoAnalysis(i / 20), .05, config.music, false)
         const draw = (settings: typeof config) => { world.draw(motion, settings, false); return canvas.toDataURL() }
         const original = draw(config), repeat = draw(config)
@@ -91,7 +92,7 @@ test('region appearance history is isolated and corrupt optional history cannot 
 })
 
 test('a wide desktop strip spreads three jellyfish without flattening or clipping their silhouettes', async ({ page }) => {
-  await page.route('**/orb-strip-probe', route => route.fulfill({ contentType: 'text/html', body: '<body></body>' }))
+  await page.route('**/orb-strip-probe', route => route.fulfill({ contentType: 'text/html', body: visualProbeHtml('<body></body>') }))
   await page.goto('/orb-strip-probe')
   const boxes = await page.evaluate(async () => {
     const { defaults } = await import('/src/features/spectrum/model.ts')
@@ -102,7 +103,7 @@ test('a wide desktop strip spreads three jellyfish without flattening or clippin
     const world = new ClassicSceneRenderer(canvas), motion = new SceneMotion()
     const config = { ...defaults, quality: 'eco', music: { ...defaults.music, jellyCount: 3, tentacleLength: 0, jellySize: 3.6 }, opacity: 100, bounds: { x: 0, y: 0, width: 1, height: 1 } }
     try {
-      world.resize(config, 1)
+      await world.resize(config, 1)
       for(let i=0;i<60;i++)motion.step(demoAnalysis(i/20),.05,config.music,false)
       world.draw(motion,config,false)
       const gl=world.renderer.getContext(), pixels=new Uint8Array(canvas.width*canvas.height*4)

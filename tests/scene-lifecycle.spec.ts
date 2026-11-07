@@ -1,3 +1,4 @@
+import { visualProbeHtml } from '../scripts/visual-probe-html.mjs'
 import { expect, test, type Page } from '@playwright/test'
 import { SceneMotion } from '../src/features/spectrum/three/motion'
 import { defaultMusicSettings } from '../src/features/spectrum/music-engine/catalog'
@@ -8,7 +9,7 @@ import { defaults } from '../src/features/spectrum/model'
 
 async function isolatedPage(page: Page) {
   await page.route('**/scene-lifecycle-probe', route => route.fulfill({ contentType: 'text/html',
-    body: '<!doctype html><html><body style="margin:0"></body></html>' }))
+    body: visualProbeHtml('<!doctype html><html><body style="margin:0"></body></html>') }))
   await page.goto('/scene-lifecycle-probe')
 }
 
@@ -53,10 +54,10 @@ test('smallest scene scale and largest distance retain actual geometry in wide a
     const world = new ClassicSceneRenderer(canvas), motion = new SceneMotion(), results = []
     const audio = { rms:.18,bands:Array(6).fill(.5),spectrum:Array(48).fill(.5),skin:[] }
     try {
-      canvas.style.cssText='width:640px;height:360px'; world.resize(settings,1)
+      canvas.style.cssText='width:640px;height:360px'; await world.resize(settings,1)
       for (let frame=0;frame<45;frame++) { motion.step(audio,1/30,settings.music,false); world.draw(motion,settings,false) }
       for (const [width,height] of [[640,360],[360,640]]) {
-        canvas.style.width=width+'px'; canvas.style.height=height+'px'; world.resize(settings,1)
+        canvas.style.width=width+'px'; canvas.style.height=height+'px'; await world.resize(settings,1)
         const gl=world.renderer.getContext()
         const read=()=>{ const data=new Uint8Array(canvas.width*canvas.height*4); gl.readPixels(0,0,canvas.width,canvas.height,gl.RGBA,gl.UNSIGNED_BYTE,data); return data }
         world.scene.visible=false; world.draw(motion,settings,false); const backdrop=read()

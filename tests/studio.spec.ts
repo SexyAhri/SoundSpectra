@@ -20,6 +20,7 @@ test('studio uses the real effect catalog and persists choices through illustrat
   await page.screenshot({ path: 'artifacts/studio-desktop.png' })
   await page.getByRole('tab', { name: '外观', exact: true }).click()
   await expect(page.getByRole('slider', { name: '不透明度', exact: true })).toBeVisible()
+  await page.getByText('造型细节', { exact: true }).click()
   await expect(page.getByRole('slider', { name: '雪片大小', exact: true })).toBeVisible()
   expect(errors).toEqual([])
 })

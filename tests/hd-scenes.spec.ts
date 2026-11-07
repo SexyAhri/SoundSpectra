@@ -1,7 +1,8 @@
+import { visualProbeHtml } from '../scripts/visual-probe-html.mjs'
 import { expect, test } from '@playwright/test'
 
 test('HD quality resizes the scene and keeps snow at the same apparent size', async ({ page }) => {
-  await page.route('**/hd-probe', route => route.fulfill({ contentType: 'text/html', body: '<body style="margin:0"></body>' }))
+  await page.route('**/hd-probe', route => route.fulfill({ contentType: 'text/html', body: visualProbeHtml('<body style="margin:0"></body>') }))
   await page.goto('/hd-probe')
   const result = await page.evaluate(async () => {
     const { ClassicSceneRenderer } = await import('/src/features/spectrum/three/classic/classic-renderer.ts')
@@ -17,7 +18,7 @@ test('HD quality resizes the scene and keeps snow at the same apparent size', as
         // Hold particle density fixed so this compares resolution, not the
         // additional particles intentionally enabled by the smooth preset.
         const settings = { ...base, quality, music: { ...base.music, ambientDensity: quality === 'smooth' ? 1 / 1.2 : 1 } }
-        world.resize(settings, 1); world.draw(motion, settings, false)
+        await world.resize(settings, 1); world.draw(motion, settings, false)
         const scales: number[] = []
         world.scene.traverse(object => {
           const material = (object as unknown as { material?: { uniforms?: { uPixelRatio?: { value: number } } } }).material

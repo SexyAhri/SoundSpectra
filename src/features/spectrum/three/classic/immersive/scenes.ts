@@ -9,7 +9,7 @@ import { createJellyfishGarden } from './jellyfish-garden'
 
 export const createImmersiveScene = (effect:ClassicEffect,detail:number) => {
   switch(effect){
-    case 'rhythm_balls':return createJellyfishGarden()
+    case 'rhythm_balls':return createJellyfishGarden(detail)
     case 'rhythm_rain':return createNeonRain(detail)
     case 'rhythm_skin':return createWindSilk(detail)
     case 'ripple':return createDriftingSnow(detail)

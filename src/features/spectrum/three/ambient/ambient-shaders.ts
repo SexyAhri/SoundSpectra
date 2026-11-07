@@ -1,7 +1,9 @@
 export const audioUniforms = `
 uniform float uPhase;
 uniform float uVolume;
+uniform float uSustain,uOnsetAge,uOnsetStrength;
 uniform vec3 uBands;
+uniform vec3 uAccents;
 uniform float uSpectrum[48];
 uniform float uTouch;
 uniform vec2 uPointer;
@@ -18,22 +20,33 @@ attribute vec4 aOrigin;
 varying vec2 vUv;
 varying vec3 vWorld;
 varying float vLayer;
+varying float vSeed;
 void main() {
-  float t = uv.y, s = uv.x * 2. - 1., ring = aPetal.y;
-  float opening = .58 + uVolume * .65 + uBands.x * .5 + uTouch * .16;
-  float angle = aPetal.x + t * (.55 + ring * .12) + sin(uPhase * .22 + aPetal.w) * .14;
-  float petalWidth = pow(max(0., sin(t * 3.14159265)), .7) * (.78 - ring * .12) * aOrigin.w;
-  float radius = (.24 + t * (3.5 - ring * .65)) * aOrigin.w * opening;
-  vec3 p = vec3(cos(angle) * radius - sin(angle) * petalWidth * s,
-    sin(angle) * radius * .88 + cos(angle) * petalWidth * s,
-    pow(t, 1.5) * (1.8 + ring * .55 - opening * .8) * aOrigin.w + s * s * sin(t * 3.14159265) * .55);
-  p.z += sin(t * 5. + aPetal.x - uPhase * .45) * t * uBands.y * .18;
-  float tilt = .5 + aPetal.w * .12;
+  float t=uv.y,s=uv.x*2.-1.,ring=max(0.,aPetal.y),seed=aPetal.z;
+  float opening=.78+uSustain*.13+uBands.y*.09+uTouch*.07;
+  float angle=aPetal.x+sin(uPhase*.14+aPetal.w*2.)*.065+t*.09*sin(seed*13.);
+  float outline=pow(max(0.,sin(t*3.14159265)),.72);
+  float width=outline*(.73-ring*.11)*(1.+s*.055*sin(seed*17.));
+  float radius=.12+t*(3.25-ring*.64)*( .94+seed*.12)*opening;
+  float cup=t*t*(.68+ring*.24)+pow(t,7.)*(.35+seed*.24);
+  vec3 p=vec3(cos(angle)*radius-sin(angle)*width*s,
+    sin(angle)*radius+cos(angle)*width*s,cup+s*s*outline*.24+ring*.13);
+  float front=t-uOnsetAge*1.9,attack=1.-exp(-uOnsetAge*22.);
+  float response=exp(-front*front*65.)*attack*attack*exp(-uOnsetAge*3.5)*uOnsetStrength;
+  p.z+=response*.34*(.25+.75*seed)+t*t*sin(uPhase*.31+seed*9.)*(.04+uAccents.y*.16);
+  p*=aOrigin.w;
+  if(aPetal.y<0.){
+    float drift=uPhase*(.28+seed*.23);
+    p.y+=sin(drift+seed*13.)*.4;
+    float turn=angle+drift*.25;
+    p.xz=mat2(cos(turn),sin(turn),-sin(turn),cos(turn))*p.xz;
+  }
+  float tilt=.22+aPetal.w*.12;
   p.yz = mat2(cos(tilt), sin(tilt), -sin(tilt), cos(tilt)) * p.yz;
-  p.xz = mat2(cos(.3), sin(.3), -sin(.3), cos(.3)) * p.xz;
-  p.xy += uPointer * (.15 + t * .3);
-  p += aOrigin.xyz * vec3(uSpread, 1., 1.);
-  vWorld = (modelMatrix * vec4(p, 1.)).xyz; vUv = uv; vLayer = ring;
+  p.xy+=uPointer*(.06+t*.08);
+  p+=aOrigin.xyz*vec3(uSpread,1.,1.);
+  if(aPetal.y<0.)p.y+=sin(uPhase*.22+seed*16.)*1.5;
+  vWorld=(modelMatrix*vec4(p,1.)).xyz;vUv=uv;vLayer=ring;vSeed=seed;
   gl_Position = projectionMatrix * viewMatrix * vec4(vWorld, 1.);
 }`
 
@@ -41,18 +54,26 @@ export const petalFragment = `${audioUniforms}
 varying vec2 vUv;
 varying vec3 vWorld;
 varying float vLayer;
+varying float vSeed;
 void main() {
   vec3 normal = cross(dFdx(vWorld), dFdy(vWorld));
   normal /= max(length(normal), .00001);
-  vec3 view = normalize(cameraPosition - vWorld);
+  vec3 view=cameraPosition-vWorld;view/=max(length(view),.00001);
   float rim = pow(clamp(1. - abs(dot(normal, view)), 0., 1.), 1.6);
-  float vein = pow(.5 + .5 * sin(vUv.x * 65. + sin(vUv.y * 6.) * 3.), 8.);
-  float edge = pow(max(0., sin(vUv.x * 3.14159265)), .5) * pow(max(0., sin(vUv.y * 3.14159265)), .35);
-  vec3 color = mix(uWarm, uMid, smoothstep(.08, .95, vUv.y));
-  color = mix(color, uHigh, rim * .18 + vein * .04);
-  float diffuse = .65 + .35 * abs(dot(normal, normalize(vec3(-.4,.7,1.))));
-  color *= (diffuse + rim * .15 + uVolume * .1) * uBrightness;
-  float alpha = edge * (.48 + rim * .15) * (1. - vLayer * .08);
+  float t=clamp(vUv.y,0.,1.),across=abs(vUv.x*2.-1.);
+  float vein=pow(max(0.,.5+.5*cos(vUv.x*95.+sin(t*8.+vSeed*9.)*1.8)),14.);
+  float edge=(1.-smoothstep(.84,1.,across))*smoothstep(0.,.055,t)*(1.-smoothstep(.975,1.,t));
+  vec3 ivory=mix(uHigh,vec3(1.,.97,.91),.08);
+  vec3 blush=mix(uMid,ivory,.12);
+  vec3 color=mix(blush,ivory,smoothstep(.12,.94,t)*.42);
+  color=mix(color,uWarm,exp(-t*8.)*.24);
+  float diffuse=.56+.44*abs(dot(normal,normalize(vec3(-.6,.8,1.))));
+  float silk=pow(max(0.,dot(reflect(normalize(vec3(.6,-.8,-1.)),normal),view)),28.);
+  color*=diffuse*.86+rim*.14+vein*.025;
+  color+=ivory*(silk*.13+uAccents.z*.10*pow(t,6.)*step(.7,vSeed));
+  color*=uBrightness;
+  float alpha=edge*(.88+rim*.08);
+  if(alpha<.01)discard;
   gl_FragColor = vec4(color, alpha);
 }`
 
@@ -129,12 +150,15 @@ void main() { float alpha = vAlpha * vTrail * .2; if(alpha<.002)discard; gl_Frag
 
 export const coreVertex = `${audioUniforms}
 uniform vec2 uResolution;
+attribute vec4 aOrigin;
 varying float vAlpha;
 varying vec3 vColor;
 void main() {
-  vec3 p = position; p.x *= uSpread; p.xy += uPointer * .15;
+  vec3 p=position*aOrigin.w;float tilt=.22+floor(float(gl_VertexID)/129.)*.12;
+  p.yz=mat2(cos(tilt),sin(tilt),-sin(tilt),cos(tilt))*p.yz;
+  p+=aOrigin.xyz*vec3(uSpread,1.,1.);p.xy+=uPointer*.06;
   vec4 mv = modelViewMatrix * vec4(p, 1.);
   gl_Position = projectionMatrix * mv;
-  gl_PointSize = clamp(32. * (1. + uBands.x * .4 + uTouch * .25) * 15. / max(1., -mv.z) * uResolution.y / 900., 8., 56.);
-  vColor = uHigh * uBrightness; vAlpha = .85;
+  gl_PointSize=clamp(3.4*aOrigin.w*18./max(1.,-mv.z)*uResolution.y/900.,1.,5.);
+  vColor=mix(mix(uWarm,uHigh,.6),vec3(.86,.60,.24),.24)*uBrightness*(.85+uAccents.z*.3);vAlpha=.95;
 }`

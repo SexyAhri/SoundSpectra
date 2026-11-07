@@ -10,6 +10,7 @@ import { useCoverColors } from '../desktop-card/use-cover-colors';
 import { DepthWallpaper } from '../wallpaper-depth/wallpaper-depth-layer';
 import { useLyrics } from '../lyrics/use-lyrics';
 import { LyricLayer } from '../lyrics/lyric-layer';
+import { SceneFocusProvider } from '../spectrum/scene-focus';
 import { displayBounds, relativeBounds, sceneRegions, settingsForRegion } from '../spectrum/regions';
 import { layerIndex } from '../preview/scene-layers';
 import { useRail } from '../rail/use-rail';
@@ -111,7 +112,7 @@ export function DesktopOverlay() {
     }
   };
   return (
-    <div className={`desktop-overlay ${editing ? "editing" : ""}`}>
+    <SceneFocusProvider><div className={`desktop-overlay ${editing ? "editing" : ""}`}>
       {settings.wallpaperDepth.enabled&&(settings.enabled||editing)&&<DepthWallpaper settings={settings.wallpaperDepth} desktop active={settings.enabled||editing}/>}
       {sceneRegions(settings).filter(region => region.visible).map(region => {
         const bounds = relativeBounds(region.bounds, displayBounds(settings));
@@ -151,6 +152,6 @@ export function DesktopOverlay() {
           {error}
         </div>
       )}
-    </div>
+    </div></SceneFocusProvider>
   );
 }

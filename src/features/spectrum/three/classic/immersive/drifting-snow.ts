@@ -7,10 +7,13 @@ void main(){
  float fall=mod(aSeed.y*110.+uPhase*(2.+aSeed.z*2.),110.);
  vec3 p=vec3((aSeed.x-.5)*155.+sin(uPhase*.35+aSeed.y*14.)*(1.+uWidth*2.)+fall*uTwist*.08,
    50.-fall,-115.+aSeed.z*130.);
+ // A broad crosswind carries flakes; accents turn crystals without pulling
+ // their centers away from, then back onto, the falling path.
+ p.x+=sin(uPhase*.13+aSeed.z*2.)*1.1;
  vec4 mv=modelViewMatrix*vec4(p,1.);gl_Position=projectionMatrix*mv;
- gl_PointSize=clamp((.6+aSeed.w*1.4)*uRange*230./max(8.,-mv.z),1.2,22.)*uPixelRatio;
+ gl_PointSize=clamp((.6+aSeed.w*1.4)*uRange*230./max(8.,-mv.z),1.2,22.)*uPixelRatio*(1.+step(.8,aSeed.w)*uAccents.z*.25);
  vAlpha=(.24+aSeed.w*.46)*smoothstep(0.,6.,fall)*(1.-smoothstep(100.,110.,fall));
- vTurn=aSeed.x*6.283+uPhase*(.1+aSeed.z*.1);vDetail=aSeed.z;
+ vTurn=aSeed.x*6.283+uPhase*(.1+aSeed.z*.1)+step(.83,aSeed.w)*(1.-exp(-uOnsetAge*35.))*exp(-uOnsetAge*6.)*uOnsetStrength*.55;vDetail=aSeed.z;
 }`
 const fragment=`${uniformSource}
 varying float vAlpha,vTurn,vDetail;

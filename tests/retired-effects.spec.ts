@@ -1,3 +1,4 @@
+import { visualProbeHtml } from '../scripts/visual-probe-html.mjs'
 import { expect, test } from '@playwright/test'
 import { defaults, normalizeSettings } from '../src/features/spectrum/model'
 import { musicEffects } from '../src/features/spectrum/music-engine/catalog'
@@ -51,7 +52,7 @@ test('a saved retired selection reloads as a supported effect and exposes no ret
 
 test('MSAA boundaries keep HDR scene and bloom pixels finite through different camera views', async ({ page }) => {
   test.setTimeout(120000)
-  await page.route('**/finite-shader-probe', route => route.fulfill({ contentType: 'text/html', body: '<body></body>' }))
+  await page.route('**/finite-shader-probe', route => route.fulfill({ contentType: 'text/html', body: visualProbeHtml('<body></body>') }))
   await page.goto('/finite-shader-probe')
   const results = await page.evaluate(async () => {
     const T = await import('/node_modules/.vite/deps/three.js')
@@ -67,7 +68,7 @@ test('MSAA boundaries keep HDR scene and bloom pixels finite through different c
       const config = { ...structuredClone(defaults), effect, music: recommendedMusic(effect), quality: 'balanced' as const,
         opacity: 100, bounds: { x: 0, y: 0, width: 1, height: 1 } }
       try {
-        world.resize(config, 1)
+        await world.resize(config, 1)
         for (let i = 0; i < 30; i++) { motion.step(demoAnalysis(i / 10), .1, config.music, false); world.draw(motion, config, false) }
         for (const yaw of [0, 37, -65]) {
           world.draw(motion, { ...config, view: { ...config.view, yaw } }, false)
@@ -91,7 +92,7 @@ test('MSAA boundaries keep HDR scene and bloom pixels finite through different c
 })
 
 test('empty areas stay transparent on the desktop across all three renderer families', async ({ page }) => {
-  await page.route('**/empty-scene-probe', route => route.fulfill({ contentType: 'text/html', body: '<body></body>' }))
+  await page.route('**/empty-scene-probe', route => route.fulfill({ contentType: 'text/html', body: visualProbeHtml('<body></body>') }))
   await page.goto('/empty-scene-probe')
   const results = await page.evaluate(async () => {
     const { defaults } = await import('/src/features/spectrum/model.ts')
@@ -106,7 +107,7 @@ test('empty areas stay transparent on the desktop across all three renderer fami
       const config = { ...structuredClone(defaults), effect, music: recommendedMusic(effect), opacity: 100,
         bounds: { x: 0, y: 0, width: 1, height: 1 } }
       try {
-        world.resize(config, 1)
+        await world.resize(config, 1)
         for (let i = 0; i < 30; i++) { motion.step(demoAnalysis(i / 10), .1, config.music, false); world.draw(motion, config, false) }
         // Isolate the compositor from geometry so an empty part of the scene
         // cannot acquire a dark backdrop in desktop mode.

@@ -1,3 +1,4 @@
+import { visualProbeHtml } from '../scripts/visual-probe-html.mjs'
 import { expect,test } from '@playwright/test'
 import { defaults,normalizeSettings } from '../src/features/spectrum/model'
 import { displayBounds } from '../src/features/spectrum/regions'
@@ -48,7 +49,7 @@ test('wallpaper file failure stays visible and reduced motion holds the camera s
 })
 
 test('snow uses a transparent scene and preserves the wallpaper under silent and active audio',async({page})=>{
- await page.route('**/snow-probe',route=>route.fulfill({contentType:'text/html',body:'<body style="margin:0"></body>'}))
+ await page.route('**/snow-probe',route=>route.fulfill({contentType:'text/html',body: visualProbeHtml('<body style="margin:0"></body>')}))
  await page.goto('/snow-probe')
  const result=await page.evaluate(async()=>{
    const {ClassicSceneRenderer}=await import('/src/features/spectrum/three/classic/classic-renderer.ts')
@@ -57,7 +58,7 @@ test('snow uses a transparent scene and preserves the wallpaper under silent and
    const {demoAnalysis}=await import('/src/features/spectrum/music-analysis.ts')
    const c=document.createElement('canvas');c.style.cssText='width:640px;height:360px';document.body.append(c)
    const config={...defaults,effect:'ripple' as const,sceneMode:'immersive' as const},world=new ClassicSceneRenderer(c),motion=new SceneMotion()
-   try{world.resize(config,1);for(let i=0;i<60;i++){motion.step(demoAnalysis(i/30),1/30,config.music,false);world.draw(motion,config,false)}
+   try{await world.resize(config,1);for(let i=0;i<60;i++){motion.step(demoAnalysis(i/30),1/30,config.music,false);world.draw(motion,config,false)}
      const gl=world.renderer.getContext(),data=new Uint8Array(c.width*c.height*4);gl.readPixels(0,0,c.width,c.height,gl.RGBA,gl.UNSIGNED_BYTE,data)
      let clear=0,flakes=0;for(let i=3;i<data.length;i+=4){if(data[i]===0)clear++;if(data[i]>8)flakes++}
      return {clear:clear/(c.width*c.height),flakes,error:gl.getError()}
