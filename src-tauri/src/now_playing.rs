@@ -271,22 +271,16 @@ pub fn start(state: Arc<AppState>) {
         while !state.shutdown.load(Ordering::Relaxed) {
             let status = state.status.lock().unwrap().clone();
             let revision = state.audio_source.lock().unwrap().revision;
-            let enabled = {
-                let settings = state.settings.lock().unwrap();
-                settings.desktop_card.enabled || settings.lyrics.enabled
-            };
-            let target = if enabled {
-                state
-                    .audio_discovery
-                    .lock()
-                    .unwrap()
-                    .targets
-                    .iter()
-                    .find(|t| Some(t.pid) == status.process_id)
-                    .cloned()
-            } else {
-                None
-            };
+            // Performance cues need the player clock even when both visible
+            // metadata consumers (card and lyrics) are switched off.
+            let target = state
+                .audio_discovery
+                .lock()
+                .unwrap()
+                .targets
+                .iter()
+                .find(|t| Some(t.pid) == status.process_id)
+                .cloned();
             let mut value = NowPlaying::default();
             if let Some(target) = target {
                 let result = (|| {
