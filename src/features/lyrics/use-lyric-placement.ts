@@ -1,10 +1,11 @@
 import { useEffect, useRef, useState, type KeyboardEvent, type PointerEvent } from 'react'
 import type { SceneBounds } from '../spectrum/model'
+import { snapBounds } from '../preview/preview-geometry'
 
-export function useLyricPlacement(bounds: SceneBounds, enabled: boolean, onChange?: (bounds: SceneBounds, resized?: boolean) => void) {
+export function useLyricPlacement(bounds: SceneBounds, enabled: boolean, onChange?: (bounds: SceneBounds, resized?: boolean) => void, onSnap?: (guides: { x: number | null; y: number | null }) => void) {
   const [draft, setDraft] = useState<SceneBounds | null>(null)
   const gesture = useRef<{ id: number; x: number; y: number; width: number; height: number; start: SceneBounds; next: SceneBounds; resize: boolean; target: HTMLElement } | null>(null)
-  const cancel = () => { const drag = gesture.current; gesture.current = null; setDraft(null); if (drag?.target.hasPointerCapture(drag.id)) drag.target.releasePointerCapture(drag.id) }
+  const cancel = () => { const drag = gesture.current; gesture.current = null; setDraft(null); onSnap?.({ x: null, y: null }); if (drag?.target.hasPointerCapture(drag.id)) drag.target.releasePointerCapture(drag.id) }
   useEffect(() => { if (!enabled) cancel() }, [enabled])
   const begin = (event: PointerEvent<HTMLElement>, resize = false) => {
     if (!enabled || event.button !== 0 || gesture.current) return
@@ -22,12 +23,15 @@ export function useLyricPlacement(bounds: SceneBounds, enabled: boolean, onChang
     const dx = (event.clientX - drag.x) / drag.width, dy = (event.clientY - drag.y) / drag.height
     drag.next = drag.resize ? { ...drag.start, width: Math.max(.25, Math.min(1 - drag.start.x, drag.start.width + dx)), height: Math.max(.1, Math.min(.75, 1 - drag.start.y, drag.start.height + dy)) }
       : { ...drag.start, x: Math.max(0, Math.min(1 - drag.start.width, drag.start.x + dx)), y: Math.max(0, Math.min(1 - drag.start.height, drag.start.y + dy)) }
+    const snapped = onSnap && !drag.resize && !event.altKey ? snapBounds(drag.next, drag.width, drag.height) : { bounds: drag.next, x: null, y: null }
+    drag.next = snapped.bounds; onSnap?.({ x: snapped.x, y: snapped.y })
     setDraft(drag.next)
   }
   const end = (event: PointerEvent<HTMLElement>, cancelled = false) => {
     const drag = gesture.current
     if (!drag || drag.id !== event.pointerId) return
     event.stopPropagation(); gesture.current = null; setDraft(null)
+    onSnap?.({ x: null, y: null })
     if (drag.target.hasPointerCapture(drag.id)) drag.target.releasePointerCapture(drag.id)
     if (!cancelled) onChange?.(drag.next, drag.resize)
   }

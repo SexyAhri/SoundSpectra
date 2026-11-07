@@ -10,3 +10,19 @@ export function resizeBounds(start: Bounds, dx: number, dy: number): Bounds {
   const height = clamp(start.height + dy * 2, .08, Math.min(1, 2 * Math.min(cy, 1 - cy)))
   return { x: Math.max(0, cx - width / 2), y: Math.max(0, cy - height / 2), width, height }
 }
+
+/** Snap in screen pixels so the threshold stays usable at every preview size. */
+export function snapBounds(bounds: Bounds, width: number, height: number, targets: Bounds[] = []) {
+  const snapAxis = (start: number, extent: number, size: number, guides: number[]) => {
+    const anchors = [0, extent / 2, extent]
+    let distance = Math.min(.02, 6 / Math.max(1, size)), result = start, guide: number | null = null
+    for (const target of guides) for (const anchor of anchors) {
+      const next = target - anchor, delta = Math.abs(next - start)
+      if (next >= 0 && next <= 1 - extent && delta < distance) { distance = delta; result = next; guide = target }
+    }
+    return { value: result, guide }
+  }
+  const x = snapAxis(bounds.x, bounds.width, width, [0, .5, 1, ...targets.flatMap(b => [b.x, b.x + b.width / 2, b.x + b.width])])
+  const y = snapAxis(bounds.y, bounds.height, height, [0, .5, 1, ...targets.flatMap(b => [b.y, b.y + b.height / 2, b.y + b.height])])
+  return { bounds: { ...bounds, x: x.value, y: y.value }, x: x.guide, y: y.guide }
+}
