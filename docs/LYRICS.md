@@ -18,15 +18,24 @@ AMLL 成功结果保存在配置旁的 `lyric-cache/`，包含来源 ID、贡献
 
 解析支持 AMLL TTML、QRC、KRC、YRC、UTF-8 / UTF-16 LRC 及识别的 JSON 封装，只读取、不修改播放器缓存。TTML 保留行级和逐词时间、空格与 XML 实体；当前单行渲染器显示主唱歌词，暂不绘制 TTML 翻译、罗马音和并行和声。解析禁止 DTD，并限制正文大小和节点数量。
 
-## 三种编排
+## 四种编排
 
 | 名称 | 表现 | 保存 ID |
 | --- | --- | --- |
 | 文字漫游 | 对向短句、呼吸留白和缓慢镜头移动 | `depth` |
 | 错落排版 | 阶梯式断句、字号差异与倾斜基线 | `stage` |
 | 弧形流转 | 字符沿动态弧线排布与游移 | `stardust` |
+| 折幕 | 三维折面承载当前及相邻歌词 | `folded` |
 
-渲染器由项目实现，使用系统衬线字体和歌词时间戳；运动由当前歌词时间直接计算，暂停和跳转不会累积漂移。减少动态效果时保留时序高亮，关闭移动。
+文字姿态按歌曲绝对时间计算，暂停、跳转和重复绘制不会累积漂移；换句与结束时清理有界缓存。文字漫游采用透视门框与漫游构图，错落排版使用错位字组，避免复制文字作为残影。减少动态效果时保留时序高亮，关闭位移与扫光。
+
+`lyric-glyphs.ts` 统一可见字素与真实逐词时间；只有行时间的歌词不伪造逐字时间。断句、字距、字重与英文词边界共用 `lyric-typography.ts`。折幕每面最多 32 个字素，最多保留当前及相邻三行资源；使用正式歌词文档、歌曲时钟和同步偏移，不以实验示例替代真实歌词。
+
+折幕通过惰性加载的 R3F 渲染器绘制，`folded-choreography.ts` 用 Anime.js 的 `autoplay: false` 时间线按歌曲位置 seek。场景色复用封面取色与共享棱镜光，不叠加重复字影。
+
+### 字体
+
+`fontStyle: modern | poetry` 分别使用本地打包的 Noto Sans SC Variable 与 Noto Serif SC Variable，默认 modern。字体版本由 npm 锁文件固定，OFL 声明保留在 `licenses/`。按歌词需要加载 Unicode 分片，等待字体就绪后测量或生成纹理；字体以独立资源加载以适配 CSP，不请求远程字体。缺少字体字段的旧场景不覆盖当前字体选择。
 
 ## 位置与外观
 
@@ -50,6 +59,8 @@ npx playwright test tests/lyrics.spec.ts tests/audio-sources.spec.ts
 node scripts/desktop.mjs --cargo test --manifest-path src-tauri/Cargo.toml --lib lyrics::
 ```
 
-开发服务运行时，`node scripts/capture-lyric-compositions.mjs` 录制三种编排的 21 秒原创示例。
+编排与字体定向检查：`tests/lyric-typography.spec.ts`、`tests/lyric-redesign.spec.ts`、`tests/lyric-scene.spec.ts`、`tests/folded-production.spec.ts`。实验页 `/experiments/folded-curtain.html` 由 `tests/folded-curtain.spec.ts` 验证，不属于桌面生产入口。
+
+开发服务运行时，`scripts/capture-lyric-compositions.mjs`、`capture-lyric-redesign.mjs`、`capture-folded-production.mjs` 提供原创合成歌词审阅，结果放入忽略的 `artifacts/`。实验录像不代表真实歌词同步或原生帧率。
 
 原生忽略测试 `local_cache_decodes_without_writing` 可用 `SOUNDSPECTRA_LYRIC_TEST_DIR` 指定真实缓存目录，检查 20 个样本而不向仓库复制歌词。忽略测试 `public_lyric_service` 用于实际在线服务检查，外部服务状态不属于离线回归结果。

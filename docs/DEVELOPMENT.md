@@ -39,10 +39,11 @@ node scripts/desktop.mjs --cargo test --manifest-path src-tauri/Cargo.toml --loc
 | `src/features/spectrum/model.ts`、`regions.ts` | 配置归一化、区域隔离与显示范围 |
 | `src/features/spectrum/music-engine/` | RMS、六频段、48 格频谱、起音及共享参数 |
 | `src/features/spectrum/three/` | 相机、视角、帧生命周期、预算与透明合成 |
-| `three/classic/immersive/` | 七种经典场景的渲染实现 |
-| `three/terrain/`、`three/ambient/` | 频谱地形、花瓣、极光与星尘 |
+| `three/classic/immersive/` | 经典及自然意象场景的渲染实现 |
+| `three/terrain/`、`three/ambient/`、`three/compositions/` | 频谱地形、氛围层与空间构图 |
+| `src/features/performance/` | 歌曲时间编排、转场、音乐映射与临时演出覆盖 |
 | `src/features/lyrics/` | 文字编排、逐字高亮、歌词位置与同步 |
-| `src/features/desktop/`、`desktop-card/`、`wallpaper-depth/` | 桌面输出、音乐信息与壁纸视差 |
+| `src/features/desktop/`、`desktop-card/`、`wallpaper-depth/` | 桌面输出、音乐信息、静态壁纸、音乐微光与视差 |
 | `src/features/audio/`、`application/` | 音源、窗口、偏好、备份与更新 |
 | `src-tauri/src/audio*.rs`、`dsp.rs` | 音源发现、进程树捕获、FFT 与分析事件 |
 | `src-tauri/src/now_playing.rs`、`lyrics/`、`lyrics.rs` | Windows 媒体会话、缓存发现与联网歌词 |
@@ -52,11 +53,11 @@ node scripts/desktop.mjs --cargo test --manifest-path src-tauri/Cargo.toml --loc
 
 ## 场景与区域约定
 
-当前有 11 种可选灯效。晶簇声境、日冕回响、熔金潮汐、水波纹和丹霞声谷的实现、参数与缩略图已删除；仅在配置读取时将旧 ID 迁移到现有灯效。
+灯效清单以 `music-engine/catalog.ts` 为准，当前有 18 种。晶簇声境、日冕回响、熔金潮汐、水波纹和丹霞声谷的实现、参数与缩略图已删除；仅在配置读取时将旧 ID 迁移到现有灯效。
 
 灯效共享 `musicDriver`、`musicEnvelope` 与 `SceneMotion`，不另造音频能量或节拍。真实分析数据超过 350ms 未更新时按静音处理；渐隐后停止重复绘制，隐藏、暂停或离开场景时释放相应资源。减少动态效果时关闭空间传播，同时保留静态音乐响应。
 
-歌词暂停后停止帧循环；相同播放时间和外观不重复绘制，暂停中的跳转、外观与尺寸变更仍立即更新。隐藏的预览暂停歌词绘制，恢复时读取当前播放位置；嵌入桌面的窗口不依赖 `document.hidden` 判断可见性。音量表静音收敛后停止重复写入 SVG 属性，按 100ms 间隔检查新音频。
+歌词暂停后停止帧循环；相同播放时间和外观不重复绘制，暂停中的跳转、外观与尺寸变更仍立即更新。隐藏的预览暂停歌词绘制，恢复时读取当前播放位置；嵌入桌面的窗口不依赖 `document.hidden` 判断可见性。音量表静音收敛后停止重复写入 SVG 属性，以低频轮询检查新音频，具体间隔由模块预算决定。
 
 `three/view.ts` 定义每区域独立视角，`three/camera.ts` 供预览和桌面共用。拖动按帧合并后通过区域 patch、保存队列和原生 `update_settings` 持久化，再广播到桌面。失效的区域 ID 不能回退为主区域写入。
 
@@ -112,4 +113,25 @@ node scripts/capture-lyric-compositions.mjs
 
 脚本先输出到 `artifacts/`，选定的图片与视频再放入文档目录。不要将整个产物目录解除忽略，也不要提交真实播放器缓存、商业歌词或私人壁纸。
 
-效果艺术参数、桌面／沉浸构图、歌词局部联动和固定输入画面对比工具见 [视觉创作与固定输入审阅](VISUAL_STUDIES.md)。
+## 文档入口与维护
+
+| 文档 | 内容 |
+| --- | --- |
+| [发布](RELEASING.md) | 版本、签名、双平台构建与升级 |
+| [视觉](VISUALS.md) | 渲染生命周期、音乐运动、画面对比与缩放排查 |
+| [音乐分析](MUSIC_ANALYSIS.md) | PCM、物理频段、门限、起音与验证 |
+| [歌词](LYRICS.md) | 获取缓存、四种编排、字体、位置与同步 |
+| [音乐卡片](MUSIC_CARDS.md) | 四款布局、封面、时间轴、配色与原生控制 |
+| [工作台与组件](UI-COMPONENTS.md) | 编辑历史、布置、主题及共享控件 |
+| [演出编排](PERFORMANCE.md) | 绝对时间求值、转场、映射及状态恢复 |
+| [壁纸](WALLPAPER.md) | 系统与自选图片、局部微光和空间视差 |
+
+同一模块的设计、行为与验证入口直接更新对应文档。单次任务过程、截图列表、测试计数、性能采样和旧方案放在本机忽略的 `artifacts/`，不再新增独立开发报告。精选展示素材仍按上节规则维护。源码、实验页、验证脚本、字体引用和许可证应正常提交，不能为缩短文件列表而忽略。
+
+## 开发优先级与待验证事项
+
+稳定和低打扰优先于继续扩展：暂停或断源后安静、切歌同步准确、重启恢复布局、Explorer 重启恢复挂载，以及真实设备长时间资源占用。
+
+拾光绳先守住挂载、打开、排序和恢复。保存失败保留原状态；失效路径可修复；正常退出恢复桌面项目。文件管理、在线作品库和完整搭配分享暂不作为当前阶段必需范围。现有场景交换范围以实际 schema 和界面说明为准，不携带私人文件、歌词缓存或壁纸图片。
+
+原生最大化/还原时用户报告的 2–3 秒停顿仍未确认解决，排查入口见 [视觉开发](VISUALS.md#窗口缩放与原生排查)。其他播放器、macOS、真实多屏/DPI、休眠、长时间性能和签名升级仍需对应平台验证；旧记录中的通过数量不代表当前工作区验收结果。

@@ -1,8 +1,6 @@
 # 音乐分析与视觉驱动
 
-后续显示时钟及包边界插值修复见 [运动质量记录](MOTION_QUALITY.md)。本轮没有重写生产 PCM DSP 或重新检测场景节拍；原始 RMS 与捕获起音语义保持。
-
-本轮关注同强度音色的可比性、弱音连续性、真实强弱关系和起音的频率性格。原生采集仍在 Rust 完成；没有把 PCM 再送入 Web Audio 做第二次分析。
+显示时钟、包边界插值和场景运动见 [视觉开发](VISUALS.md)。分析关注同强度音色的可比性、弱音连续性、真实强弱关系和起音的频率性格。原生采集仍在 Rust 完成；没有把 PCM 再送入 Web Audio 做第二次分析。
 
 ## 数据语义
 
@@ -52,46 +50,15 @@ npx playwright test tests/music-analysis-native.spec.ts tests/audio-timeline.spe
 
 独立 Cargo 探针直接编译生产 `src-tauri/src/dsp.rs`，输出每个 hop；没有复制 DSP 公式来冒充原生执行。PCM 振荡器用 f64 生成后量化到 f32，避免高频长相位的 f32 运算误差干扰比较。输入包括等 RMS 不同频率、两窄带、宽带噪声、弱音、静音、低噪声、同相/反相/单侧输入、瞬态与结束、颤音、缓慢渐强、持续低音上的轻高频起音、同区域等能量换音和弱音短间隙。
 
-生产与基线探针分别使用独立的 Cargo package/bin 名称，避免共享 target 目录时同名可执行文件互相覆盖。可执行文件嵌入所编译 DSP 源码的 FNV64 指纹，JS 启动器再与请求的源文件逐字节比对；不一致就拒绝输出测量结果。已按“基线→生产”的顺序交叉验证。本次基线指纹为 `3a8f020096e96c16`，新版为 `ef282d3f8d353397`。
+生产与基线探针应使用不同的 Cargo package/bin 名称，避免共享 target 目录时覆盖可执行文件。可执行文件嵌入 DSP 源码指纹，JS 启动器与请求源文件核对，不一致则拒绝测量。
 
-前后比较使用工作开始时保存的 `artifacts/music-analysis/baseline-dsp.rs` 与 `baseline-src/spectrum`。保留基线后可运行：
+前后比较所需的旧源码、原始特征、截图、响应曲线与日志保存在本机忽略的 `artifacts/music-analysis/`。未保留基线时，只能验证当前实现，不能复现原来的版本比较；不要把历史通过数量写成当前验收结果。
 
-```powershell
-node scripts/probe-music-analysis.mjs --source=artifacts/music-analysis/baseline-dsp.rs --out=artifacts/music-analysis/baseline-native.json
-node scripts/measure-music-analysis.mjs --legacy --root=artifacts/music-analysis/baseline-src/spectrum --input=artifacts/music-analysis/baseline-native.json --out=artifacts/music-analysis/baseline-measurements.json
-node scripts/capture-music-analysis.mjs --hardware --render-root=/artifacts/music-analysis/render-v3-src/features/spectrum
-node scripts/measure-music-visual-response.mjs --hardware --render-root=/artifacts/music-analysis/render-v3-src/features/spectrum
-```
+像素响应按固定 PCM、种子、镜头和采样时间重放，记录起音和首次达到事件画面峰值 5% 的时刻。该模拟不包括系统采集、传输、调度、垂直同步与物理显示。85.3ms 窗长及各层平滑时间常数不能相加视作端到端延迟。
 
-视觉比较对同一版本的当前渲染器分别输入旧/新分析及旧/新驱动；画幅、参数、随机造型种子、PCM 与采样时间一致。十一种效果分别覆盖弱音、低/中/高频等强纯音、固定起音和静音释放。图像及原始像素指标保存在 `artifacts/music-analysis/visual`。
+## 实机验证边界
 
-本次使用冻结的 `render-v3-src/features/spectrum` 渲染器隔离算法差异，不包含另一视觉打磨任务之后的材质、构图及静音运动停止调整。当前生产场景另通过生命周期回归验证。该目录与基线快照均为本机验证产物，不属于生产代码；未保留快照时，去掉 `--render-root` 可验证当前渲染器，但不再是本报告的固定版本比较。Vite 忽略 `artifacts` 文件监听，因此修改快照内容后必须换用新目录或重启服务，避免读取旧变换缓存。
-
-响应测量在 160×90 上按采样时间重放真实原生特征并读回像素：起点定义为首次达到该次事件实测画面峰值的 5%，并另记起音时刻和画面峰值。它是 PCM→特征→场景→像素的确定性模拟，**不包括**系统采集、传输、渲染调度、垂直同步及物理显示延迟。85.3ms 窗长不作为端到端延迟；各层平滑时间常数也不相加当作实测结果。
-
-## 验证结果（2026-11-07）
-
-39 组合成 PCM 输入通过实际 Rust DSP。三个窄带输入的 PCM RMS 均为约 `0.141421`，旧版与新版频段显示峰值如下。新版对应范围的物理 RMS 也均为约 `0.141421`；这证明消除了频段宽度导致的稀释，不表示不同音色应有完全相同的艺术画面。
-
-| 频率 | 旧版显示峰值 | 新版显示峰值 |
-| --- | ---: | ---: |
-| 70.3125Hz | 0.278608 | 0.603418 |
-| 996.09375Hz | 0.024765 | 0.603418 |
-| 8003.90625Hz | 0.003483 | 0.603418 |
-
-`0.004 RMS` 的中频弱音由全零频段变为 `0.144956` 的显示峰值，原始 RMS 不变。默认灵敏度下驱动平滑强度约 `0.002`，保留既有 `gain/2` 尺度。恒定 `.2/.4/.8` 频段维持强弱比例；缓慢渐强由旧版 4 次起音降为开始的 1 次，持续颤音也只在开始触发。低、中、高各 5 次短音均独立触发且结束不误拍；持续低音上的 5 次轻高频均检出，同区域换音得到开始和换音共 2 次。
-
-自动检查：音频时间线、驱动契约与原生 PCM 共 **16 项通过**；Rust 全量 **85 项通过、4 项忽略**。生产前端构建及 Windows `custom-protocol` 原生构建通过。原始数值在 `artifacts/music-analysis/{native,measurements,baseline-native,baseline-measurements}.json`，测试日志在同一目录。
-
-真实 GPU（AMD Radeon RX 6700 XT / ANGLE D3D11）完成 **132 张**对照图（11 效果 × 6 输入 × 新旧两版），页面异常、场景失败、WebGL 错误均为零。11 效果的弱音旧版均无像素，新版均可见；新版弱音的透明度加权亮度总和为同效果强音的 **9.3%–12.4%**。长静音释放后，11 效果的像素和总亮度均归零。此像素指标用于受控比较，不等同于主观响度。图集为 `artifacts/music-analysis/visual/overview.png`，逐图数据为 `visual/report.json`。
-
-**18 组**响应比较覆盖声场、律动肌理与极光的低、中、高频短音。首次起音检测延迟均为 **5.33ms**；达到各自实测首击画面峰值 5% 的时间，新旧均为 **26.67ms**。新版画面峰值为 **133.33–154.67ms**，旧版为 **133.33–176.00ms**，部分组合提前一个 hop（21.33ms）。这些是本次固定事件相位和采样时钟的离散读回结果，不是所有实际输入都能保证的延迟，更不是实机端到端延迟。完整曲线在 `artifacts/music-analysis/visual-response.json`。
-
-当前生产代码的场景生命周期检查另有 **2 项通过**，覆盖减少动态时的触摸消退，以及极小场景尺度、极远视距下横竖画幅仍有可见几何。
-
-后续真实 QQ 音乐检查发现捕获时钟与本地时钟的长期漂移使事件年龄领先约 4.7 秒，导致瞬态在消费前衰减。前端现采用最近两秒的到达偏移窗口，限制事件时钟最多领先最新采样一个 hop，并保持显示时钟单调；原生 DSP、原始 RMS 和源端起音保持不变。修复前后各有 12 秒实机观测，修复后恢复非零频段瞬态，但两段播放内容不同，不作相同 PCM 的幅度对照。详见 [运动质量记录](MOTION_QUALITY.md)。
-
-尚未量化真实音源听感、桌面采集链路的端到端响应与 macOS 实机行为。
+到达偏移需随设备时钟漂移持续校正，事件时钟最多领先最新采样一个 hop；修正显示时钟不改变原生 RMS 与源端起音。真实音源听感、端到端响应、不同声卡/底噪与 macOS 行为仍需现场验证。
 
 ## 参考
 

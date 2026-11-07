@@ -1,6 +1,6 @@
 # 视觉开发
 
-十一种现有效果统一通过 React Three Fiber 9 渲染，保留 Three.js 自定义材质、实例化几何和 Rust 音频采集。React 负责视觉层的组合及生命周期，逐帧更新通过 `useFrame` 写入 GPU uniform，不逐帧更新 React state。
+全部现有效果统一通过 React Three Fiber 9 渲染，保留 Three.js 自定义材质、实例化几何和 Rust 音频采集。React 负责视觉层的组合及生命周期，逐帧更新通过 `useFrame` 写入 GPU uniform，不逐帧更新 React state。
 
 ## 入口与组合
 
@@ -12,9 +12,10 @@ Rust PCM / FFT → AudioFeatureTimeline → SceneMotion
 VisualScene → CameraRig + 视觉层组合 → HDR / Bloom → 透明合成 / 遮罩
 ```
 
-- `ClassicLayer` 挂载七种经典效果的既有几何工厂，保留水母宽屏长焦等画面设计。
+- `ClassicLayer` 挂载经典及自然意象效果的几何工厂，保留水母宽屏长焦等画面设计。
 - `AmbientLayers` 组合花瓣或极光曲面、`ParticleField`、航道与飘带。`LightSurface` 封装透明混合、GPU 材质和资源所有权，可复用在其他配方中。
-- `TerrainLayer` 将共享的 `createTerrainGrid` 种子上传一次，通过高度纹理驱动实例化柱体，不逐格做 CPU 高度计算。
+- 空间构图层组合潮汐之结、层海、回声廊道，与实验室复用同一场景实现。
+- `TerrainLayer` 复用共享地形网格与 GPU 高度预计算，绘制连续山脊曲面及细节；高度公式与 CPU 参考保持一致，不逐格做 CPU 高度计算。
 - `CameraRig` 统一保存的旋转、平移、滚转与缩放；`SceneCompositor` 统一曝光、HDR 降级、柔光、场景透明度、区域坐标和八个遮罩。
 
 新增视觉层时，在 `VisualScene` 内组合组件，用 `useVisualFrame(runtime => { ... })` 读取帧数据。负优先级用于相机或 GPU 预计算，普通视觉层用 0，最终合成固定为 1。层不得创建第二个 WebGLRenderer、RAF 循环或私有音频分析器。
@@ -47,11 +48,11 @@ Rust 每个 1024-sample FFT hop 都发送一帧，包含 `sourceRevision`、`str
 
 频段显示按持续映射的采样时钟在历史帧之间插值，标称保留一个 hop 的余量；到达抖动不会重新锚定显示段或让时钟倒退。超过余量的延迟会等待捕获端点，因此不是一个 hop 的总延迟上限。瞬态事件不插值。失联后不继续外推声音，恢复或重连清空旧分析状态但保留空间路径。明确标记的模拟预览也按固定 1024/48000 时钟采样，不按显示刷新率生成分析帧。
 
-连续运动排查、逐效果运动语言及前后证据见 [运动质量记录](MOTION_QUALITY.md)。
+连续运动的状态与回归约定见下节。
 
 后续音乐回应修正将持续能量、频段和短时起音分别供给场景；长时间设备时钟漂移不会再把新起音提前衰减掉。常规外观仅保留空间、光感、音乐参与度三项主要偏好，数量、尺寸和方向位于“造型细节”。旧参数仍可载入，原始采集 RMS 和源端检测不变。
 
-银河由球壳承载，星点和气体共用角坐标及旋转，避免显露矩形平面的斜切边。透明 HDR 曲面的法线/幂底范围与极光薄幕的边缘 UV 已限制，避免单个 NaN 经 Bloom 形成黑块；落雨的起音落点 GLSL 声明已补齐。复现序列及定向回归见运动质量记录。
+银河由球壳承载，星点和气体共用角坐标及旋转，避免显露矩形平面的斜切边。透明 HDR 曲面的法线/幂底范围与极光薄幕的边缘 UV 已限制，避免单个 NaN 经 Bloom 形成黑块；落雨的起音落点 GLSL 声明已补齐。定向回归见 `tests/hdr-surface-boundaries.spec.ts` 与 `tests/musical-scenes.spec.ts`。
 
 ## 质量与资源
 
@@ -59,28 +60,72 @@ Rust 每个 1024-sample FFT hop 都发送一帧，包含 `sourceRevision`、`str
 
 R3F 拥有一个画布的根和渲染器。组件拥有自己创建的材质、几何、纹理及离屏目标；工厂 `primitive` 通过 `disposeVisualTree` 显式释放，不能依赖 R3F 自动清理 primitive。共享曲面用 `dispose={null}`，由持有资源的组件统一释放。卸载同步提交清理，停止外部调度；根释放渲染器和 WebGL context。质量/密度变化替换视觉层资源，不新建 context。
 
-## 验证
+## 连续运动与场景边界
+
+`SceneMotion` 持有相位、惯性和路径；重复绘制、几何重建及外观修改不重播路径。源重连只重置音频历史。捕获时钟与本地时钟持续映射，按最近到达偏移修正长期漂移，事件时钟最多领先最新采样一个 hop，显示时钟保持单调。
+
+`three/reactive-motion.ts` 的每效果状态只随接受的模拟步推进。形变及滞后形变使用有界指数响应；转角累积非负捕获冲击，冲击结束不倒转；最多保留八个真实起音波，允许前一波自然结束。没有周期时钟合成节拍。静音与减少动态停止运输，局部形变允许收束。水母与三套空间构图保留各自的运动系统，共享源分析。
+
+效果造型与 ID 以 `music-engine/catalog.ts`、`effect-definitions.ts` 为准。新增自然场景包括蝶群、银杏、焦散与星脉；使用确定性种子、已有频段与起音，不增加私有分析器或远程贴图。地形 CPU/GPU 高度公式必须成对维护，局部响应和透明 HDR 材质需检查静音、侧视、低质量与资源释放。
+
+## 两种构图与歌词
+
+`CompositionLayout` 在保存的用户视角之上做屏幕相对布局：桌面模式按效果侧置、缩小，并柔和降低中心占用；沉浸模式保留完整空间，水母／丝绸／地形增加微小运镜。减少动态效果时运镜冻结。宽条带不应用侧置和中心淡化；点击射线会转换到构图本地坐标。
+
+每个 `PreviewStage`、`DesktopOverlay` 独立拥有 `SceneFocusProvider`。歌词仅在有实际可读行时发布避让拾光绳之后的真实区域；拖动、缩放和避让都会更新。没有歌词、前奏、预览关闭或桌面不可用时移除发布者。多个预览之间不共享全局状态。
+
+统一合成器在歌词背后局部柔化纹理、降低亮度与 Bloom；换句只轻微点亮该区域的既有表面。无声和减少动态效果时不触发换句微光。时间来自接受帧的 dt，同一音频帧重复绘制不重复推进微光。全局遮罩、唯一的色彩转换和预乘透明输出继续在最终合成阶段完成。
+
+## 画面实验室
+
+启动开发服务后打开 `/tools/visual-lab.html`。选择效果、构图及片段，或载入主应用已保存的主区域参数，再生成画面、记录 A／B、拖动对比位置、保存透明 PNG。A／B 只保存在页面内存。此入口仅用于开发审阅。
+
+输入是明确标注的原创**合成特征序列**，不播放或采集声音，也不代替 PCM 分析或真实音乐验收。序列按 48kHz／1024-sample 包时钟输入独立的 `AudioFeatureTimeline`，画面以固定 30Hz 从起点重放。包含低频鼓点、中频长音、高频、安静段、骤停、收束和完全静音七个采样时刻。
 
 ```powershell
-npm run build
-npx playwright test tests/audio-timeline.spec.ts tests/r3f-runtime.spec.ts tests/scene-lifecycle.spec.ts
-npx playwright test tests/classic-scenes.spec.ts tests/ambient-scenes.spec.ts tests/sound-field.spec.ts tests/effect-palette.spec.ts tests/hd-scenes.spec.ts
-node scripts/desktop.mjs --cargo test --manifest-path src-tauri/Cargo.toml --locked
+# 默认三个代表效果 × 两种模式 × 七个时刻
+npm run visual:compare -- --label=experiment-a
+# 修改视觉后，复用上一轮完整外观和镜头配置
+npm run visual:compare -- --label=experiment-b --baseline=experiment-a
+# 全部效果，或指定效果；软件 WebGL 也可用于检查
+npm run visual:compare -- --label=all-effects --all
+npm run visual:compare -- --label=snow-check --effects=ripple --software
 ```
 
-本次全量浏览器回归首轮为 245/250，通过复现定位并修复尺寸配置恢复自动帧循环的问题后，两批定向复验共 73 项全部通过，包含首轮五项失败用例。Rust 测试 82 项通过、4 项忽略；前端生产构建与 Windows `custom-protocol` 原生构建均通过。
+输出在忽略的 `artifacts/visual-studies/<label>/`：透明 PNG、本地 HTML 对比页和 `report.json`。报告包含完整设置、镜头、采样时刻、分辨率、GPU、像素 hash、覆盖率、中心覆盖率、平均光亮和卸载后的资源计数，以及代表效果的随机种子。相同机器与渲染器下可检查逐像素重现；不同 GPU 的像素 hash 不保证一致。已有报告不会被覆盖，重新运行请换 label。
 
-启动 `npm run dev` 后，可运行以下探针，结果输出到忽略的 `artifacts/r3f/`：
+自动检查包括参数沿旧 schema 往返、艺术控制与独立重置、确定性重放、模式中心占用、静音与减少动态效果、歌词区域外像素不变、换句重复帧稳定、独立 provider、实际歌词位置发布和资源释放。相关回归入口：
 
 ```powershell
+npx playwright test tests/creative-scenes.spec.ts tests/classic-scenes.spec.ts tests/ambient-scenes.spec.ts tests/sound-field.spec.ts tests/effect-palette.spec.ts
+npx playwright test tests/settings.spec.ts tests/scene-view.spec.ts tests/lyrics.spec.ts tests/idle-rendering.spec.ts tests/r3f-runtime.spec.ts tests/regions-masks.spec.ts tests/preview-arrangement.spec.ts tests/desktop-preview.spec.ts tests/desktop-recovery.spec.ts
+npm run build
+node scripts/visual-benchmark.mjs --width=3840 --height=2160 --quality=balanced --label=creative --lyrics
+```
+
+性能探针的 `--lyrics` 添加歌词位置与换句区域影响，不渲染文字本身；`--label` 避免覆盖旧探针。`--url=http://127.0.0.1:1422` 可让截图或性能脚本使用独立开发服务。同步等待 GPU 的耗时用于比较场景成本，不能当作应用 FPS。浏览器模拟输入、截图和自动测试不能替代真实音源、Tauri 原生桌面层、多屏和 macOS 实机验收。
+
+## 窗口缩放与原生排查
+
+场景首次绘制前等待异步 shader 准备，离屏各 pass 按自身目标编译。场景切换串行准备，关闭时等编译轮询结束再释放材质；尚未就绪的 draw 返回 false，宿主保留 dirty 状态以便静音时也会重试。纯尺寸变化复用上下文、材质和准备缓存，只应用最新尺寸。效果、质量、密度、区域数量或构图变化可要求重新准备。
+
+工作台预览共享 1920×1080 像素预算。宿主 ResizeObserver 在 RAF 内合并测量；最大化状态 IPC 合并查询。标题栏最大化/还原先暂停 GPU 呈现并让出 32ms，尺寸安静 160ms 后调整缓冲区；期间动画与音频状态继续推进，恢复沿用原场景。该调度仍需原生实测。
+
+开发版 F8 打开本机诊断，观察 context、准备次数、program 数、缓冲区耗时、RAF 间隔及 long task；不上传、不持久化。准备次数增加需查场景重建；次数稳定而存在长任务需查同步工作或图形调用；RAF 长间隔但无对应长任务需继续检查 WebView2 调度和原生呈现。
+
+**用户报告的原生最大化 2–3 秒停顿尚未确认解决。** 既有浏览器探针与原生截图只证实上下文/程序复用，并记录局部缩放开销，不能证明物理呈现已恢复。用 `scripts/measure-cold-scene-resize.mjs LABEL` 和 `scripts/measure-workspace-resize.mjs LABEL` 记录实际编译、RAF、上下文与 GPU 等待，结果写入 `artifacts/`；浏览器 viewport resize 不能替代原生窗口转换。
+
+## 验证入口与证据边界
+
+```powershell
+npx playwright test tests/audio-timeline.spec.ts tests/r3f-runtime.spec.ts tests/scene-lifecycle.spec.ts tests/reactive-motion.spec.ts
+npx playwright test tests/scene-preparation.spec.ts tests/scene-resize.spec.ts tests/composition-scenes.spec.ts tests/new-effect-families.spec.ts tests/material-scenes.spec.ts
 node scripts/visual-probe.mjs --hardware
 node scripts/visual-benchmark.mjs --width=3840 --height=2160 --quality=balanced
 ```
 
-第一项逐一渲染十一种效果。第二项在实际显卡上同时运行极光、水母、地形和星际航行四个区域，预热 20 帧后采样 120 帧；记录 CPU 提交耗时、调用 `gl.finish()` 等待 GPU 后的同步耗时、帧间隔、实际绘制像素和卸载资源计数。同步等待会阻塞流水线，结果用于对比当前机器的场景成本，不能直接当作应用帧率。像素预算在四个区域间共享。
+`/tools/composition-lab.html?scene=sculpture` 与 `scripts/capture-compositions.mjs` 审阅空间构图；`scripts/capture-effect-refinement.mjs`、`capture-effect-motion.mjs` 审阅实际生产造型与连续运动，输出均在 `artifacts/`。静态图之外应检查相位单调、重复帧不推进、30/60/120Hz 一致性、静音和减少动态、WebGL 错误与卸载资源。
 
-2026-11-07 在 Windows、Chrome / ANGLE D3D11、AMD Radeon RX 6700 XT 上，均衡模式四个 1920×1080 区域合计 8,294,400 像素。120 帧采样的 CPU 提交与同步耗时中位数均为 1.1ms，P95 均为 1.7ms；每个区域 140 次手动推进恰好产生 140 帧，WebGL 错误为 0，卸载后几何与纹理计数均为 0。探针按浏览器 rAF 推进，未经过应用帧率门控，也未包含桌面窗口合成与原生音源采集成本。这是该机器和模拟输入的一次测量，不是其他显卡或 Tauri WebView 的性能保证。
+截图和性能探针使用明确标注的合成音频，不作为真实音源证据。CPU 提交与同步等待 GPU 的耗时用于同机比较，不能直接视为应用 FPS；软件 WebGL 也不能代表用户显卡。原生桌面合成、采集端到端响应、多屏、休眠和 macOS 权限需对应平台实机验证。
 
-截图和性能探针使用明确的模拟音频，不能作为真实音源采集证据。软件 WebGL 与 CPU 提交时间也不能代表用户 GPU 的帧率。原生采集、桌面层级、多显示器、休眠恢复和 macOS 权限仍需对应平台实机验证。
-
-依赖依据：[R3F 与 React 版本对应](https://r3f.docs.pmnd.rs/getting-started/introduction)、[外部根与手动帧循环](https://r3f.docs.pmnd.rs/api/canvas)、[useFrame 优先级与 advance](https://r3f.docs.pmnd.rs/api/hooks)。锁定 `@react-three/fiber@9.8.2`，配套现有 React 19 和 Three r180，未采用 R3F 10 alpha。
+依赖依据：[R3F 与 React 版本对应](https://r3f.docs.pmnd.rs/getting-started/introduction)、[外部根与手动帧循环](https://r3f.docs.pmnd.rs/api/canvas)、[useFrame 优先级与 advance](https://r3f.docs.pmnd.rs/api/hooks)。版本由 npm 锁文件固定。
