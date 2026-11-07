@@ -1,3 +1,6 @@
+import { createMusicTransientDetector } from './musicTransient';
+import { MUSIC_GATE_OPEN_RMS } from './musicGate';
+
 export interface MusicMotionViewport {
   aspectRatio: number;
   keyDiameter: number;
@@ -5,23 +8,13 @@ export interface MusicMotionViewport {
 
 /** 用真实频段起音产生短促冲刺；总体音量只决定拍间运动，不用固定时钟制造节拍。 */
 export function createMusicMotionRhythm() {
-  let previousBands: readonly number[] = [];
-  let previousRms = 0;
-  let fluxAverage = 0;
-  let attack = 0;
-  let attackPeak = 0.06;
+  const detector = createMusicTransientDetector();
   let impulse = 0;
   let activity = 0;
-  let sinceOnset = Infinity;
   const reset = () => {
-    previousBands = [];
-    previousRms = 0;
-    fluxAverage = 0;
-    attack = 0;
-    attackPeak = 0.06;
+    detector.reset();
     impulse = 0;
     activity = 0;
-    sinceOnset = Infinity;
   };
 
   function update(
@@ -29,41 +22,25 @@ export function createMusicMotionRhythm() {
     relativeVolume: number,
     rms: number,
     bands: readonly number[],
-    sensitivity: number
+    sensitivity: number,
+    spectrum: readonly number[] = bands,
+    audible = rms >= MUSIC_GATE_OPEN_RMS,
+    spectrumRms?: readonly number[]
   ) {
     const dt = Math.max(0, Math.min(100, dtMs));
-    const audible = rms > 0.006;
-    const gain = Math.max(0.5, Math.min(2, sensitivity));
-    // 看单个频段的增量，避免低鼓或镲片被持续响亮的其他频段平均掉。
-    const spectralFlux = Math.max(0, ...bands.map((value, i) => value - (previousBands[i] ?? 0)));
-    const volumeFlux = (Math.max(0, rms - previousRms) / Math.max(0.02, previousRms)) * 0.25;
-    const flux = audible ? Math.max(spectralFlux, volumeFlux) : 0;
-    // 累积约两三帧的上升量，避免渐强的鼓点每帧都低于起音门限。
-    attack = audible ? attack * Math.exp(-dt / 35) + flux : 0;
-    attackPeak = Math.max(0.06, attackPeak * Math.exp(-dt / 4000));
-    const threshold = Math.max(0.022 / gain, fluxAverage * 1.7 + 0.006);
-    sinceOnset += dt;
+    const detected = detector.update(dt, rms, audible, spectrum, sensitivity, spectrumRms);
     impulse *= Math.exp(-dt / 40);
     activity *= Math.exp(-dt / 600);
     // 65ms 去重仅拦同一个起音的重复检测，允许 125ms 甚至更密集的鼓点。
-    const onset = audible && sinceOnset >= 65 && flux > 0.004 / gain && attack > threshold;
+    const { onset } = detected;
     if (onset) {
-      // 起音只决定触发时机，不再把弱拍、强拍一律推到满速和最远键。
-      // 限制启动瞬间的参考峰值，避免从静音起播的跳变压住后续正常鼓点。
-      attackPeak = Math.max(attackPeak, Math.min(0.35, attack));
-      const accent = Math.min(1, attack / attackPeak);
-      impulse = 0.2 + 0.8 * (accent * 0.65 + relativeVolume * 0.35);
-      attack = 0;
+      impulse = Math.min(1, Math.max(...detected.transients) * .8 + relativeVolume * .2);
       activity = 1;
-      sinceOnset = 0;
     }
-    fluxAverage += (flux - fluxAverage) * (1 - Math.exp(-dt / 400));
-    previousBands = [...bands];
-    previousRms = rms;
     // 节奏密集时降低拍间速度，给下一拍留出加速空间；长音逐渐恢复音量驱动。
     const base = Math.max(0, Math.min(1, relativeVolume)) * (1 - activity * 0.65);
     const intensity = audible ? Math.max(base, impulse) : 0;
-    return { intensity, onset };
+    return { intensity, ...detected };
   }
 
   return { update, reset };

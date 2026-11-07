@@ -1,5 +1,15 @@
 import { createMusicMotionRhythm } from './musicMotion';
 
+export interface MusicAudioFeatures {
+  rms: number;
+  bands: readonly number[];
+  spectrum: readonly number[];
+  /** Supplied only by a shared capture-clock gate. Standalone drivers own a gate. */
+  audible?: boolean;
+  bandRms?: readonly number[];
+  spectrumRms?: readonly number[];
+}
+
 const clamp = (value: number) => Math.max(0, Math.min(1, value));
 const edges = [40, 120, 300, 750, 1800, 4500, 12000];
 
@@ -8,15 +18,16 @@ export function readMusicAudio(frequency: Float32Array, waveform: Uint8Array, sa
   let rms = 0;
   for (const value of waveform) rms += ((value - 128) / 128) ** 2;
   rms = Math.sqrt(rms / Math.max(1, waveform.length));
-  const audible = rms > 0.006;
   const readRange = (start: number, end: number) => {
     let sum = 0;
     for (let bin = start; bin < end; bin++) {
       // 浮点 dB 保留响亮片段的差别，不经过 byte 频谱的 -30dB 上限截断。
       const db = frequency[bin];
-      if (Number.isFinite(db)) sum += Math.max(0, (db + 70) / 70);
+      if (Number.isFinite(db)) sum += 10 ** (db / 10);
     }
-    return audible ? sum / Math.max(1, end - start) : 0;
+    // Browser compatibility path: integrate linear spectral power before display
+    // compression. Native calibrated RMS remains the authoritative input.
+    return Math.min(1, (Math.sqrt(sum) / .5) ** .4);
   };
   const bands = edges.slice(0, -1).map((low, i) => {
     const start = Math.max(1, Math.floor((low * frequency.length * 2) / sampleRate));
@@ -35,7 +46,7 @@ export function readMusicAudio(frequency: Float32Array, waveform: Uint8Array, sa
     );
     return readRange(start, end);
   });
-  return { rms, audible, bands, spectrum };
+  return { rms, bands, spectrum };
 }
 
 export function createBandNormalizer(minimumSpan = 0.08) {
@@ -90,7 +101,7 @@ export function createMusicMotionSignal() {
       normalizer.reset();
       rhythm.reset();
     },
-    update(audio: ReturnType<typeof readMusicAudio>, now: number, dt: number, sensitivity: number) {
+    update(audio: MusicAudioFeatures & { audible: boolean }, now: number, dt: number, sensitivity: number) {
       const gain = Math.max(0.5, Math.min(2, sensitivity));
       const relativeVolume = normalizer.update(
         [audio.audible ? Math.max(0, (20 * Math.log10(audio.rms) + 70) / 70) : 0],
@@ -98,7 +109,8 @@ export function createMusicMotionSignal() {
         dt,
         gain
       )[0];
-      return rhythm.update(dt, relativeVolume, audio.rms, audio.bands, gain);
+      const absoluteVolume = Math.min(1, (Math.max(0, audio.rms) / .5) ** .4);
+      return rhythm.update(dt, absoluteVolume * (.85 + relativeVolume * .3), audio.rms, audio.bands, gain, audio.spectrum, audio.audible, audio.spectrumRms);
     },
   };
 }

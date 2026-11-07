@@ -93,7 +93,7 @@ fn capture(
     });
     let mut selector = Selector::default();
     let mut selected = None;
-    let mut analyzer = Analyzer::new();
+    let mut analyzer = Analyzer::with_source_revision(revision);
     let mut peaks = HashMap::<u32, (bool, Instant)>::new();
     let mut refresh = Instant::now();
     let mut last_packet = Instant::now();
@@ -133,7 +133,7 @@ fn capture(
                     state.audio_discovery.lock().unwrap().targets = targets.clone();
                     let next = selector.choose(&source, &targets);
                     if selected != next.as_ref().map(|t| t.pid) {
-                        analyzer = Analyzer::new();
+                        analyzer = Analyzer::with_source_revision(revision);
                         silence(app);
                     }
                     selected = next.as_ref().map(|t| t.pid);
@@ -150,7 +150,9 @@ fn capture(
                         return Ok(());
                     }
                     let _ = app.emit("spectrum", bands);
-                    let _ = app.emit("music-analysis", analyzer.music_analysis());
+                    for frame in analyzer.take_music_frames() {
+                        let _ = app.emit("music-analysis", frame);
+                    }
                     drop(guard);
                     let target = targets.iter().find(|t| t.pid == pid);
                     let audible = analyzer.music_analysis().rms > 0.001;

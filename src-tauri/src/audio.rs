@@ -82,7 +82,7 @@ fn capture(
     let event = client.set_get_eventhandle().map_err(|e| e.to_string())?;
     let capture = client.get_audiocaptureclient().map_err(|e| e.to_string())?;
     let mut bytes = VecDeque::with_capacity(64 * 1024);
-    let mut analyzer = Analyzer::new();
+    let mut analyzer = Analyzer::with_source_revision(revision);
     client.start_stream().map_err(|e| e.to_string())?;
     let result = (|| {
         let mut last_process_check = Instant::now();
@@ -148,7 +148,9 @@ fn capture(
                     emit_bands(app, state, revision, &bands);
                     if let Ok(source) = state.audio_source.lock() {
                         if source.revision == revision {
-                            let _ = app.emit("music-analysis", analyzer.music_analysis());
+                            for frame in analyzer.take_music_frames() {
+                                let _ = app.emit("music-analysis", frame);
+                            }
                         }
                     }
                 }

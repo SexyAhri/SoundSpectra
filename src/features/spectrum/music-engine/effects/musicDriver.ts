@@ -1,4 +1,5 @@
-import { createBandNormalizer, createMusicMotionSignal, readMusicAudio } from './musicSignal';
+import { createBandNormalizer, createMusicMotionSignal, readMusicAudio, type MusicAudioFeatures } from './musicSignal';
+import { createMusicGate } from './musicGate';
 import { createMusicEnvelope, dampedMusicValue } from './musicEnvelope';
 import {
   sampleMusicIntensity,
@@ -15,6 +16,13 @@ export interface MusicDriverFrame {
   audible: boolean;
   bands: readonly number[];
   levels: readonly number[];
+  /** Relative detail only; levels retain absolute strength with a bounded ±15% detail accent. */
+  relativeLevels: readonly number[];
+  bandRms?: readonly number[];
+  spectrumRms?: readonly number[];
+  /** Low (<300Hz), middle (300–1800Hz), high (>1800Hz) causal onset envelopes. */
+  transients: readonly number[];
+  bandOnsets: readonly boolean[];
   spectrum: readonly number[];
   waveform: Uint8Array;
   sensitivity: number;
@@ -27,6 +35,7 @@ export interface MusicDriverFrame {
   beatAge: number;
   beatStrength: number;
   pulse: number;
+  /** Smoothed interval between detected onsets in ms, not a BPM/phase estimate. */
   period: number;
   sustain: number;
   envelope: number;
@@ -39,6 +48,7 @@ export interface MusicDriverFrame {
 /** 统一音量尺度、频段归一化、起音、长音与衰减；时间本身不会产生新节拍。 */
 export function createMusicDriver() {
   const normalizer = createBandNormalizer();
+  const gate = createMusicGate();
   const motion = createMusicMotionSignal();
   const displayEnvelope = createMusicEnvelope();
   const levelVelocity = Array<number>(6).fill(0);
@@ -62,6 +72,7 @@ export function createMusicDriver() {
 
   function reset() {
     normalizer.reset();
+    gate.reset();
     motion.reset();
     displayEnvelope.reset();
     levelVelocity.fill(0);
@@ -100,7 +111,7 @@ export function createMusicDriver() {
 
   // Tauri computes these features from the captured PCM. No reconstruction from bar heights.
   function updateAudio(
-    audio: ReturnType<typeof readMusicAudio>,
+    input: MusicAudioFeatures,
     now: number,
     sensitivity: number,
     sampledIntensity?: MusicIntensitySample,
@@ -108,10 +119,14 @@ export function createMusicDriver() {
     response: 'soft' | 'balanced' | 'responsive' = 'balanced',
     waveform: Uint8Array = new Uint8Array(0)
   ): MusicDriverFrame {
+    // Standalone callers also discard stale attack and normalization state on resume.
+    if (lastTime !== undefined && now - lastTime > 350) reset();
     const dt = Math.max(0, Math.min(100, lastTime === undefined ? 16.67 : now - lastTime));
     lastTime = now;
+    const rms = Number.isFinite(input.rms) ? Math.max(0, input.rms) : 0;
+    const audio = { ...input, rms, audible: input.audible ?? gate.update(rms, dt) };
     const gain = Math.max(0.5, Math.min(2, sensitivity));
-    const { intensity: accentIntensity, onset } = motion.update(audio, now, dt, gain);
+    const { intensity: accentIntensity, onset, transients, bandOnsets } = motion.update(audio, now, dt, gain);
     // 直接使用当前 RMS；稳定音乐也能持续运动，不再等待历史极值或在窗口低谷停住。
     const intensitySample = sampledIntensity ?? sampleMusicIntensity(audio.rms, now);
     const rawIntensity = audio.audible
@@ -127,7 +142,11 @@ export function createMusicDriver() {
     const display = smoothMotion
       ? displayEnvelope.step(rawIntensity, audio.audible, dt / 1000, response)
       : null;
-    const normalized = normalizer.update([...audio.bands, ...audio.spectrum], now, dt, gain);
+    const absolute = [...audio.bands, ...audio.spectrum].map(value => audio.audible && Number.isFinite(value) ? clamp(value) : 0);
+    const relative = normalizer.update(absolute, now, dt, 1);
+    // The previous independent min/max output made constant .2/.4/.8 all .5.
+    // Absolute display energy now owns the scale; relative motion has bounded influence.
+    const normalized = absolute.map((value, i) => clamp(Math.pow(value, 1 / gain) * (.85 + .3 * relative[i])));
     const ease = (value: number, target: number, attack: number, release: number) =>
       value + (target - value) * (1 - Math.exp(-dt / (target > value ? attack : release)));
     const bandLevel = (value: number, target: number, velocities: number[], index: number) => {
@@ -146,7 +165,7 @@ export function createMusicDriver() {
     spectrum = spectrum.map((value, i) => bandLevel(value, normalized[i + 6], spectrumVelocity, i));
     envelope = ease(envelope, Math.max(...normalized.slice(0, 6)), 45, 240);
     bassEnvelope = ease(bassEnvelope, Math.max(normalized[0], normalized[1]), 45, 240);
-    motionEnvelope = ease(motionEnvelope, intensitySample.current > 0 ? 1 : 0, 45, 240);
+    motionEnvelope = ease(motionEnvelope, audio.audible && intensitySample.current > 0 ? 1 : 0, 45, 240);
 
     const spectralChange =
       audio.bands.reduce((sum, value, i) => sum + Math.abs(value - previousBands[i]), 0) /
@@ -178,6 +197,11 @@ export function createMusicDriver() {
       audible: audio.audible,
       bands: audio.bands,
       levels: [...levels],
+      relativeLevels: relative.slice(0, 6),
+      bandRms: audio.bandRms,
+      spectrumRms: audio.spectrumRms,
+      transients,
+      bandOnsets,
       spectrum: [...spectrum],
       waveform,
       sensitivity: gain,
@@ -191,7 +215,8 @@ export function createMusicDriver() {
       beatAge,
       beatStrength,
       period,
-      pulse: audio.audible ? beatStrength * Math.exp(-beatAge / 100) : 0,
+      // A cymbal accent remains a fine transient instead of a bass-sized global impact.
+      pulse: audio.audible ? Math.max(transients[0], transients[1] * .65, transients[2] * .3) : 0,
       sustain,
       envelope,
       bassEnvelope,
