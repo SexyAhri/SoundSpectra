@@ -7,7 +7,8 @@ import { defaults } from "../spectrum/model";
 import { CardLayer } from '../desktop-card/card-layer';
 import { useNowPlaying } from '../desktop-card/use-now-playing';
 import { useCoverColors } from '../desktop-card/use-cover-colors';
-import { DepthWallpaper } from '../wallpaper-depth/wallpaper-depth-layer';
+import { DesktopWallpaper } from '../wallpaper-depth/wallpaper-surface';
+import { wallpaperNeedsSurface } from '../wallpaper-depth/wallpaper-layout';
 import { useLyrics } from '../lyrics/use-lyrics';
 import { LyricLayer } from '../lyrics/lyric-layer';
 import { SceneFocusProvider } from '../spectrum/scene-focus';
@@ -15,6 +16,7 @@ import { displayBounds, relativeBounds, sceneRegions, settingsForRegion } from '
 import { layerIndex } from '../preview/scene-layers';
 import { useRail } from '../rail/use-rail';
 import { railObstacles } from '../lyrics/avoid-rail';
+import { PerformanceProvider } from '../performance/runtime';
 import {
   describeError,
   getStatus,
@@ -36,7 +38,7 @@ export function DesktopOverlay() {
     return () => window.removeEventListener('resize', resize);
   }, []);
   const { bands, receivedAt, analysis } = useSpectrum();
-  const nowPlaying = useNowPlaying((settings.desktopCard.enabled || settings.lyrics.enabled || settings.followCover) && settings.enabled, true);
+  const nowPlaying = useNowPlaying(settings.enabled, true);
   const colors = useCoverColors(settings, nowPlaying, settings.enabled || editing);
   const lyricDocument = useLyrics(settings.lyrics, nowPlaying, settings.enabled);
   useEffect(() => {
@@ -112,12 +114,13 @@ export function DesktopOverlay() {
     }
   };
   return (
-    <SceneFocusProvider><div className={`desktop-overlay ${editing ? "editing" : ""}`}>
-      {settings.wallpaperDepth.enabled&&(settings.enabled||editing)&&<DepthWallpaper settings={settings.wallpaperDepth} desktop active={settings.enabled||editing}/>}
+    <PerformanceProvider info={nowPlaying}><SceneFocusProvider><div className={`desktop-overlay ${editing ? "editing" : ""}`}>
+      {wallpaperNeedsSurface(settings.wallpaperDepth)&&(settings.enabled||editing)&&<DesktopWallpaper settings={settings.wallpaperDepth} masks={settings.masks} analysis={analysis} active={settings.enabled||editing}/>}
       {sceneRegions(settings).filter(region => region.visible).map(region => {
         const bounds = relativeBounds(region.bounds, displayBounds(settings));
         return <div key={region.id} className="desktop-region" data-region-id={region.id} style={{ position: 'absolute', zIndex: layerIndex(settings, `effect:${region.id}`), left: `${bounds.x * 100}%`, top: `${bounds.y * 100}%`, width: `${bounds.width * 100}%`, height: `${bounds.height * 100}%` }}><SpectrumCanvas
         settings={settingsForRegion(colors.settings, region.id)}
+        regionId={region.id}
         bands={bands}
         receivedAt={receivedAt}
         analysis={analysis}
@@ -127,7 +130,7 @@ export function DesktopOverlay() {
         regionCount={sceneRegions(settings).filter(region => region.visible).length}
       /></div>})}
       {settings.desktopCard.enabled && <CardLayer zIndex={layerIndex(settings, 'card')} settings={settings.desktopCard} info={nowPlaying} color={colors.cardColor} bands={bands} receivedAt={receivedAt} host={displayBounds(settings)} desktop active={settings.enabled} />}
-      {settings.lyrics.enabled && <LyricLayer appearance={settings} obstacles={railObstacles(rail.settings, screen)} zIndex={layerIndex(settings, 'lyrics')} settings={settings.lyrics} document={lyricDocument} info={nowPlaying} host={displayBounds(settings)} desktop active={settings.enabled} />}
+      {settings.lyrics.enabled && <LyricLayer appearance={colors.settings} cardAccent={settings.desktopCard.enabled ? settings.desktopCard.accentColor : undefined} obstacles={railObstacles(rail.settings, screen)} zIndex={layerIndex(settings, 'lyrics')} settings={settings.lyrics} document={lyricDocument} info={nowPlaying} host={displayBounds(settings)} desktop active={settings.enabled} />}
       {editing && (
         <>
           <div className="overlay-toolbar">
@@ -152,6 +155,6 @@ export function DesktopOverlay() {
           {error}
         </div>
       )}
-    </div></SceneFocusProvider>
+    </div></SceneFocusProvider></PerformanceProvider>
   );
 }

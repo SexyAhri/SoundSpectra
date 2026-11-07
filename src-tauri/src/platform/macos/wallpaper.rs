@@ -31,8 +31,8 @@ pub async fn get_desktop_background(
     window: WebviewWindow,
     known_revision: Option<String>,
 ) -> Result<DesktopBackground, String> {
-    if window.label() != "settings" {
-        return Err("壁纸预览仅供设置窗口使用".into());
+    if !["settings", "overlay"].contains(&window.label()) {
+        return Err("窗口无权读取桌面壁纸".into());
     }
     let overlay = app
         .get_webview_window("overlay")

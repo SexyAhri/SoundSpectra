@@ -6,6 +6,7 @@ export type WallpaperPosition = 'center' | 'tile' | 'stretch' | 'fit' | 'fill' |
 export interface DesktopBackground {
   screen: ScreenRect; virtualScreen: ScreenRect; position: WallpaperPosition;
   color: string; image: string | null; revision: string; issue: string | null;
+  anchor?: { x: number; y: number };
 }
 export interface PreviewImage { url: string; width: number; height: number }
 export const referenceScreen: ScreenRect = { x: 0, y: 0, width: 1920, height: 1080 }
@@ -70,8 +71,8 @@ export function wallpaperPlacement(image: PreviewImage, desktop: DesktopBackgrou
     const ratio = (position === 'fit' ? Math.min : Math.max)(target.width / width, target.height / height)
     width *= ratio; height *= ratio
   }
-  const x = position === 'tile' ? 0 : (target.width - width) / 2 + target.x - screen.x
-  const y = position === 'tile' ? 0 : (target.height - height) / 2 + target.y - screen.y
+  const x = position === 'tile' ? 0 : (target.width - width) * (desktop?.anchor?.x ?? .5) + target.x - screen.x
+  const y = position === 'tile' ? 0 : (target.height - height) * (desktop?.anchor?.y ?? .5) + target.y - screen.y
   return { x, y, width, height, tile: position === 'tile' }
 }
 

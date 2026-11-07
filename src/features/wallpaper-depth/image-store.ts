@@ -5,7 +5,7 @@ import { useEffect,useState } from 'react'
 export interface DepthImage {dataUrl:string;revision:string;width:number;height:number}
 async function decode(value:{dataUrl:string;revision:string}):Promise<DepthImage>{
  const image=new Image();image.src=value.dataUrl
- await image.decode().catch(()=>{throw new Error('无法读取立体壁纸，请重新选择图片。')})
+ await image.decode().catch(()=>{throw new Error('无法读取壁纸，请重新选择图片。')})
  if(!image.naturalWidth||image.naturalWidth*image.naturalHeight>100_000_000)throw new Error('图片尺寸过大。')
  return {...value,width:image.naturalWidth,height:image.naturalHeight}
 }
@@ -19,7 +19,7 @@ async function browserStore(value?:DepthImage):Promise<DepthImage|undefined>{
    const transaction=db.transaction('images',value?'readwrite':'readonly'),store=transaction.objectStore('images')
    const request=value?store.put(value,'depth-wallpaper'):store.get('depth-wallpaper')
    transaction.oncomplete=()=>resolve(value??request.result)
-   transaction.onerror=transaction.onabort=()=>reject(new Error('立体壁纸保存失败，请重试。'))
+   transaction.onerror=transaction.onabort=()=>reject(new Error('壁纸保存失败，请重试。'))
  })}finally{db.close()}
 }
 let cached:{revision:string;promise:Promise<DepthImage|null>}|undefined
@@ -27,8 +27,8 @@ export function readDepthImage(revision:string):Promise<DepthImage|null>{
  if(!revision)return Promise.resolve(null)
  if(cached?.revision===revision)return cached.promise
  const promise=(native?invoke<{dataUrl:string;revision:string}|null>('load_depth_image'):browserStore()).then(async value=>{
-   if(!value)throw new Error('立体壁纸图片未找到，请重新选择。')
-   if(value.revision!==revision)throw new Error('立体壁纸图片已变更，请重新选择。')
+   if(!value)throw new Error('壁纸图片未找到，请重新选择。')
+   if(value.revision!==revision)throw new Error('壁纸图片已变更，请重新选择。')
    return decode(value)
  })
  cached={revision,promise};promise.catch(()=>{if(cached?.promise===promise)cached=undefined})

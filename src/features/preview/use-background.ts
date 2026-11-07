@@ -4,7 +4,7 @@ import { decodePreview, loadDesktopBackground, readReference, referenceImage, ty
 
 type Mode = 'desktop' | 'plain' | 'custom'
 const key = 'soundspectra.preview.background'
-export function useBackground() {
+export function useBackground(enabled = true) {
   const [mode, setMode] = useState<Mode>(() => {
     try { const value = localStorage.getItem(key); return value === 'plain' || value === 'custom' ? value : 'desktop' } catch { return 'desktop' }
   })
@@ -41,6 +41,7 @@ export function useBackground() {
     } finally { if (mounted.current && request === sequence.current) { reading.current = false; setLoading(false) } }
   }, [])
   useEffect(() => {
+    if (!enabled) { setLoading(false); return }
     mounted.current = true
     let disposed = false
     const initialImageRevision = imageRevision.current
@@ -51,7 +52,7 @@ export function useBackground() {
     window.addEventListener('focus', focus)
     document.addEventListener('visibilitychange', focus)
     return () => { disposed = true; mounted.current = false; sequence.current++; reading.current = false; window.clearInterval(timer); window.removeEventListener('focus', focus); document.removeEventListener('visibilitychange', focus) }
-  }, [refresh])
+  }, [refresh, enabled])
   const choose = (value: Mode) => {
     modeRevision.current++
     setMode(value); setFileError(null)
@@ -72,5 +73,5 @@ export function useBackground() {
     } catch (reason) { if (mounted.current) setFileError(describeError(reason)) }
     finally { importingRef.current = false; if (mounted.current) setImporting(false) }
   }
-  return { mode, choose, desktop, image: mode === 'desktop' ? wallpaper : mode === 'custom' ? custom : null, custom, loading, importing, error, fileError, refresh, importFile }
+  return { mode, choose, desktop, systemImage: wallpaper, image: mode === 'desktop' ? wallpaper : mode === 'custom' ? custom : null, custom, loading, importing, error, fileError, refresh, importFile }
 }
