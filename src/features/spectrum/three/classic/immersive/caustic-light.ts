@@ -10,12 +10,13 @@ const fragment=`${uniformSource}${reactiveSource}
 varying vec2 vWater;varying float vFade;
 void main(){
   vec2 source=vWater;
+  float front=musicFront(length(source)*.022,.32,.065,vec3(1.,.45,.2));
   float xx=0.,xy=0.,yy=0.;
   for(int i=0;i<7;i++){
     float n=float(i),angle=n*2.39996;
     vec2 k=vec2(cos(angle),sin(angle))*(.65+n*.13)/uRange;
     float phase=dot(source,k)-uPhase*(.38+n*.075)+n*1.27;
-    float amplitude=(.28-n*.025)*(.8+uBodyBands.x*.28)*uDepth;
+    float amplitude=(.28-n*.025)*(.8+uBodyBands.x*.28)*uDepth*(1.+front*.12);
     float curve=-sin(phase)*amplitude;
     xx+=curve*k.x*k.x;xy+=curve*k.x*k.y;yy+=curve*k.y*k.y;
   }

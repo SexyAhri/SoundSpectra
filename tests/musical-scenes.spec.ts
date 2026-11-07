@@ -53,7 +53,7 @@ test('each authored scene consumes captured accents separately from its continuo
             return phases.get(key)!
           }
           for(let i=0;i<6;i++){
-            motion.step(audio,1/60,config.music,false,{...frame,transients:accent?[.8,.7,.6]:[0,0,0],pulse:accent?.8:0,beatIndex:frame.beatIndex+(accent?1:0),beatAge:accent?16+i*1000/60:2000,beatStrength:accent?.9:0,bandOnsets:accent?[true,true,true]:[false,false,false]})
+            motion.step(audio,1/60,config.music,false,{...frame,onset:accent&&i===0,transients:accent?[.8,.7,.6]:[0,0,0],pulse:accent?.8:0,beatIndex:frame.beatIndex+(accent?1:0),beatAge:accent?16+i*1000/60:2000,beatStrength:accent?.9:0,bandOnsets:accent&&i===0?[true,true,true]:[false,false,false]})
             motion.phase=phase;motion.auroraPhase=auroraPhase
             world.draw(motion,config,false)
           }
