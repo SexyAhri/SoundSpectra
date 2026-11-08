@@ -4,6 +4,7 @@ import { effectPalettes } from '../spectrum/effect-palette'
 
 const thumbnails = import.meta.glob('../../assets/scenes/*.webp', { eager: true, query: '?url', import: 'default' }) as Record<string, string>
 const captions: Record<SpectrumEffect, string> = {
+  window_rain: '水珠 · 雨窗',
   butterfly_flock: '鳞翼 · 群飞', caustic_light: '折光 · 水境', ginkgo_leaves: '金叶 · 秋风', cosmic_web: '星脉 · 暗空',
   tidal_knot: '粒子 · 流体', layered_tides: '铺展 · 层浪', echo_corridor: '穿行 · 廊道',
   rhythm_balls: '薄膜 · 漂游', rhythm_rain: '夜雨 · 涟漪', rhythm_skin: '银缎 · 回环',

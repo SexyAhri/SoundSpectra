@@ -1,11 +1,12 @@
 import * as T from 'three'
 import { commonUniforms,flowDriver,randomStream,uniformSource,type FlowEffect } from '../flow/shared'
 import { reactiveUniforms, reactiveSource, updateReactiveUniforms } from '../../reactive-motion'
+import { addDaylight, daylightSource, daylightUniforms, updateDaylight } from './daylight-field'
 
-const vertex=`${uniformSource}${reactiveSource}
+const vertex=`${uniformSource}${reactiveSource}${daylightSource}
 uniform float uDaylight;
 attribute vec4 aSeed;attribute vec3 aTangent;attribute vec2 aFiber;attribute float aHero,aKind;
-varying vec2 vFiber;varying float vAlpha,vTint,vNote,vKind;
+varying vec2 vFiber;varying float vAlpha,vTint,vNote,vKind,vLight;
 void main(){
  float cycle=fract(aSeed.y+uPhase*(.009+aSeed.w*.008)),height=cycle*64.-32.;
  vec3 center=vec3((aSeed.x-.5)*96.+height*uTwist+sin(uPhase*.13+aSeed.y*13.)*(2.+uDragBands.y*2.5),height,-92.+aSeed.z*101.);
@@ -37,6 +38,7 @@ void main(){
  p.yz=mat2(cos(tilt),sin(tilt),-sin(tilt),cos(tilt))*p.yz;
  vec3 tangent=aTangent;tangent.xy=turn*tangent.xy;tangent.yz=mat2(cos(tilt),sin(tilt),-sin(tilt),cos(tilt))*tangent.yz;
  vec4 mv=modelViewMatrix*vec4(center+p*scale,1.);
+ vLight=daylightAt(center+p*scale);
  vec3 direction=mat3(modelViewMatrix)*tangent;
  vec2 side=vec2(-direction.y,direction.x);side/=max(length(side),.00001);
  // Real ribbons keep the small strands antialiased at every pixel ratio.
@@ -47,28 +49,29 @@ void main(){
  vAlpha=(aHero>.5?1.:smoothstep(0.,.07,cycle)*(1.-smoothstep(.90,1.,cycle)))*smoothstep(1.,6.,-mv.z);
 }`
 const fragment=`${uniformSource}
-varying vec2 vFiber;varying float vAlpha,vTint,vNote,vKind;
+varying vec2 vFiber;varying float vAlpha,vTint,vNote,vKind,vLight;
 void main(){
  float edge=1.-smoothstep(.35,1.,abs(vFiber.x));
  float alpha=edge*vAlpha*(vKind>.5?.96:(.40+(1.-smoothstep(.85,1.,vFiber.y))*.28));
+ alpha*=vKind>.5?1.:.52+vLight*.48;
  if(alpha<.008)discard;
  vec3 cream=mix(uHighlight,vec3(1.,.96,.83),.28);
  vec3 color=mix(mix(uColor,cream,.36),cream,smoothstep(.05,.68,vFiber.y));
- color*=.82+vNote*.35+uAccents.z*step(.8,vTint)*.28;
+ color*=.70+vLight*.65+vNote*.13;
  if(vKind>.5)color=mix(vec3(.23,.12,.045),vec3(.64,.42,.18),vFiber.y);
  gl_FragColor=vec4(color,alpha);
 }`
 
 /** Individual feathery seeds, silk filaments and long stems in a deep daylight field. */
 export function createSunlitSeeds(detail:number):FlowEffect{
- const group=new T.Group(),uniforms={...commonUniforms(),...reactiveUniforms(),uDaylight:{value:1}},drive=flowDriver(uniforms)
+ const group=new T.Group(),uniforms={...commonUniforms(),...reactiveUniforms(),...daylightUniforms('seeds'),uDaylight:{value:1}},drive=flowDriver(uniforms)
  const sky=new T.Mesh(new T.SphereGeometry(310,32,20),new T.ShaderMaterial({uniforms,side:T.BackSide,depthWrite:false,transparent:true,toneMapped:false,
    vertexShader:'varying vec3 vD;void main(){vD=position;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.);}',
-   fragmentShader:`${uniformSource}uniform float uDaylight;varying vec3 vD;
+   fragmentShader:`${uniformSource}${daylightSource}uniform float uDaylight;varying vec3 vD;
      void main(){if(uDaylight<.01)discard;vec3 d=normalize(vD);
        float sun=pow(max(0.,dot(d,normalize(vec3(-.5,.4,-1.)))),18.);
-       vec3 color=mix(uShade*.65,mix(uAccent,uShade,.5)*.62,smoothstep(-.5,.75,d.y));
-       color+=mix(uColor,uHighlight,.6)*sun*.12;gl_FragColor=vec4(color,uDaylight);}`
+       vec3 color=mix(uShade*.30,mix(uAccent,uShade,.78)*.19,smoothstep(-.5,.75,d.y));
+       color+=mix(uColor,uHighlight,.6)*sun*.075;color*=.97+uLightEnergy*.06;gl_FragColor=vec4(color,uDaylight);}`
  }));sky.name='scene-backdrop';sky.renderOrder=-10;group.add(sky)
  const positions:number[]=[],tangents:number[]=[],fibers:number[]=[],kinds:number[]=[],indices:number[]=[]
  const segment=(a:number[],b:number[],from:number,to:number,kind=0)=>{
@@ -102,9 +105,11 @@ export function createSunlitSeeds(detail:number):FlowEffect{
    .setAttribute('aTangent',new T.Float32BufferAttribute(tangents,3)).setAttribute('aFiber',new T.Float32BufferAttribute(fibers,2)).setAttribute('aSeed',new T.InstancedBufferAttribute(seeds,4))
  geometry.instanceCount=capacity
  const seedHeads=new T.Mesh(geometry,new T.ShaderMaterial({uniforms,vertexShader:vertex,fragmentShader:fragment,transparent:true,depthWrite:false,side:T.DoubleSide,toneMapped:false}));seedHeads.name='sunlit-feathers';seedHeads.frustumCulled=false;group.add(seedHeads)
+ addDaylight(group,uniforms,Math.round(160*detail))
  return {group,update(motion,config,reduced){
-   const m=config.music;drive(motion,config,reduced,.72+m.speed*.18)
+   const m=config.music,dt=drive(motion,config,reduced,.72+m.speed*.18)
    updateReactiveUniforms(uniforms,motion,'volume_rain',reduced)
+   updateDaylight(uniforms,config,motion.volume,dt,uniforms.uDragBands.value.x)
    uniforms.uTrail.value=.72+m.meteorTrail*.35
    uniforms.uTwist.value=Math.tan(m.meteorAngle*Math.PI/180)*.35
    uniforms.uDaylight.value=config.sceneMode==='immersive'?1:0

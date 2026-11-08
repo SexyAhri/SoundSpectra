@@ -33,23 +33,25 @@ export function createGalaxy(detail: number): FlowEffect {
         float flow=uPhase*.14*(.5+uTrail);
         vec2 materialP=p-vec2(flow*.24,0.);
         vec2 curl=vec2(fbm(materialP*1.4),fbm(materialP*1.4+vec2(4.2,7.8)))-.5;
-        vec2 gas=p+curl*(.46+uDragBands.x*.16);
+        vec2 gas=p+curl*(.46+uDragBands.y*.12);
         vec2 materialGas=gas-vec2(flow*.24,0.);
         float width=.54+uBodyBands.x*.13;
         float ends=exp(-pow(abs(p.x)/4.2,6.));
-        float band=exp(-pow(gas.y/width,2.))*ends;
-        float core=exp(-pow((p.x+.25)/1.9,2.));
+        float bandDistance=gas.y/width,coreDistance=(p.x+.25)/1.9;
+        float band=exp(-bandDistance*bandDistance)*ends;
+        float core=exp(-coreDistance*coreDistance);
         float clouds=fbm(materialGas*3.1);
         float fine=fbm(materialGas*17.);
         float knots=pow(fbm(materialGas*6.7),2.);
         float dust=fbm(materialP*4.8+curl*2.+vec2(0.,11.));
-        float split=exp(-pow((gas.y+.045+sin(p.x*2.)*.07)/(.075+dust*.19),2.));
+        float splitDistance=(gas.y+.045+sin(p.x*2.)*.07)/(.075+dust*.19);
+        float split=exp(-splitDistance*splitDistance);
         float absorb=clamp((split*(.65+dust*.5)+smoothstep(.52,.73,dust)*band*.7)*uDust/.65,0.,.98);
-        float density=band*(.16+clouds*.75+knots*.45+fine*.18)*(1.-absorb)*(.5+core*.7);
-        float outskirts=exp(-pow(gas.y/1.1,2.))*clouds*.055*ends;
+        float density=band*(.10+pow(max(0.,clouds),1.35)*.95+knots*.45+fine*.18)*(1.-absorb)*(.5+core*.7);
+        float outskirts=exp(-gas.y*gas.y/1.21)*clouds*.045*ends;
         vec3 cool=mix(uColor,uAccent,smoothstep(-2.,2.,p.x)*.6);
         vec3 warm=mix(uAccent,uHighlight,.45);
-        vec3 emission=mix(cool,warm,core*.7)*density*(.48+uBodyBands.y*.65);
+        vec3 emission=mix(cool,warm,core*.7)*density*(.58+uSustain*.24);
         emission+=uColor*outskirts;
         float pulse=0.;
         for(int i=0;i<8;i++){
@@ -96,7 +98,8 @@ export function createGalaxy(detail: number): FlowEffect {
       }`,
     fragmentShader: `${uniformSource}${volumeGlow}varying float vAlpha,vTint,vBright;varying vec2 vBand;
       void main(){vec2 q=gl_PointCoord-.5;float r=length(q)*2.;if(r>1.)discard;
-        float dust=fbm(vBand*4.8+11.);float slit=exp(-pow((vBand.y+.04)/(.075+dust*.19),2.));
+        float dust=fbm(vBand*4.8+11.);float slitDistance=(vBand.y+.04)/(.075+dust*.19);
+        float slit=exp(-slitDistance*slitDistance);
         float a=(exp(-r*r*14.)+exp(-r*r*3.)*.12)*vAlpha*(1.-slit*dust*.8);
         vec3 tint=mix(uColor,uAccent,step(.78,vTint));tint=mix(tint,uHighlight,.55+vBright*.35);
         float spike=vBright*(exp(-abs(q.x)*80.)*exp(-abs(q.y)*12.)+exp(-abs(q.y)*80.)*exp(-abs(q.x)*12.))*.15;

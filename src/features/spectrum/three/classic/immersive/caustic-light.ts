@@ -4,7 +4,6 @@ import {
   flowDriver,
   material,
   mesh,
-  randomStream,
   uniformSource,
   type FlowEffect,
 } from "../flow/shared";
@@ -13,6 +12,7 @@ import {
   reactiveSource,
   updateReactiveUniforms,
 } from "../../reactive-motion";
+import { addDaylight, daylightUniforms, updateDaylight } from './daylight-field';
 
 // Project a tessellated water surface onto the floor. Overlapping folds add
 // light; their projected area controls intensity, rather than drawing contours.
@@ -53,17 +53,10 @@ void main(){
   float alpha=fade*clamp(light*.30,0.,.55);
   gl_FragColor=vec4(color*(.3+light*.8)*illumination*distanceFade,alpha);
 }`;
-const beamVertex = `varying vec2 vUv;void main(){vUv=uv;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.);}`;
-const beamFragment = `${uniformSource}varying vec2 vUv;
-void main(){float edge=exp(-pow((vUv.x-.5)*5.,2.));float fade=pow(max(0.,sin(vUv.y*3.14159)),1.5);gl_FragColor=vec4(mix(uColor,uHighlight,.35),edge*fade*.02);}`;
-const dustVertex = `${uniformSource}varying float vAlpha;
-void main(){vec3 p=position;p.x+=sin(uPhase*.15+p.y*.2)*.16;vec4 mv=modelViewMatrix*vec4(p,1.);gl_Position=projectionMatrix*mv;gl_PointSize=clamp(25./max(1.,-mv.z)*uPixelRatio,.6,1.8);vAlpha=.12;}`;
-const dustFragment = `${uniformSource}varying float vAlpha;
-void main(){float r=length(gl_PointCoord-.5)*2.;if(r>1.)discard;gl_FragColor=vec4(uHighlight,exp(-r*r*5.)*vAlpha);}`;
 export function createCausticLight(detail: number): FlowEffect {
   const group = new T.Group();
   group.name = "refracted-water-light";
-  const u = { ...commonUniforms(), ...reactiveUniforms() },
+  const u = { ...commonUniforms(), ...reactiveUniforms(), ...daylightUniforms('water') },
     drive = flowDriver(u);
   const floor = material(u, vertex, fragment, true);
   floor.depthWrite = false;
@@ -73,29 +66,13 @@ export function createCausticLight(detail: number): FlowEffect {
     new T.PlaneGeometry(64, 80, segments, Math.round(segments * 1.25)),
     floor,
   );
-  for (let i = 0; i < 3; i++) {
-    const beam = mesh(
-      group,
-      new T.PlaneGeometry(8 + i, 34),
-      material(u, beamVertex, beamFragment, true),
-    );
-    beam.position.set(-10 + i * 9, 8, -16 - i * 8);
-    beam.rotation.z = -0.22;
-  }
-  const random = randomStream(92714),
-    dust = new T.BufferGeometry(),
-    points: number[] = [];
-  for (let i = 0; i < 400; i++)
-    points.push((random() - 0.5) * 45, -2 + random() * 15, -30 + random() * 50);
-  dust.setAttribute("position", new T.Float32BufferAttribute(points, 3));
-  const motes = new T.Points(dust, material(u, dustVertex, dustFragment, true));
-  motes.frustumCulled = false;
-  group.add(motes);
+  addDaylight(group,u,Math.round(320*detail));
   return {
     group,
     update(motion, config, reduced) {
-      drive(motion, config, reduced, 0.5 + config.music.speed * 0.2);
+      const dt=drive(motion, config, reduced, 0.5 + config.music.speed * 0.2);
       updateReactiveUniforms(u, motion, config.effect, reduced);
+      updateDaylight(u,config,motion.volume,dt,u.uDragBands.value.x);
       u.uDepth.value = 0.65 + config.music.fieldHeight * 0.35;
       u.uRange.value = 0.8 + config.music.ambientSpread * 0.2;
     },

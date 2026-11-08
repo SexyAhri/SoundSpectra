@@ -9,6 +9,7 @@ interface Response {
 }
 const states = new WeakMap<SceneMotion, Map<MusicEffect, Response>>()
 const profiles: Partial<Record<MusicEffect, readonly [number, number, number]>> = {
+  window_rain: [.24, .85, .4],
   butterfly_flock: [.16, .7, .28], caustic_light: [.3,.8,.4],
   ginkgo_leaves: [.22, .9, .38], cosmic_web: [.3, 1.1, .45],
   rhythm_rain: [.09, .32, .13], ripple: [.28, .65, .32], volume_rain: [.20, .60, .26],

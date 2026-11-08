@@ -8,6 +8,7 @@ const profiles: Partial<Record<SpectrumEffect, readonly [number, number]>> = {
   volume_rain: [2.8, 0.75],
   star_flight: [3.2, 0.6],
   cosmic_web: [2.2, 0.4],
+  caustic_light: [1.6, 0.35],
   aurora_flow: [2.2, 0.45],
   tidal_knot: [2.5, 0.65],
   layered_tides: [2.5, 0.65],

@@ -103,14 +103,14 @@ void main() {
   float vein=pow(max(0.,.5+.5*cos(veinPhase)),16.)*exp(-pow(fwidth(veinPhase),2.)*.5);
   float edge=(1.-smoothstep(.96,1.,across))*smoothstep(0.,.025,t)*(1.-smoothstep(.985,1.,t));
   vec3 ivory=uHigh,blush=mix(uMid,uWarm,.25);
-  vec3 color=mix(blush,ivory,smoothstep(.12,.98,t)*.58);
+  vec3 color=mix(blush,ivory,smoothstep(.12,.98,t)*.66);
   color=mix(color,uWarm,exp(-t*5.)*.48);
   vec3 light=normalize(vec3(-.55,.8,1.));
-  float diffuse=.25+.62*max(0.,dot(normal,light));
-  float transmission=pow(max(0.,dot(-normal,light)),1.4)*(.25+t*.28);
+  float diffuse=.18+.67*max(0.,dot(normal,light));
+  float transmission=pow(max(0.,dot(-normal,light)),1.4)*(.20+t*.35);
   float silk=pow(max(0.,dot(reflect(-light,normal),view)),38.);
   color*=(diffuse+transmission+rim*.22-vein*.055)*(.48+.52*smoothstep(.02,.65,t));
-  color+=ivory*(silk*.065+uGesture.z*.07*pow(t,6.)*step(.7,vSeed));
+  color+=ivory*(silk*.10+uGesture.z*.07*pow(t,6.)*step(.7,vSeed));
   color*=uBrightness*(vFlower<.5?1.:.76);
   float alpha=edge*(.92-t*.14-rim*.16);
   if(alpha<.01)discard;

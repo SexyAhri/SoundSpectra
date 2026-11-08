@@ -3,7 +3,7 @@ import { SceneMotion } from '../src/features/spectrum/three/motion'
 import { reactiveMotion } from '../src/features/spectrum/three/reactive-motion'
 import type { MusicEffect } from '../src/features/spectrum/music-engine/catalog'
 
-const effects: MusicEffect[] = ['rhythm_rain', 'rhythm_skin', 'ripple', 'volume_rain', 'dream_stars', 'vortex', 'petal_bloom', 'aurora_flow', 'star_flight']
+const effects: MusicEffect[] = ['rhythm_rain', 'window_rain', 'rhythm_skin', 'ripple', 'volume_rain', 'dream_stars', 'vortex', 'petal_bloom', 'aurora_flow', 'star_flight', 'butterfly_flock', 'caustic_light', 'ginkgo_leaves', 'cosmic_web']
 function source() {
   const motion = new SceneMotion()
   motion.transporting = true

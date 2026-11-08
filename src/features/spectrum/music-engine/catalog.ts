@@ -4,6 +4,7 @@ import type { MusicEffectAppearance } from './types'
 export const musicEffects = [
   { value: 'rhythm_balls', label: '浮光水母' },
   { value: 'rhythm_rain', label: '落雨' },
+  { value: 'window_rain', label: '窗前听雨' },
   { value: 'rhythm_skin', label: '风织绸境' },
   { value: 'ripple', label: '雪花飘舞' },
   { value: 'volume_rain', label: '晴空浮游' },
@@ -23,7 +24,7 @@ export const musicEffects = [
 ] as const
 export type MusicEffect = typeof musicEffects[number]['value']
 export const classicMusicEffects = musicEffects.filter(effect =>
-  ['rhythm_balls', 'rhythm_rain', 'rhythm_skin', 'ripple', 'volume_rain', 'dream_stars', 'vortex',
+  ['rhythm_balls', 'rhythm_rain', 'window_rain', 'rhythm_skin', 'ripple', 'volume_rain', 'dream_stars', 'vortex',
     'butterfly_flock', 'caustic_light', 'ginkgo_leaves', 'cosmic_web'].includes(effect.value))
 export const ambientEffects = ['petal_bloom', 'aurora_flow', 'star_flight'] as const
 export type AmbientEffect = typeof ambientEffects[number]

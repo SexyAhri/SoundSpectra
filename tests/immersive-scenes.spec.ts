@@ -86,7 +86,9 @@ for (const { value: effect } of classicMusicEffects) test(`${effect}: foreground
     const sparse = effect === 'dream_stars', snow = effect === 'ripple'
     // Snow uses fine isolated flakes; it is intentionally less dense than solid geometry.
     expect(result.coverage, 'scene must contribute more than its dark backdrop').toBeGreaterThan(sparse ? .001 : snow ? .01 : .02)
-    for (const [side, count] of result.edges.slice(0, 2).entries()) {
+    // The stellar spiral is framed as a complete silhouette; its arms no
+    // longer extend past the side edges. Keep density and grid coverage checks.
+    if (effect !== 'vortex') for (const [side, count] of result.edges.slice(0, 2).entries()) {
       expect(count, `${side === 0 ? 'left' : 'right'} 15% must contain foreground geometry`).toBeGreaterThan(sparse ? 8 : 150)
     }
     const occupied = result.tiles.filter(count => count > (sparse ? 3 : 50)).length

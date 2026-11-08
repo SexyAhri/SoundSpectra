@@ -85,7 +85,9 @@ void main(){
   }else{
     float rung=line(vUv.x*90.+uTime*2.5,.55);
     travel=pow(.5+.5*sin(vUv.x*95.+uTime*3.4+uLayer*2.),10.);
-    color=base*(.20+lit*.35)+uHigh*edge*.48+base*rung*.30;
+    vec3 halfLight=normalize(eye+normalize(vec3(-.4,1.,.8)));
+    float sheen=pow(max(0.,dot(n,halfLight)),24.);
+    color=base*(.12+lit*.40)+uHigh*edge*(.40+sheen*.25)+base*rung*.18;
     color+=base*travel*(.10+uMiddle*.14);
     color+=uHigh*travel*edge*(.12+uTreble*.3);
     float front=onsetWave((1.-vUv.x)*66.+mod(uLayer,3.)*2.,32.,3.);
@@ -93,7 +95,7 @@ void main(){
     color+=base*rung*uAccents.y*.55+uHigh*edge*travel*uAccents.z*.9;
     float distanceFade=1.-smoothstep(16.,80.,length(cameraPosition-vWorld));
     color*=distanceFade;
-    alpha=.96*distanceFade*smoothstep(0.,.04,vUv.x)*smoothstep(0.,.08,1.-vUv.x);
+    alpha=.96*distanceFade*smoothstep(0.,.065,vUv.x)*smoothstep(0.,.08,1.-vUv.x);
   }
   gl_FragColor=vec4(color*(1.-uDaily*.22),alpha);
 }

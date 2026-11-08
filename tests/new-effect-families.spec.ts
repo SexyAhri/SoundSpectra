@@ -3,7 +3,7 @@ import { settingsSection } from './helpers/module-settings'
 import { expect, test } from '@playwright/test'
 import { visualProbeHtml } from '../scripts/visual-probe-html.mjs'
 
-const additions=[['butterfly_flock','风栖蝶群'],['caustic_light','水光焦散'],['ginkgo_leaves','秋光银杏'],['cosmic_web','星脉旷野']] as const
+const additions=[['butterfly_flock','风栖蝶群'],['caustic_light','水光焦散'],['ginkgo_leaves','秋光银杏'],['window_rain','窗前听雨'],['cosmic_web','星脉旷野']] as const
 
 test('new effects can be selected, tuned independently, reloaded and exported with their thumbnails',async({page})=>{
   test.setTimeout(60_000)
@@ -57,7 +57,7 @@ test('each new family responds locally to frequency content and keeps bounded ge
   await page.goto('/new-family-probe')
   const errors:string[]=[]
   page.on('pageerror',e=>errors.push(e.message))
-  page.on('console',m=>{if(m.type()==='error'&&!m.text().includes('WebSocket')&&!m.text().includes('[vite]'))errors.push(m.text())})
+  page.on('console',m=>{if(m.type()==='error'&&!m.text().includes('WebSocket')&&!m.text().includes('[vite]')&&!m.text().startsWith('Failed to send error to Vite server:'))errors.push(m.text())})
   const rows=await page.evaluate(async additions=>{
     const [{FiberSceneRenderer},{SceneMotion},{studySettings}]=await Promise.all([
       import('/src/features/spectrum/three/r3f/fiber-renderer.tsx'),import('/src/features/spectrum/three/motion.ts'),import('/src/features/spectrum/visual-study.ts'),
@@ -98,4 +98,90 @@ test('each new family responds locally to frequency content and keeps bounded ge
     expect(row.triangles,row.effect).toBeLessThan(100_000)
   }
   expect(errors).toEqual([])
+})
+
+test('refined effects keep finite HDR pixels, transparent desktop space and shader programs across resize',async({page})=>{
+  test.setTimeout(90_000)
+  await page.route('**/daylight-glass-probe',route=>route.fulfill({contentType:'text/html',body:visualProbeHtml('<body></body>')}))
+  await page.goto('/daylight-glass-probe')
+  const errors:string[]=[];page.on('pageerror',error=>errors.push(error.message))
+  const results=await page.evaluate(async()=>{
+    const [T,{FiberSceneRenderer},{SceneMotion},{studySettings},{demoAnalysis},{musicEffects}]=await Promise.all([
+      import('/node_modules/.vite/deps/three.js'),import('/src/features/spectrum/three/r3f/fiber-renderer.tsx'),
+      import('/src/features/spectrum/three/motion.ts'),import('/src/features/spectrum/visual-study.ts'),import('/src/features/spectrum/music-analysis.ts'),
+      import('/src/features/spectrum/music-engine/catalog.ts'),
+    ])
+    const results=[]
+    for(const {value:effect} of musicEffects){
+      const canvas=document.createElement('canvas');canvas.style.cssText='width:320px;height:180px';document.body.append(canvas)
+      const world=new FiberSceneRenderer(canvas),motion=new SceneMotion(),config={...studySettings(effect,'immersive'),quality:'eco' as const}
+      try{
+        await world.resize(config,1)
+        for(let i=0;i<30;i++){motion.step(demoAnalysis(i/15),1/30,config.music,false);world.draw(motion,config,false)}
+        let invalid=0
+        for(const sceneMode of ['immersive','daily'] as const){
+          world.draw(motion,{...config,sceneMode},false)
+          const target=world.diagnostics.image!
+          if(target.texture.type===T.HalfFloatType){
+            const pixels=new Uint16Array(target.width*target.height*4)
+            world.renderer.readRenderTargetPixels(target,0,0,target.width,target.height,pixels)
+            for(const encoded of pixels)if(!Number.isFinite(T.DataUtils.fromHalfFloat(encoded)))invalid++
+          }
+        }
+        const gl=world.renderer.getContext(),pixels=new Uint8Array(canvas.width*canvas.height*4)
+        gl.readPixels(0,0,canvas.width,canvas.height,gl.RGBA,gl.UNSIGNED_BYTE,pixels)
+        let empty=0,visible=0
+        for(let i=3;i<pixels.length;i+=4){empty+=Number(pixels[i]<8);visible+=Number(pixels[i]>8)}
+        const programs=world.renderer.info.programs!.length
+        canvas.style.cssText='width:640px;height:360px';await world.resize(config,1)
+        world.draw(motion,config,false)
+        results.push({effect,invalid,empty:empty/(pixels.length/4),visible,programs,reused:world.renderer.info.programs!.length===programs,glError:gl.getError()})
+      }finally{world.dispose();world.renderer.forceContextLoss();canvas.remove()}
+    }
+    return results
+  })
+  for(const row of results){
+    expect(row,row.effect).toMatchObject({invalid:0,reused:true,glError:0})
+    expect(row.empty,row.effect).toBeGreaterThan(.15)
+    expect(row.visible,row.effect).toBeGreaterThan(20)
+  }
+  expect(errors).toEqual([])
+})
+
+test('rain glass retains water coverage when orbiting and does not rebuild shaders',async({page})=>{
+  await page.route('**/glass-orbit-probe',route=>route.fulfill({contentType:'text/html',body:visualProbeHtml('<body></body>')}))
+  await page.goto('/glass-orbit-probe')
+  const rows=await page.evaluate(async()=>{
+    const [{FiberSceneRenderer},{SceneMotion},{studySettings},{demoAnalysis}]=await Promise.all([
+      import('/src/features/spectrum/three/r3f/fiber-renderer.tsx'),import('/src/features/spectrum/three/motion.ts'),
+      import('/src/features/spectrum/visual-study.ts'),import('/src/features/spectrum/music-analysis.ts'),
+    ])
+    const canvas=document.createElement('canvas');canvas.style.cssText='width:480px;height:270px';document.body.append(canvas)
+    const errors:string[]=[],world=new FiberSceneRenderer(canvas,error=>errors.push(String(error)))
+    const config=studySettings('window_rain','daily'),motion=new SceneMotion()
+    try{
+      await world.resize(config,1)
+      for(let i=0;i<60;i++){motion.step(demoAnalysis(i/30),1/30,config.music,false);world.draw(motion,config,false)}
+      const programs=world.renderer.info.programs!.length,rows=[]
+      for(const [yaw,pitch,roll] of [[0,0,0],[90,0,0],[-90,55,25],[180,-40,-30]]){
+        const rotated={...config,view:{...config.view,yaw,pitch,roll}}
+        world.draw(motion,rotated,false)
+        const gl=world.renderer.getContext(),pixels=new Uint8Array(canvas.width*canvas.height*4)
+        gl.readPixels(0,0,canvas.width,canvas.height,gl.RGBA,gl.UNSIGNED_BYTE,pixels)
+        let visible=0
+        for(let i=3;i<pixels.length;i+=4)visible+=Number(pixels[i]>12)
+        const original=canvas.toDataURL();world.draw(motion,rotated,false)
+        rows.push({visible,reused:world.renderer.info.programs!.length===programs,stable:original===canvas.toDataURL(),error:gl.getError()})
+      }
+      return {rows,errors}
+    }finally{world.dispose();world.renderer.forceContextLoss();canvas.remove()}
+  })
+  expect(rows.errors).toEqual([])
+  const initial=rows.rows[0].visible
+  expect(initial).toBeGreaterThan(200)
+  for(const row of rows.rows){
+    expect(row).toMatchObject({reused:true,stable:true,error:0})
+    expect(row.visible/initial).toBeGreaterThan(.8)
+    expect(row.visible/initial).toBeLessThan(1.2)
+  }
 })

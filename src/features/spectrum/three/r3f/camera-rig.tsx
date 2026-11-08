@@ -6,11 +6,12 @@ import { isClassicEffect } from "../../music-engine/catalog";
 import { useVisualFrame } from "./runtime";
 
 const viewpoints: Record<string, readonly [number, number, number]> = {
+  window_rain: [0, 0, 32],
   butterfly_flock: [0, 1, 28],
 
   caustic_light: [0, 13, 25],
   ginkgo_leaves: [0, 4, 33],
-  cosmic_web: [0, 0, 29],
+  cosmic_web: [0, 0, 25],
   rhythm_balls: [0, 2, 24],
   rhythm_rain: [0, 18, 26],
   rhythm_skin: [0, 4, 24],

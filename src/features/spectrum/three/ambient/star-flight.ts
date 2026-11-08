@@ -68,7 +68,7 @@ void main(){
   float front=musicFront(depth/pathLength,.52,.055,vec3(1.,.65,.35));
   vSpark=step(.987,grain);
   gl_PointSize=clamp((.9+grain*2.2+vSpark*2.)*(1.+uDesktop*near*.5)*uResolution.y/600.*32./max(4.,-mv.z),.8,8.);
-  vAlpha=pathFade(depth,p)*(.18+grain*.54)*(central>.5?.72:1.)*(1.+uDesktop*near*.25);
+  vAlpha=pathFade(depth,p)*(.18+grain*.54)*(central>.5?.44:1.)*(.55+near*.45)*(1.+uDesktop*near*.25);
   vColor=mix(mix(uMid,uWarm,lane/5.),uHigh,grain*.75)*uBrightness
     *(.8+near*.4+uBodyBands.z*.35+front*step(.65,grain)*1.2);
 }`;
@@ -110,8 +110,9 @@ varying vec2 vUv;varying float vFade,vLane,vLight;
 void main(){
   float across=(vUv.y-.5)*2.;
   float grain=.5+.5*sin(vUv.x*43.+sin(vUv.x*17.+vLane)*2.+vLane*3.-uPhase*.7);
-  float filament=exp(-pow(across-sin(vUv.x*19.+vLane)*.14,2.)*150.);
-  float alpha=(exp(-across*across*4.)*.018+filament*.045)*vFade*vLight*(.35+grain*.65);
+  float filamentDistance=across-sin(vUv.x*19.+vLane)*.14;
+  float filament=exp(-filamentDistance*filamentDistance*150.);
+  float alpha=(exp(-across*across*4.)*.012+filament*.065)*vFade*vLight*(.35+grain*.65);
   gl_FragColor=vec4(mix(uMid,uWarm,vLane*.16)*alpha*uBrightness,alpha);
 }`;
 

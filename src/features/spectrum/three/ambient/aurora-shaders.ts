@@ -56,7 +56,7 @@ void main() {
   float fine=auroraNoise(movingX*130.+warp+vLayer*37.);
   float micro=auroraNoise(movingX*350.+warp*1.7+vLayer*61.);
   float detail=mix(micro,.5,smoothstep(.4,1.5,fwidth(x)*350.));
-  float rays=.35+.65*(fine*.75+detail*.25);
+  float rays=.18+.82*(fine*.75+detail*.25);
   float bundles=.55+.45*auroraNoise(movingX*9.+vLayer*17.);
   float veil=exp(-y*(2.2+fine*.7))*smoothstep(0.,.075,y)*(1.-smoothstep(.6,1.,y));
   // GLSL pow has an undefined result for negative bases, even with exponent 2.
@@ -70,8 +70,8 @@ void main() {
   float local=musicFront(x,.48,.055,vec3(1.,.8,.35));
   float spectralLight=clamp(vEnergy*.8+local*.9*bundles+uGesture.z*.18*fine,0.,1.2);
   float ends=smoothstep(0.,.16,x)*smoothstep(0.,.16,1.-x);
-  float layerWeight=vLayer<.5?.3:vLayer<1.5?1.15:.48;
-  float alpha=ends*bundles*(veil*rays*.4+hem*(.11+local*.055)+filament*(.045+spectralLight*.28))*layerWeight*(.9+uBodyBands.y*.35);
+  float layerWeight=vLayer<.5?.24:vLayer<1.5?1.10:.36;
+  float alpha=ends*bundles*(veil*rays*.4+hem*(.08+local*.055)+filament*(.06+spectralLight*.30))*layerWeight*(.96+uBodyBands.y*.16);
   vec3 color=mix(uWarm,uMid,smoothstep(.04,.65,y));
   color=mix(color,uHigh,smoothstep(.35,.95,y)*.35);
   color=mix(color,uHigh,filament*(.16+spectralLight*.32));

@@ -11,7 +11,7 @@ import { musicEffects } from '../src/features/spectrum/music-engine/catalog'
 test('recommended appearances remain compatible and the picker contains every registered effect once', () => {
   const effects = effectGroups.flatMap(group => group.effects)
   expect(effectGroups).toHaveLength(3)
-  expect(effectGroups.map(group=>group.effects.length)).toEqual([6,6,6])
+  expect(effectGroups.map(group=>group.effects.length)).toEqual([7,6,6])
   expect(new Set(effects).size).toBe(musicEffects.length)
   expect([...effects].sort()).toEqual(musicEffects.map(e=>e.value).sort())
   for (const effect of effects) {

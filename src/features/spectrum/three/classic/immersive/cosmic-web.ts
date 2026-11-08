@@ -22,7 +22,7 @@ function cosmicWebGeometry() {
     for(let i=0;i<count;i++){
       const t=random(),p=curve.getPoint(t),tangent=curve.getTangent(t)
       const side=new T.Vector3().crossVectors(tangent,new T.Vector3(0,1,0)).normalize(),up=new T.Vector3().crossVectors(tangent,side)
-      const width=.09+Math.sin(t*Math.PI)*.19,dx=gaussian(),dy=gaussian()
+      const width=.13+Math.sin(t*Math.PI)*.27,dx=gaussian(),dy=gaussian()
       p.addScaledVector(side,dx*width).addScaledVector(up,dy*width*.7)
       const distance=Math.min(distances[a]+t*length,distances[b]+(1-t)*length)/maximum
       add(p,t,Math.hypot(dx,dy)*.4,id*.137,distance,0)
@@ -49,10 +49,10 @@ void main(){
   p.xy+=vec2(sin(uPhase*.11+aMeta.z),cos(uPhase*.08+aMeta.z))*.12;
   p.xy*=uRange;
   vec4 mv=modelViewMatrix*vec4(p,1.);
-  float size=aKind>1.5?.075:aKind>.5?.14:.105;
+  float size=aKind>1.5?.065:aKind>.5?.19:.13;
   gl_PointSize=clamp(size*330./max(1.,-mv.z)*uPixelRatio,.6,5.);
   gl_Position=projectionMatrix*mv;
-  vAlpha=(aKind>1.5?.15:.16+.35*exp(-aMeta.y*aMeta.y*2.))*(.75+wave*.45);
+  vAlpha=(aKind>1.5?.11:.18+.38*exp(-aMeta.y*aMeta.y*2.))*(.85+wave*.45);
   vWarm=aKind>.5&&aKind<1.5?.45+.35*sin(aMeta.z*6.):.08;
   float held=aKind>.5&&aKind<1.5?uBodyBands.x*.35:aKind<.5?uBodyBands.z*.18:0.;
   vLight=(wave+held)*uDepth;vKind=aKind;
@@ -63,7 +63,8 @@ void main(){
   float radius=length(gl_PointCoord-.5)*2.;if(radius>1.)discard;
   float core=exp(-radius*radius*5.5);
   vec3 color=mix(uColor,uAccent,vWarm);
-  color=mix(color,uHighlight,.1+vLight*.28)*(.8+vLight*.45);
+  float junction=step(.5,vKind)*(1.-step(1.5,vKind));
+  color=mix(color,uHighlight,.10+junction*.18+vLight*.28)*(.85+junction*.22+vLight*.45);
   gl_FragColor=vec4(color,core*vAlpha);
 }`
 export function createCosmicWeb(_detail:number):FlowEffect {

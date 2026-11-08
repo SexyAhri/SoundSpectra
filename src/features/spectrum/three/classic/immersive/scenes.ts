@@ -1,5 +1,6 @@
 import type { ClassicEffect } from '../../../music-engine/catalog'
 import { createNightRain } from './night-rain'
+import { createWindowRain } from './window-rain'
 import { createSunlitSeeds } from './sunlit-seeds'
 import { createWindSilk } from './wind-silk'
 import { createIonStorm } from './ion-storm'
@@ -13,6 +14,7 @@ import { createCosmicWeb } from './cosmic-web'
 
 export const createImmersiveScene = (effect:ClassicEffect,detail:number) => {
   switch(effect){
+    case 'window_rain':return createWindowRain(detail)
     case 'butterfly_flock':return createButterflyFlock(detail)
     case 'caustic_light':return createCausticLight(detail)
     case 'ginkgo_leaves':return createGinkgoLeaves(detail)

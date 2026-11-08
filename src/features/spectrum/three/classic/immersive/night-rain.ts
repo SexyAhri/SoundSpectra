@@ -31,10 +31,10 @@ void main(){
   extent*=1.+note*step(.75,aSeed.z)*.26;
   p+=vec3(uWind,1.,0.)*(uv.y-.5)*extent;
   vec4 mv=modelViewMatrix*vec4(p,1.);
-  mv.x+=(uv.x-.5)*(.025+max(0.,-mv.z)*mix(.0026,.0052,near))*uWidth*(1.+(1.-uImmersive)*near*.35);
+  mv.x+=(uv.x-.5)*(.025+max(0.,-mv.z)*mix(.0018,.0052,near))*uWidth*(1.+(1.-uImmersive)*near*.35);
   gl_Position=projectionMatrix*mv;vUv=uv;vNear=near;
   vColor=mix(uColor,uHighlight,.25+near*.45);
-  vAlpha=(.16+near*.57+aSeed.z*.08)*(1.+note*.25)
+  vAlpha=(.095+near*.68+aSeed.z*.08)*(1.+note*.25)
     *smoothstep(0.,.025,cycle)*(1.-smoothstep(.97,1.,cycle))
     *smoothstep(0.,1.3,height)*smoothstep(2.,7.,-mv.z)
     *rainEnabled(aSeed)*depthFade(p);
@@ -110,7 +110,7 @@ void main(){
   vec2 uv=clamp(vUv,0.,1.);float x=(uv.x-.5)*2.;
   float broken=noise(vWorld.xz*vec2(.55,.85)+vec2(0.,uPhase*.12));
   float a=exp(-x*x*4.)*smoothstep(0.,.18,uv.y)*(1.-smoothstep(.45,1.,uv.y))
-    *(.3+broken*.7)*vAlpha;
+    *(.12+smoothstep(.25,.72,broken)*.88)*vAlpha;
   if(a<.001)discard;gl_FragColor=vec4(vColor*a,a);
 }`
 

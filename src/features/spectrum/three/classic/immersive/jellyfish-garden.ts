@@ -57,22 +57,24 @@ export function createJellyfishGarden(detail = 1): FlowEffect {
     p=swimPoint(vec3(cos(a)*radial,height,sin(a)*radial),lane,0.);
   `, luminousSource + volumeGlow + anatomy), `${uniformSource}${luminousSource}${volumeGlow}${depthSource}
   varying vec3 vWorld;varying vec2 vUv;varying float vLane,vAlpha,vLight;
+  float jellySquare(float x){return x*x;}
   void main(){
     float radial=clamp(vUv.x,0.,1.),angle=vUv.y*6.2831853;
     float rim=pow(radial,32.);
     vec3 tint=mix(uColor,uAccent,.18+.52*fract(vLane*.381));
     vec3 n=cross(dFdx(vWorld),dFdy(vWorld));
     float fresnel=fresnelShell(n,cameraPosition-vWorld,2.1+vLight*.35);
-    float canals=pow(max(0.,cos(angle*16.+sin(radial*4.)*.18)),34.)*smoothstep(.12,.5,radial);
-    float organs=pow(max(0.,cos(angle*4.)),3.)*exp(-pow((radial-.34)/.16,2.));
-    float tissue=exp(-pow((radial-.58)/.43,2.));
+    float canalPhase=angle*16.+sin(radial*4.)*.18;
+    float canals=pow(max(0.,cos(canalPhase)),34.)*smoothstep(.12,.5,radial)*exp(-jellySquare(fwidth(canalPhase)*.65));
+    float organs=pow(max(0.,cos(angle*4.)),3.)*exp(-jellySquare((radial-.34)/.16));
+    float tissue=exp(-jellySquare((radial-.58)/.43));
     float age=max(0.,uOnsetAge-(vLane<.5?0.:.035+mod(vLane*.037,.14)));
-    float front=exp(-pow((radial-clamp(age*2.8,0.,3.))/.11,2.))*uOnsetStrength;
+    float front=exp(-jellySquare((radial-clamp(age*2.8,0.,3.))/.11))*uOnsetStrength;
     float cells=pow(max(0.,sin(angle*53.+radial*27.)),32.)*pow(radial,5.)*uFastHigh;
-    vec3 color=tint*(.22+fresnel*.5+tissue*.16+canals*(.18+front*.7))+mix(uAccent,uHighlight,.28)*organs*.48;
+    vec3 color=tint*(.14+fresnel*.64+tissue*.12+canals*(.25+front*.7))+mix(uAccent,uHighlight,.28)*organs*.43;
     color+=uHighlight*(rim*(vLight<.5?.52:.025)+cells*.30+front*canals*.32);
     float depth=jellyDepth(vWorld);
-    float shellAlpha=vLight<.5?.34:.12;
+    float shellAlpha=vLight<.5?.37:.10;
     gl_FragColor=vec4(color*mix(.5,1.,depth),shellAlpha*(.40+fresnel*.62+rim*.32+organs*.55)*depth);
   }`)
   bellMaterial.depthWrite = false; bellMaterial.blending = T.AdditiveBlending

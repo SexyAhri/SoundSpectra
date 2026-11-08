@@ -118,7 +118,8 @@ void main(){
   float veins=(1.-smoothstep(.006,.012+aa,line))*smoothstep(.4,.85,r);
   float branches=(1.-smoothstep(.02,.06+fwidth(r)*3.,abs(sin(r*5.7+angle*.7))))*.1;
   float border=(1.-smoothstep(.055,.2,vEdge))*smoothstep(.55,1.35,r);
-  float flecks=pow(max(0.,cos(angle*58.+r*1.3)),12.)*exp(-pow((vEdge-.17)/.055,2.));
+  float fleckDistance=(vEdge-.17)/.055;
+  float flecks=pow(max(0.,cos(angle*58.+r*1.3)),12.)*exp(-fleckDistance*fleckDistance);
   float scalePhase=vWing.x*165.+vWing.y*47.;
   float scales=sin(scalePhase)*sin(vWing.y*128.)*.055;
   scales*=exp(-pow(max(fwidth(scalePhase),fwidth(vWing.y*128.))*.5,2.));
@@ -129,12 +130,14 @@ void main(){
   float velvet=.64+.36*smoothstep(.12,.88,cells);
   float outer=smoothstep(.35,3.6,r);
   vec3 blue=mix(uColor*.42,uColor*1.05,outer);
-  blue=mix(blue,uAccent,.16*(1.-facing)*outer);
+  // Structural color follows the actual wing normal through the stroke.
+  float iridescence=pow(.5+.5*cos(facing*7.2+r*.12),2.);
+  blue=mix(blue,uAccent,(.10+iridescence*.28)*(1.-facing*.65)*outer);
   blue=mix(blue,uHighlight,sheen*(.12+outer*.18)*velvet);
   vec3 color=blue*(.53+abs(dot(n,light))*.37+scales)*velvet*(1.-veins*.63)*(1.-branches);
   color*=1.-vHind*.14;
   color=mix(color,uShade*.22,border*.98);
-  color+=uHighlight*flecks*.38+uColor*sheen*.12*(1.-border);
+  color+=uHighlight*flecks*(.30+uAccents.z*.15)+uColor*sheen*.16*(1.-border);
   gl_FragColor=vec4(color,1.);
 }`
 const bodyVertex=surfaceVertex(`

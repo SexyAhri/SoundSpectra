@@ -32,10 +32,13 @@ void main(){
     p.x+=.32*sin(b*3.);p.z+=.2*cos(a*2.+b);
     vec3 normal=normalize(normalMatrix*normalize(p));
     vec3 eye=normalize(-(modelViewMatrix*vec4(p,1.)).xyz);
-    vLight=.24+.76*pow(max(0.,dot(normal,eye)),.65);
+    float facing=dot(normal,eye);
+    vLight=.24+.76*pow(max(0.,facing),.65);
     float gathering=.5+.5*sin(a*5.+b*3.+sin(b*7.)*.7);
     vFade=(.50+.67*pow(gathering,1.6))*(1.-uLayer*.38);
-    vFade*=.75+.25*smoothstep(-.35,.8,dot(normal,eye));
+    // Keep the far surface subordinate, rather than stacking equally bright
+    // particles through the entire volume into an indistinct cloud.
+    vFade*=.20+.80*smoothstep(-.25,.65,facing);
     vMusic=front*.8+uAccents.x*max(0.,lobe)*.35;
   }else{
     // Project a fixed particle grid onto the sea, keeping useful sampling in
@@ -58,11 +61,11 @@ void main(){
     y+=pow(min(abs(x)/16.,1.3),3.)*1.7*sin(flow*.19);
     y-=uLayer*1.65;
     p=vec3(x,y,z-3.);
-    vLight=.48+.52*pow(.5+.5*sin(x*.22+flow*.25),2.);
+    vLight=.28+.72*pow(.5+.5*sin(x*.22+flow*.25),2.);
     vFade=smoothstep(0.,.045,uv.x)*smoothstep(0.,.045,1.-uv.x)*smoothstep(0.,.06,uv.y)*smoothstep(0.,.06,1.-uv.y);
     float crest=.5+.5*sin(x*.22+flow*.25);
     float gathering=.5+.5*sin(x*.57+flow*.16+sin(z*.31));
-    vFade*=(1.-uLayer*.66)*(.72+.50*crest)*(.78+.30*gathering);
+    vFade*=(1.-uLayer*.72)*(.46+.78*crest)*(.78+.30*gathering);
     vMusic=front*.75+uAccents.y*max(0.,sin(x*.32-z*.41))*.35;
   }
   if(uKind<.5){

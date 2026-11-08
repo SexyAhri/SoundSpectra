@@ -19,6 +19,10 @@ export type Control = {
   unit?: string;
 };
 const controls: Partial<Record<MusicEffect, Control[]>> = {
+  window_rain: [
+    { key: 'rainRadiusMultiplier', label: '水珠大小', min: .5, max: 2, step: .1, unit: '×' },
+    { key: 'ambientDensity', label: '雨珠疏密', min: .5, max: 1.5, step: .1, unit: '×' },
+  ],
   butterfly_flock: [
     {
       key: "ambientSpread",
@@ -279,6 +283,10 @@ const ambientControls: Control[] = [
 ];
 
 const profiles: Record<MusicEffect, Partial<MusicSettings>> = {
+  window_rain: {
+    speed: 1, sensitivity: .85, fieldScale: 1.35, fieldBrightness: 52,
+    ambientDensity: 1, rainRadiusMultiplier: 1, response: 'soft',
+  },
   butterfly_flock: {
     speed: 1,
     sensitivity: 0.85,
@@ -458,6 +466,21 @@ const declarations: Record<
     detail?: number;
   }
 > = {
+  window_rain: {
+    art: [
+      art('space', '雨珠疏密', '疏落 → 绵密', ['ambientDensity', .5, 1.5]),
+      art('mood', '水珠大小', '细雨 → 凝珠', ['rainRadiusMultiplier', .5, 2]),
+      light('雨窗反光'), participation(),
+    ],
+    rules: [
+      '近处玻璃凝结细珠，较大的水珠汇合后滑落，留下逐渐消退的细水痕',
+      '局部起音轻推滑落进度，水珠继续沿原有路径行进',
+      '平滑能量轻调窗外灯光，中频余势推动汇流，避免整片玻璃闪烁',
+      '保留水珠位置与滑痕，余势逐渐停止；融入桌面时保留水珠间的透明区域',
+    ],
+    response: [.9, .4, .2, .18, .7],
+    desktop: { x: 0, y: 0, scale: 1 },
+  },
   butterfly_flock: {
     art: [
       art("space", "蝶群空间", "相聚 → 舒展", ["ambientSpread", 0.65, 1.65]),

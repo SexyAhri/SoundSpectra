@@ -5,6 +5,7 @@ import { visualQuality } from "../r3f/quality";
 
 const profiles: Partial<Record<SpectrumSettings["effect"], [number, number]>> =
   {
+    window_rain: [.9, .06],
     dream_stars: [0.55, 0.6],
     rhythm_balls: [0.6, 0.35],
     butterfly_flock: [.8, .08],

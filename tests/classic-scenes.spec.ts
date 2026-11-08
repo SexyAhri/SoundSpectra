@@ -7,6 +7,7 @@ import { importScene, layout, sceneDocument } from '../src/features/preview/scen
 
 const parameters = {
   rhythm_balls: ['jellyCount', 7], rhythm_rain: ['rainCount', 16],
+  window_rain: ['rainRadiusMultiplier', 1.7],
   rhythm_skin: ['dragonWidth', 1.7], ripple: ['rippleWidth', 1.6],
   volume_rain: ['meteorDensity', 90], dream_stars: ['starDensity', 4000],
   vortex: ['vortexArms', 5],
@@ -22,12 +23,14 @@ async function probePage(page: Page) {
 }
 
 test('all classic effect IDs and their settings round-trip through the old schema', () => {
-  expect(classicMusicEffects).toHaveLength(11)
+  expect(classicMusicEffects.map(effect => effect.value).sort()).toEqual(Object.keys(parameters).sort())
   for (const { value: effect } of classicMusicEffects) {
     const [key, value] = parameters[effect as keyof typeof parameters]
     const old = JSON.parse(JSON.stringify({ ...defaults, effect, music: { ...defaults.music, [key]: value },
       regions: [{ ...defaults, id: 'other', name: '另一空间', visible: true, effect, music: { ...defaults.music, [key]: value } }] }))
-    delete old.view; delete old.music.ambientDensity; delete old.music.ambientSpread; delete old.regions[0].view
+    delete old.view; delete old.music.ambientDensity; delete old.regions[0].view
+    // Keep the explicitly configured parameter when simulating older optional fields.
+    if (key !== 'ambientSpread') delete old.music.ambientSpread
     const settings = normalizeSettings(old)
     expect(isClassicEffect(settings.effect)).toBe(true)
     expect(isThreeEffect(settings.effect)).toBe(true)
@@ -90,7 +93,9 @@ for (const { value: effect, label } of classicMusicEffects) test(`${effect}: vis
       world.scene.visible = false; world.draw(motion,settings,false); const backdrop = read()
       world.scene.visible = true; world.draw(motion,settings,false); const front = read()
       world.draw(motion,settings,false); const repeat = read()
-      world.draw(motion,{ ...settings, view: { ...settings.view, yaw: 47, pitch: 19 } },false); const turned = read()
+      // Window glass faces the camera by design; pan still moves the visible beads.
+      const view = effect === 'window_rain' ? { ...settings.view, x: 18 } : { ...settings.view, yaw: 47, pitch: 19 }
+      world.draw(motion,{ ...settings, view },false); const turned = read()
       world.draw(motion,{ ...settings, music: { ...settings.music, [key]: value } },false); const adjusted = read()
       let geometryPixels = 0, turnedPixels = 0, changedGeometryPixels = 0, adjustedPixels = 0, repeatedDifference = 0
       for (let i=0;i<front.length;i+=4) {

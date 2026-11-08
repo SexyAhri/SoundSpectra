@@ -52,13 +52,19 @@ void main() {
   color = mix(color, uWarm, smoothstep(.2, .7, heat) * .88);
   color = mix(color, uHigh, smoothstep(.68, 1., heat) * .65);
   float diffuse = max(0., dot(normal, normalize(vec3(-.55, .8, .45))));
-  float shade = .29 + diffuse * .64 + top * .2;
+  float shade = .23 + diffuse * .64 + top * .29;
   color *= shade * mix(.48, 1., vFaceHeight) * (.95 + vGrain * .1) * uBrightness;
   float strata = .5 + .5 * sin(vWorld.y * 2.5 + vGrain * .4);
   color *= 1. - (1. - top) * (.025 + strata * .045);
   float edge = min(min(vLocal.x, 1. - vLocal.x), min(vLocal.y, 1. - vLocal.y));
   float rim = 1. - smoothstep(.015, .04 + fwidth(edge), edge);
-  color += uWarm * (rim * top * heat * .045 + vField.b * top * .065);
+  // Grazing cap highlights describe individual columns without lighting the
+  // entire grid. The travelling onset field illuminates only reached caps.
+  vec3 eye=normalize(cameraPosition-vWorld);
+  vec3 halfLight=normalize(eye+normalize(vec3(-.55,.8,.45)));
+  float capShine=pow(max(0.,dot(normal,halfLight)),32.)*top;
+  color += uWarm * (rim * top * heat * .07 + vField.b * top * .09);
+  color += uHigh * capShine * heat * .075 * uBrightness;
   color = mix(color, uLow * .28, smoothstep(48., 105., vDepth) * .25);
   gl_FragColor = vec4(color, smoothstep(.055, .16, vField.r) * smoothstep(.035, .075, vField.g));
 }`;

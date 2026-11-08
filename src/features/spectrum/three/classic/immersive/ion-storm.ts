@@ -70,7 +70,7 @@ float noise(vec2 p){
 float cloud(vec2 p){return noise(p)*.53+noise(p*2.07)*.28+noise(p*4.11)*.13+noise(p*8.03)*.06;}
 void main(){
   float across=vUv.y*2.-1.;
-  float body=pow(max(0.,1.-across*across),1.3);
+  float body=pow(max(0.,1.-across*across),1.65);
   vec2 q=vec2(vUv.x*19.+uPhase*.16,vUv.y*5.+vLane*7.);
   float distortion=cloud(q*.6);
   float vapor=cloud(q+vec2(distortion*2.7,distortion*.8));
@@ -80,9 +80,9 @@ void main(){
   float hot=pow(clamp(1.-vUv.x,0.,1.),2.5);
   tint=mix(tint,uAccent,hot*.55);
   float accent=uAccents.x*pow(.5+.5*sin(vUv.x*14.+vLane*2.),6.)+uAccents.y*pow(.5+.5*cos(vUv.x*23.+vLane),9.)*.6;
-  vec3 color=tint*(.035+cloudBody*.36+filaments*(.065+accent*.55+vLight*.8)+vLight*.18+hot*.20);
-  color+=mix(uAccent,uHighlight,.35)*exp(-vUv.x*10.)*.28;
-  gl_FragColor=vec4(color,clamp(vAlpha,0.,1.)*body*(.25+cloudBody*.6));
+  vec3 color=tint*(.028+cloudBody*.47+filaments*(.15+accent*.55+vLight*.8)+vLight*.18+hot*.28);
+  color+=mix(uAccent,uHighlight,.35)*exp(-vUv.x*10.)*.40;
+  gl_FragColor=vec4(color,clamp(vAlpha,0.,1.)*body*(.23+cloudBody*.64));
 }`;
 
 const sparksVertex = `${uniformSource}

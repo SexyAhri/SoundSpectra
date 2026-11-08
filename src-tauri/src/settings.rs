@@ -28,6 +28,8 @@ pub enum SpectrumEffect {
     RhythmBalls,
     #[serde(rename = "rhythm_rain")]
     RhythmRain,
+    #[serde(rename = "window_rain")]
+    WindowRain,
     #[serde(rename = "rhythm_skin", alias = "rhythm_fluid")]
     RhythmSkin,
     #[serde(
@@ -1086,32 +1088,48 @@ mod tests {
 
     #[test]
     fn procedural_effects_survive_settings_round_trip() {
-        for effect in [
-            "ripple",
-            "volume_rain",
-            "dream_stars",
-            "vortex",
-            "rhythm_balls",
-            "rhythm_rain",
-            "rhythm_skin",
-            "sound_field",
-            "petal_bloom",
-            "aurora_flow",
-            "star_flight",
-            "tidal_knot",
-            "layered_tides",
-            "echo_corridor",
-            "butterfly_flock",
-            "caustic_light",
-            "ginkgo_leaves",
-            "cosmic_web",
-        ] {
+        // Read the actual frontend registry so adding an effect without its
+        // native serde variant fails here, rather than at update_settings IPC.
+        let catalog = include_str!("../../src/features/spectrum/music-engine/catalog.ts");
+        let effects: Vec<_> = catalog
+            .lines()
+            .filter_map(|line| line.trim().strip_prefix("{ value: '"))
+            .filter_map(|line| line.split('\'').next())
+            .collect();
+        assert!(
+            !effects.is_empty(),
+            "frontend effect registry was not parsed"
+        );
+        for effect in effects {
             let mut saved = serde_json::to_value(Settings::default()).unwrap();
             saved["effect"] = serde_json::json!(effect);
-            let loaded: Settings = serde_json::from_value(saved).unwrap();
+            saved["regions"] = serde_json::json!([extra_region()]);
+            saved["regions"][0]["effect"] = serde_json::json!(effect);
+            let loaded: Settings = serde_json::from_value(saved.clone()).unwrap_or_else(|error| {
+                panic!("frontend effect {effect} rejected by native settings: {error}")
+            });
             loaded.validate().unwrap();
-            assert_eq!(serde_json::to_value(loaded).unwrap()["effect"], effect);
+            assert_eq!(serde_json::to_value(loaded).unwrap(), saved);
         }
+    }
+
+    #[test]
+    fn window_rain_survives_native_disk_save_and_reload() {
+        let path = std::env::temp_dir().join(format!(
+            "soundspectra-window-rain-{}.json",
+            std::process::id()
+        ));
+        let mut settings = Settings::default();
+        settings.effect = SpectrumEffect::WindowRain;
+        settings.regions.push(extra_region());
+        settings.regions[0].effect = SpectrumEffect::WindowRain;
+        super::write(&path, &settings).unwrap();
+        let loaded = super::read(&path).unwrap();
+        std::fs::remove_file(&path).unwrap();
+        assert_eq!(
+            serde_json::to_value(loaded).unwrap(),
+            serde_json::to_value(settings).unwrap()
+        );
     }
 
     #[test]

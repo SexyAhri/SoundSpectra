@@ -2,6 +2,7 @@ import * as T from 'three'
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js'
 import { commonUniforms, flowDriver, material, mesh, randomStream, surfaceGeometry, uniformSource, type FlowEffect } from '../flow/shared'
 import { reactiveUniforms, reactiveSource, updateReactiveUniforms } from '../../reactive-motion'
+import { addDaylight, daylightSource, daylightUniforms, updateDaylight } from './daylight-field'
 
 interface Crown { center:T.Vector3; radius:T.Vector3; weight:number }
 
@@ -100,17 +101,18 @@ vec3 bladePoint(float radius,float angle,float id){
   return autumnWind(p,id);
 }
 `
-const vertex=`${uniformSource}${flight}
-attribute float aLane;varying vec3 vWorld;varying vec2 vLeaf;varying float vId,vDepthLight;
+const vertex=`${uniformSource}${flight}${daylightSource}
+attribute float aLane;varying vec3 vWorld;varying vec2 vLeaf;varying float vId,vDepthLight,vSunlight;
 void main(){
   float angle=(uv.y-.5)*2.58,radius=uv.x;
   vec3 p=bladePoint(radius,angle,aLane);
   vWorld=(modelMatrix*vec4(p,1.)).xyz;vLeaf=vec2(radius,angle);vId=aLane;
   vDepthLight=aCanopyLight;
+  vSunlight=daylightAt(p);
   gl_Position=projectionMatrix*viewMatrix*vec4(vWorld,1.);
 }`
 const fragment=`${uniformSource}
-varying vec3 vWorld;varying vec2 vLeaf;varying float vId,vDepthLight;
+varying vec3 vWorld;varying vec2 vLeaf;varying float vId,vDepthLight,vSunlight;
 void main(){
   float r=vLeaf.x,a=vLeaf.y;
   vec3 n=cross(dFdx(vWorld),dFdy(vWorld));n/=max(length(n),.000001);
@@ -127,9 +129,12 @@ void main(){
   base*=1.-vein*.12-branches*.08;
   float margin=smoothstep(.97,.998,r);
   base=mix(base,uAccent*.66,margin*.55);
-  float diffuse=.74+.26*abs(dot(n,light));
+  // A shared upper light distinguishes leaf planes; shade retains the crown
+  // masses while the scattered sunlight picks out their thin outer margins.
+  float diffuse=.55+.45*abs(dot(n,light));
   float translucency=pow(clamp(1.-facing,0.,1.),2.)*.17;
-  vec3 color=(base*(diffuse+mottled)+uHighlight*translucency*.5)*vDepthLight;
+  vec3 color=(base*(diffuse+mottled)+uHighlight*translucency*(.5+vSunlight*2.))*vDepthLight*(.88+vSunlight*.46);
+  color+=uHighlight*vSunlight*.055*(1.-vein*.4);
   gl_FragColor=vec4(color,1.);
 }`
 const barkVertex=`${uniformSource}${treeWind}
@@ -147,7 +152,7 @@ void main(){
 }`
 export function createGinkgoLeaves(detail:number):FlowEffect {
   const group=new T.Group();group.name='musical-autumn-ginkgo-tree'
-  const u={...commonUniforms(),...reactiveUniforms()},drive=flowDriver(u)
+  const u={...commonUniforms(),...reactiveUniforms(),...daylightUniforms('ginkgo')},drive=flowDriver(u)
   const tree=treeGeometry(),bark=material(u,barkVertex,barkFragment);bark.transparent=false
   mesh(group,tree.geometry,bark).name='ginkgo-trunk-and-branches'
   const random=randomStream(71381),eco=detail<.8,canopy=eco?5000:7800,ground=170,count=canopy+ground
@@ -183,8 +188,10 @@ export function createGinkgoLeaves(detail:number):FlowEffect {
   }
   const blade=material(u,vertex,fragment);blade.transparent=false
   mesh(group,decorate(surfaceGeometry(1,eco?8:12,count)),blade).name='ginkgo-canopy-and-falling-leaves'
+  addDaylight(group,u,Math.round(150*detail))
   return {group,update(motion,config,reduced){
-    drive(motion,config,reduced,.6+config.music.speed*.22);updateReactiveUniforms(u,motion,config.effect,reduced)
+    const dt=drive(motion,config,reduced,.6+config.music.speed*.22);updateReactiveUniforms(u,motion,config.effect,reduced)
+    updateDaylight(u,config,motion.volume,dt,u.uDragBands.value.x)
     u.uDepth.value=config.music.fieldHeight;u.uRange.value=.8+config.music.ambientSpread*.2
   }}
 }

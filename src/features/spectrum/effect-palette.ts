@@ -7,6 +7,11 @@ const palette = (name: string, low: string, main: string, accent: string, high: 
 // Retain the saved identifiers. Their colors belong to the effect's material,
 // rather than forcing every scene into the same cyan/purple gradient.
 export const effectPalettes: Record<MusicEffect, Record<PaletteId, EffectPalette>> = {
+  window_rain: {
+    iris: palette('雨窗暖灯', '#101c26', '#819eac', '#d2a06b', '#e5edf0'),
+    ember: palette('黄昏听雨', '#251c1b', '#ae998b', '#d8aa6c', '#f0e5d4'),
+    lake: palette('蓝夜雨窗', '#101d2c', '#789db8', '#9baeb9', '#deebf3'),
+  },
   butterfly_flock: {
     iris: palette('蓝闪蝶翼', '#17262b', '#398fa7', '#bf955e', '#d7e6ce'),
     ember: palette('琥珀蝶影', '#2a201d', '#c08041', '#779c96', '#efdbb2'),
