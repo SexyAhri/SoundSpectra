@@ -3,15 +3,23 @@
   <h1>SoundSpectra · 声谱</h1>
   <p>让音乐成为桌面的一部分。</p>
   <p>音乐灯效 · 演出编排 · 动态歌词 · 音乐卡片 · 拾光绳 · 壁纸氛围</p>
-  <p><strong>1.0.5</strong> · Windows x64 / macOS Universal · React / Three.js / Tauri / Rust</p>
+  <p><strong>1.0.8</strong> · Windows x64 / macOS Universal · React / Three.js / Tauri / Rust</p>
   <p><a href="https://github.com/SexyAhri/SoundSpectra/releases">下载安装包</a> · <a href="#项目展示">项目展示</a> · <a href="#开发运行">开发运行</a> · <a href="https://github.com/SexyAhri/SoundSpectra/issues">反馈问题</a></p>
 </div>
 
-![SoundSpectra 深色工作台：实时音频、极光灯效、歌词与桌面拾光绳](docs/images/workspace-dark.png)
+![SoundSpectra 1.0.8 深色工作台：星尘航道、音乐卡片与桌面拾光绳](docs/images/workspace-dark.png)
 
 SoundSpectra 是一款桌面音乐可视化工具。它捕获所选播放器的音频，让三维灯效、动态歌词和音乐信息融入桌面；日常使用时保持鼠标穿透。Windows 使用进程音频环回与桌面宿主，macOS 使用 ScreenCaptureKit 与 AppKit 桌面层。
 
 ## 项目展示
+
+### 桌面实机效果
+
+星尘航道与极光流域融入桌面，拾光绳悬挂常用软件，动态歌词随播放器同步。工作台预览与桌面输出使用同一套场景设置。
+
+![星尘航道：桌面星流、拾光绳与工作台实时预览](docs/images/desktop-star-flight.jpg)
+
+![极光流域：桌面光幕、同步歌词与拾光绳](docs/images/desktop-aurora-flow.jpg)
 
 ### 音乐有形，桌面有光
 
@@ -21,7 +29,7 @@ SoundSpectra 是一款桌面音乐可视化工具。它捕获所选播放器的�
 
 ![浅色工作台：灯效选择、实时预览与独立区域控制](docs/images/effects-light.png)
 
-![灯效外观：场景氛围、专属配色、运动速度与音乐响应设置](docs/images/effect-appearance.png)
+![灯效参数：星尘航道的空间、光感与音乐参与度设置](docs/images/effect-appearance.png)
 
 ### 为一首歌编排整段画面
 
@@ -31,15 +39,15 @@ SoundSpectra 是一款桌面音乐可视化工具。它捕获所选播放器的�
 
 转场支持柔和交叠，兼容场景还可使用粒子散聚或镜头穿越。潮汐之结、层海、回声廊道可进一步设置音乐映射，用频段能量或起音驱动路径弯曲、局部展开。操作步骤与兼容范围见 [演出编排说明](docs/PERFORMANCE.md)。
 
+![演出编排：原创时间线、独立预演与场景转场](docs/images/performance-live.png)
+
 ### 歌词也能成为构图
 
 四种动态文字编排，支持逐字高亮、位置拖放、缩放、背景透明度和同步微调。时间由播放器驱动，暂停、拖动进度和切歌都会重新同步。
 
 支持文字漫游、错落排版、弧形流转和折幕，可搭配灯效与拾光绳一起展示。
 
-![实时歌词：弧形文字编排与歌词外观设置](docs/images/lyrics-live.png)
-
-[观看三种歌词编排的 21 秒演示](docs/media/lyric-compositions.webm)。视频为此前使用模拟音频与原创示例文字录制的编排演示。
+![实时歌词：折幕字场、字体、透明背景与同步微调](docs/images/lyrics-live.png)
 
 ### 一处预览，分别编辑
 
@@ -47,11 +55,13 @@ SoundSpectra 是一款桌面音乐可视化工具。它捕获所选播放器的�
 
 「布置」模式提供对象与图层列表，可选择隐藏或重叠的对象、拖动和缩放、调整可见性与音乐视觉图层。拖动时显示对齐参考线，按住 Alt 可暂时关闭吸附。支持最多 50 步撤销重做，以及场景收藏、搜索、导入导出和快捷切换；也可根据壁纸尝试自动搭配配色与布局。
 
+![桌面布置：对象图层、拖放与位置调整](docs/images/desktop-arrangement.png)
+
+### 把正在播放的歌留在桌面
+
 音乐卡片提供唱片、简约、「午后 · 藏书票」和「浮签」四种样式，可继承场景或封面配色，也可单独指定点缀色。歌曲信息、进度与播放控制跟随选定的播放器会话，暂停与跳转同步更新。详见 [音乐卡片说明](docs/MUSIC_CARDS.md)。
 
 ![音乐卡片样式、点缀色和位置设置](docs/images/music-card-live.png)
-
-![桌面布置：拖放拾光绳、音乐卡片与歌词的位置](docs/images/desktop-arrangement.png)
 
 ### 保留壁纸，也能回应音乐
 
@@ -59,7 +69,7 @@ SoundSpectra 是一款桌面音乐可视化工具。它捕获所选播放器的�
 
 自选图片还可开启轻微空间视差，并根据构图选择景深模板。壁纸、微光和视差分别设置，关闭视差仍可保留静态壁纸。详见 [壁纸与氛围说明](docs/WALLPAPER.md)。
 
-![壁纸视差强度与构图设置](docs/images/wallpaper-live.png)
+![壁纸与氛围：来源、亮度、饱和度与局部音乐微光](docs/images/wallpaper-live.png)
 
 ### 把日常挂在拾光绳上
 
@@ -71,7 +81,7 @@ SoundSpectra 是一款桌面音乐可视化工具。它捕获所选播放器的�
 - 滚轮或方向键切换居中挂件；单击绳子添加，双击绳子浏览和搜索全部挂件。
 - Windows 桌面客户端支持从桌面添加、拖出本地项目和就地展开文件夹。浏览器中的文件路径仅用于布局示例。
 
-以上 8 张静态展示图由项目作者于 2026 年 11 月 6 日提供，来自 Windows 桌面客户端的实机截图，展示浅色与深色主题、QQ 音乐实时输入及当前桌面配置。截图中的软件图标、图片、歌曲和歌词仅用于展示，相关权利归各自权利人所有。
+展示图于 2026 年 11 月 8 日更新：星尘航道与极光流域的两张桌面全景由项目作者提供，其余为本次在 Windows 桌面客户端重新拍摄的工作台截图，展示浅色与深色主题、QQ 音乐实时输入及各模块设置。截图中的软件图标、图片、歌曲和歌词仅用于展示，相关权利归各自权利人所有。
 
 ## 使用
 
