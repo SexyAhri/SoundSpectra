@@ -10,6 +10,8 @@ pub struct HitRect {
     height: f64,
 }
 
+// May lazily build a WebView2 window. Call only from a worker, never a
+// synchronous command or event-loop callback (including startup/recovery).
 pub fn sync(app: &AppHandle, settings: &Settings) -> Result<(), String> {
     #[cfg(windows)]
     {

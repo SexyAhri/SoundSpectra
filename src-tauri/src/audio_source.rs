@@ -208,7 +208,7 @@ pub fn get_audio_sources(
     })
 }
 #[tauri::command]
-pub fn set_audio_source(
+pub async fn set_audio_source(
     window: WebviewWindow,
     app: AppHandle,
     state: State<'_, Arc<AppState>>,
@@ -216,6 +216,17 @@ pub fn set_audio_source(
 ) -> Result<Source, String> {
     settings_window(&window)?;
     selection.validate()?;
+    let state = state.inner().clone();
+    tauri::async_runtime::spawn_blocking(move || set_audio_source_inner(&app, &state, selection))
+        .await
+        .map_err(|error| error.to_string())?
+}
+
+fn set_audio_source_inner(
+    app: &AppHandle,
+    state: &AppState,
+    selection: Source,
+) -> Result<Source, String> {
     let _operation = state.operation.lock().map_err(|e| e.to_string())?;
     let file = path(&state.path);
     std::fs::create_dir_all(file.parent().ok_or("找不到配置目录")?).map_err(|e| e.to_string())?;

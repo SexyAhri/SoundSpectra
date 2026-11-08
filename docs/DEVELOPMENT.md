@@ -87,6 +87,8 @@ Mac 歌曲信息通过播放器的公开脚本接口读取。播放器没有脚�
 
 Windows 实机脚本位于 `scripts/native-*-smoke.mjs`。以进程环境变量 `WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS=--remote-debugging-port=9223` 启动待测客户端；脚本可能临时调整配置，运行前阅读恢复逻辑，不要同时编辑设置。报告写入忽略的 `artifacts/`。
 
+音乐卡片保存与死锁回归使用 `node scripts/native-card-save-smoke.mjs <隔离调试版.exe>`：待测构建启用 `custom-protocol`，通过 `TAURI_CONFIG` 将 identifier 设为 `com.soundspectra.card-save-regression`。脚本在独立配置下启动自己的实例与 WebView2 调试端口（默认 9247，可用 `CARD_SAVE_TEST_PORT` 调整），验证首次创建、并发保存与备份/音源切换、场景应用、启用卡片后重启和桌面显隐，不操作现有客户端。Windows 的 WebView2 窗口创建必须在工作线程进行；持有设置事务锁时，界面线程也不能同步等待该锁，否则会与窗口创建相互等待。
+
 Windows 文件拖入桥的来源地址使用 `tauri::is_dev()` 区分开发服务器和安装版。Tauri CLI 直接启用依赖特性 `tauri/custom-protocol`，不能用项目自身的 `cfg!(feature = "custom-protocol")` 判断，否则安装版会错误地按开发服务器地址拒绝拖入消息。定向回归需同时覆盖默认特性和 `--features tauri/custom-protocol`，无需运行全量检查。挂载公共桌面项目时，独立的图标属性权限助手可能触发 UAC 确认。
 
 已有 QQ 音乐与桌面层级的实机记录，以及歌词解析、目录记忆、查询竞争和请求取消的自动化回归。仍需逐项验证其他播放器、受保护内容、设备切换、Explorer 重启、休眠、多显示器 / DPI、长时间性能和真实签名升级。浏览器模拟、测试 IPC 和旧构建截图不能替代这些验收。

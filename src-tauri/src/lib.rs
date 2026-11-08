@@ -106,7 +106,17 @@ fn debug_desktop_state(app: AppHandle) -> Result<serde_json::Value, String> {
 }
 
 #[tauri::command]
-fn reset_settings(app: AppHandle, state: State<'_, Arc<AppState>>) -> Result<Settings, String> {
+async fn reset_settings(
+    app: AppHandle,
+    state: State<'_, Arc<AppState>>,
+) -> Result<Settings, String> {
+    let state = state.inner().clone();
+    tauri::async_runtime::spawn_blocking(move || reset_settings_inner(&app, &state))
+        .await
+        .map_err(|error| error.to_string())?
+}
+
+fn reset_settings_inner(app: &AppHandle, state: &AppState) -> Result<Settings, String> {
     let _operation = state.operation.lock().map_err(|e| e.to_string())?;
     if state.path.exists() {
         let stamp = std::time::SystemTime::now()
@@ -120,7 +130,7 @@ fn reset_settings(app: AppHandle, state: State<'_, Arc<AppState>>) -> Result<Set
         .map_err(|e| format!("备份原设置失败：{e}"))?;
     }
     let settings = Settings::default();
-    apply_display(&app, &settings)?;
+    apply_display(app, &settings)?;
     settings::write(&state.path, &settings)?;
     *state.settings.lock().map_err(|e| e.to_string())? = settings.clone();
     *state.config_error.lock().map_err(|e| e.to_string())? = None;
@@ -148,17 +158,24 @@ fn apply_display(app: &AppHandle, settings: &Settings) -> Result<(), String> {
 }
 
 #[tauri::command]
-fn update_settings(
+async fn update_settings(
     app: AppHandle,
     state: State<'_, Arc<AppState>>,
     settings: Settings,
 ) -> Result<Settings, String> {
-    let _operation = state.operation.lock().map_err(|e| e.to_string())?;
-    commit_settings(&app, &state, settings)
+    let state = state.inner().clone();
+    // Creating a WebView2 window from a synchronous IPC handler deadlocks the
+    // Windows event loop. Keep the entire serialized transaction off that loop.
+    tauri::async_runtime::spawn_blocking(move || {
+        let _operation = state.operation.lock().map_err(|e| e.to_string())?;
+        commit_settings(&app, &state, settings)
+    })
+    .await
+    .map_err(|error| error.to_string())?
 }
 
 #[tauri::command]
-fn apply_scene(
+async fn apply_scene(
     window: tauri::WebviewWindow,
     app: AppHandle,
     state: State<'_, Arc<AppState>>,
@@ -167,10 +184,15 @@ fn apply_scene(
     if window.label() != "settings" {
         return Err("请从设置窗口应用桌面方案".into());
     }
-    let _operation = state.operation.lock().map_err(|e| e.to_string())?;
-    let current = state.settings.lock().map_err(|e| e.to_string())?.clone();
-    let next = scenes::merge(&current, scene)?;
-    commit_settings(&app, &state, next)
+    let state = state.inner().clone();
+    tauri::async_runtime::spawn_blocking(move || {
+        let _operation = state.operation.lock().map_err(|e| e.to_string())?;
+        let current = state.settings.lock().map_err(|e| e.to_string())?.clone();
+        let next = scenes::merge(&current, scene)?;
+        commit_settings(&app, &state, next)
+    })
+    .await
+    .map_err(|error| error.to_string())?
 }
 
 fn commit_settings(
@@ -262,12 +284,15 @@ fn change_editing(app: &AppHandle, state: &AppState, editing: bool) -> Result<Se
 }
 
 #[tauri::command]
-fn set_editing(
+async fn set_editing(
     app: AppHandle,
     state: State<'_, Arc<AppState>>,
     editing: bool,
 ) -> Result<Settings, String> {
-    change_editing(&app, &state, editing)
+    let state = state.inner().clone();
+    tauri::async_runtime::spawn_blocking(move || change_editing(&app, &state, editing))
+        .await
+        .map_err(|error| error.to_string())?
 }
 
 fn show_settings(app: &AppHandle) {
@@ -285,47 +310,43 @@ fn start_desktop_recovery(app: AppHandle, state: Arc<AppState>) {
             if state.shutdown.load(Ordering::Relaxed) {
                 break;
             }
-            let app_copy = app.clone();
-            let state_copy = state.clone();
-            let _ = app.run_on_main_thread(move || {
-                let Ok(_guard) = state_copy.operation.try_lock() else {
-                    return;
-                };
-                let settings = state_copy.settings.lock().unwrap().clone();
-                if let Err(error) = card_window::sync(&app_copy, &settings) {
-                    state_copy.status.lock().unwrap().desktop_error = Some(error);
+            // Window creation must stay on this worker, including recovery of
+            // the card controls and a destroyed overlay. Never block the event
+            // loop on the operation mutex while a worker needs it to build.
+            let Ok(_guard) = state.operation.try_lock() else {
+                continue;
+            };
+            if state.status.lock().unwrap().editing {
+                continue;
+            }
+            let settings = state.settings.lock().unwrap().clone();
+            let result = (|| {
+                card_window::sync(&app, &settings)?;
+                if !settings.enabled || settings.display_bounds().is_none() {
+                    return Ok(());
                 }
-                if !settings.enabled
-                    || settings.display_bounds().is_none()
-                    || state_copy.status.lock().unwrap().editing
-                {
-                    return;
-                }
-                if app_copy
+                if app
                     .get_webview_window("overlay")
                     .is_some_and(|w| desktop::is_attached(&w))
                 {
-                    state_copy.status.lock().unwrap().desktop_error = None;
-                    return;
+                    return Ok(());
                 }
-                let result = (|| {
-                    if app_copy.get_webview_window("overlay").is_none() {
-                        let config = app_copy
-                            .config()
-                            .app
-                            .windows
-                            .iter()
-                            .find(|c| c.label == "overlay")
-                            .ok_or("找不到效果窗口配置")?;
-                        tauri::WebviewWindowBuilder::from_config(&app_copy, config)
-                            .map_err(|e| e.to_string())?
-                            .build()
-                            .map_err(|e| e.to_string())?;
-                    }
-                    apply_display(&app_copy, &settings)
-                })();
-                state_copy.status.lock().unwrap().desktop_error = result.err();
-            });
+                if app.get_webview_window("overlay").is_none() {
+                    let config = app
+                        .config()
+                        .app
+                        .windows
+                        .iter()
+                        .find(|c| c.label == "overlay")
+                        .ok_or("找不到效果窗口配置")?;
+                    tauri::WebviewWindowBuilder::from_config(&app, config)
+                        .map_err(|e| e.to_string())?
+                        .build()
+                        .map_err(|e| e.to_string())?;
+                }
+                apply_display(&app, &settings)
+            })();
+            state.status.lock().unwrap().desktop_error = result.err();
         }
     });
 }
@@ -481,10 +502,16 @@ pub fn run() {
                 }
                 let state = window.app_handle().state::<Arc<AppState>>();
                 if state.status.lock().map(|s| s.editing).unwrap_or(false) {
-                    if change_editing(window.app_handle(), &state, false).is_err() {
-                        show_settings(window.app_handle());
-                        return;
-                    }
+                    let state = state.inner().clone();
+                    let window = window.clone();
+                    tauri::async_runtime::spawn_blocking(move || {
+                        if change_editing(window.app_handle(), &state, false).is_err() {
+                            show_settings(window.app_handle());
+                        } else {
+                            let _ = window.hide();
+                        }
+                    });
+                    return;
                 }
                 if window.label() == "overlay" {
                     if let Some(overlay) = window.app_handle().get_webview_window("overlay") {
@@ -499,11 +526,18 @@ pub fn run() {
         .expect("SoundSpectra 启动失败");
     app.run(|app, event| {
         if let tauri::RunEvent::Ready = event {
-            let state = app.state::<Arc<AppState>>();
-            let settings = state.settings.lock().unwrap().clone();
-            if settings.enabled {
-                state.status.lock().unwrap().desktop_error = apply_display(app, &settings).err();
-            }
+            let app = app.clone();
+            let state = app.state::<Arc<AppState>>().inner().clone();
+            tauri::async_runtime::spawn_blocking(move || {
+                let Ok(_operation) = state.operation.lock() else {
+                    return;
+                };
+                let settings = state.settings.lock().unwrap().clone();
+                if settings.enabled {
+                    let error = apply_display(&app, &settings).err();
+                    state.status.lock().unwrap().desktop_error = error;
+                }
+            });
         }
         if let tauri::RunEvent::Exit = event {
             app.state::<Arc<AppState>>()

@@ -57,24 +57,30 @@ pub fn get_preferences(window: WebviewWindow, app: AppHandle) -> Result<Preferen
 }
 
 #[tauri::command]
-pub fn save_preferences(
+pub async fn save_preferences(
     window: WebviewWindow,
     app: AppHandle,
     state: State<'_, Arc<AppState>>,
     preferences: Preferences,
 ) -> Result<Preferences, String> {
     settings_window(&window)?;
-    let _guard = state.operation.lock().map_err(|e| e.to_string())?;
-    let path = preferences_path(&app)?;
-    std::fs::create_dir_all(path.parent().ok_or("无法定位配置目录")?).map_err(|e| e.to_string())?;
-    let tmp = path.with_extension("tmp");
-    std::fs::write(
-        &tmp,
-        serde_json::to_vec_pretty(&preferences).map_err(|e| e.to_string())?,
-    )
-    .map_err(|e| e.to_string())?;
-    std::fs::rename(tmp, path).map_err(|e| e.to_string())?;
-    Ok(preferences)
+    let state = state.inner().clone();
+    tauri::async_runtime::spawn_blocking(move || {
+        let _guard = state.operation.lock().map_err(|e| e.to_string())?;
+        let path = preferences_path(&app)?;
+        std::fs::create_dir_all(path.parent().ok_or("无法定位配置目录")?)
+            .map_err(|e| e.to_string())?;
+        let tmp = path.with_extension("tmp");
+        std::fs::write(
+            &tmp,
+            serde_json::to_vec_pretty(&preferences).map_err(|e| e.to_string())?,
+        )
+        .map_err(|e| e.to_string())?;
+        std::fs::rename(tmp, path).map_err(|e| e.to_string())?;
+        Ok(preferences)
+    })
+    .await
+    .map_err(|error| error.to_string())?
 }
 
 #[tauri::command]
@@ -167,17 +173,22 @@ pub fn backup(app: &AppHandle, state: &AppState) -> Result<PathBuf, String> {
 }
 
 #[tauri::command]
-pub fn backup_configuration(
+pub async fn backup_configuration(
     window: WebviewWindow,
     app: AppHandle,
     state: State<'_, Arc<AppState>>,
 ) -> Result<String, String> {
     settings_window(&window)?;
-    let editing = state.status.lock().map_err(|e| e.to_string())?.editing;
-    if editing {
-        crate::change_editing(&app, &state, false)?;
-    }
-    Ok(backup(&app, &state)?.display().to_string())
+    let state = state.inner().clone();
+    tauri::async_runtime::spawn_blocking(move || {
+        let editing = state.status.lock().map_err(|e| e.to_string())?.editing;
+        if editing {
+            crate::change_editing(&app, &state, false)?;
+        }
+        Ok(backup(&app, &state)?.display().to_string())
+    })
+    .await
+    .map_err(|error| error.to_string())?
 }
 
 #[tauri::command]
@@ -230,8 +241,14 @@ pub async fn quit_application(
     state: State<'_, Arc<AppState>>,
 ) -> Result<(), String> {
     settings_window(&window)?;
-    crate::change_editing(&app, &state, false)?;
-    crate::rail::restore_desktop(&app)?;
+    let state = state.inner().clone();
+    let target = app.clone();
+    tauri::async_runtime::spawn_blocking(move || {
+        crate::change_editing(&target, &state, false)?;
+        crate::rail::restore_desktop(&target)
+    })
+    .await
+    .map_err(|error| error.to_string())??;
     app.exit(0);
     Ok(())
 }
