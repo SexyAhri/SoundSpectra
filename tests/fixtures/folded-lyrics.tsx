@@ -15,7 +15,7 @@ const host = document.createElement('div'); host.style.cssText = 'position:absol
 document.body.append(host)
 const root = createRoot(host)
 let timing: Pick<NowPlaying, 'duration' | 'timelineSource' | 'timelineValidUntil'> = { duration: 100 }
-let state = { fontStyle: 'modern' as 'modern' | 'poetry', time: 2600, reduced: false, lines: demoLyrics, fontSize: 64, regionWidth: .88, backgroundOpacity: 0, playing: false, desktop: false, readability: 'soft' as 'soft' | 'contrast', palette: defaultLyricPalette, layer: false, offsetMs: 0, available: true, bounds: { ...defaultLyrics.bounds }, advance: true, audio: quietLyricAudio as Readonly<LyricAudio> }
+let state = { quality: 'balanced' as 'eco' | 'balanced' | 'smooth' | 'unlimited', flow: 'drift' as 'drift' | 'flight' | 'aurora', fontStyle: 'modern' as 'modern' | 'poetry', time: 2600, reduced: false, lines: demoLyrics, fontSize: 64, regionWidth: .88, backgroundOpacity: 0, playing: false, desktop: false, readability: 'soft' as 'soft' | 'contrast', palette: defaultLyricPalette, layer: false, offsetMs: 0, available: true, bounds: { ...defaultLyrics.bounds }, advance: true, audio: quietLyricAudio as Readonly<LyricAudio> }
 function render() {
   const snapshot = state, start = performance.now()
   const info = { ...emptyNowPlaying, title: 'Transport fixture', artist: 'Test', playing: snapshot.playing, position: snapshot.time / 1000, ...timing, updated: Date.now(), timelineAvailable: snapshot.available }

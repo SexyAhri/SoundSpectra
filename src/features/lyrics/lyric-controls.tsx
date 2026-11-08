@@ -21,9 +21,7 @@ export function LyricControls({ settings, document, update, disabled }: { settin
   }
   const change = (patch: Partial<LyricSettings>) => update(current => ({ lyrics: { ...current.lyrics, ...patch } }))
   const chooseComposition = (motion: LyricSettings['motion']) => {
-    const b = lyrics.bounds
-    const oldDefault = b.x === .14 && b.width === .72 && ((b.y === .56 && b.height === .22) || (b.y === .60 && b.height === .18))
-    change({ motion, ...(oldDefault ? { bounds: { ...defaultLyrics.bounds }, fontSize: 64 } : {}) })
+    change({ motion })
   }
   const bounds = (key: 'x' | 'y' | 'width', value: number) => {
     const b = { ...lyrics.bounds, [key]: value / 100 }

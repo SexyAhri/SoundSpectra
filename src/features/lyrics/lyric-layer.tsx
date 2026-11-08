@@ -19,7 +19,7 @@ export function LyricLayer({ settings, document, info, demo = false, active = tr
   onBoundsChange?: (bounds: SceneBounds, resized?: boolean) => void; draggable?: boolean;
   onSelect?: () => void;
   obstacles?: SceneBounds[]; zIndex?: number; selected?: boolean;
-  appearance?:Pick<SpectrumSettings,'effect'|'music'|'color'>;
+  appearance?:Pick<SpectrumSettings,'effect'|'music'|'color'> & Partial<Pick<SpectrumSettings,'quality'>>;
   cardAccent?: string;
   analysis?: RefObject<AnalysisSnapshot>;
   onSnap?: (guides: { x: number | null; y: number | null }) => void;
@@ -54,12 +54,13 @@ export function LyricLayer({ settings, document, info, demo = false, active = tr
   if (desktop && (!canShow || safe.crowded)) return null
   const b = host ? relativeBounds(placement.bounds, host) : placement.bounds
   const displayFontSize = Math.max(18, Math.min(72, settings.fontSize * Math.sqrt(placement.bounds.width * placement.bounds.height / (settings.bounds.width * settings.bounds.height))))
+  const render = { quality: appearance?.quality, flow: appearance?.effect === 'star_flight' ? 'flight' as const : appearance?.effect === 'aurora_flow' ? 'aurora' as const : 'drift' as const }
   return <div className={`lyric-layer lyric-motion-${settings.motion}${movable ? ' is-draggable' : ''}`} data-testid="lyric-layer" data-preview-object="lyrics" data-selected={selected || undefined} data-rail-crowded={safe.crowded || undefined} data-light-palette={palette.prism.join(',')} style={{ zIndex, left: `${b.x * 100}%`, top: `${b.y * 100}%`, width: `${b.width * 100}%`, height: `${b.height * 100}%` } as CSSProperties}
     role={movable ? 'group' : undefined} tabIndex={movable ? 0 : undefined} aria-label={movable ? '歌词位置，拖动或方向键移动' : undefined}
     onFocus={movable ? onSelect : undefined} onPointerDown={event => placement.begin(event)} onPointerMove={placement.moving} onPointerUp={event => placement.end(event)} onPointerCancel={event => placement.end(event, true)} onLostPointerCapture={event => placement.end(event, true)} onKeyDown={placement.keyboard}>
     {canShow && !safe.crowded ? <>
       {line && lyricDisplayText(line.text).trim() && <LyricSceneFocus bounds={placement.bounds} lineKey={`${simulated?'demo':document.key}:${index}:${line.start}`} backgroundOpacity={settings.backgroundOpacity} />}
-      {settings.motion === 'folded' ? <Suspense fallback={null}><FoldedLyrics lines={lines} time={time} readAudio={readAudio} readTime={()=>((simulated?(Date.now()-demoStart)%demoDuration:playbackPosition(info,Date.now())??0)+settings.offsetMs)} playing={simulated||info.playing} desktop={desktop} fontStyle={settings.fontStyle} fontSize={displayFontSize} regionWidth={placement.bounds.width} reduced={reduced} backgroundOpacity={settings.backgroundOpacity} palette={palette} readability={settings.readability} /></Suspense> : <KineticLyrics lines={lines} index={index} time={time} readAudio={readAudio} readTime={()=>((simulated?(Date.now()-demoStart)%demoDuration:playbackPosition(info,Date.now())??0)+settings.offsetMs)} playing={simulated||info.playing} desktop={desktop} fontStyle={settings.fontStyle} fontSize={displayFontSize} regionWidth={placement.bounds.width} mode={settings.motion} reduced={reduced} backgroundOpacity={settings.backgroundOpacity} palette={palette} readability={settings.readability} />}
+      {settings.motion === 'folded' ? <Suspense fallback={null}><FoldedLyrics {...render} lines={lines} time={time} readAudio={readAudio} readTime={()=>((simulated?(Date.now()-demoStart)%demoDuration:playbackPosition(info,Date.now())??0)+settings.offsetMs)} playing={simulated||info.playing} desktop={desktop} fontStyle={settings.fontStyle} fontSize={displayFontSize} regionWidth={placement.bounds.width} reduced={reduced} backgroundOpacity={settings.backgroundOpacity} palette={palette} readability={settings.readability} /></Suspense> : <KineticLyrics {...render} lines={lines} index={index} time={time} readAudio={readAudio} readTime={()=>((simulated?(Date.now()-demoStart)%demoDuration:playbackPosition(info,Date.now())??0)+settings.offsetMs)} playing={simulated||info.playing} desktop={desktop} fontStyle={settings.fontStyle} fontSize={displayFontSize} regionWidth={placement.bounds.width} mode={settings.motion} reduced={reduced} backgroundOpacity={settings.backgroundOpacity} palette={palette} readability={settings.readability} />}
       <span className="sr-only" aria-label="当前歌词">{line ? lyricDisplayText(line.text) : '前奏'}</span>
       {simulated && <span className="lyric-demo-label">模拟歌词</span>}
       {!simulated && !desktop && info.timelineSource === 'kugou-checkpoint' && <span className="lyric-demo-label">酷狗兼容进度 · 切歌或拖动后可能等待约 30 秒</span>}

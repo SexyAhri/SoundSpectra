@@ -206,23 +206,24 @@ test('lyric designs animate their adjacent-line handoffs', async ({ page }) => {
   const canvas = page.locator('canvas')
   const set = (patch: object) => page.evaluate(patch => (window as any).lyricProbe.set(patch), patch)
   const pixels = () => canvas.evaluate((node: HTMLCanvasElement) => node.toDataURL())
+  await set({ lines: [{ text: '微光沿着夜色', start: 0, end: 4000, words: [] }, { text: '听见远方回声', start: 4000, end: 8000, words: [] }] })
   for (const mode of ['depth', 'stage', 'stardust']) {
-    await set({ mode, time: 4980, reduced: false })
+    await set({ mode, time: 3980, reduced: false })
     await expect(canvas).toHaveAttribute('data-transition', 'false')
     const before = await pixels()
-    await set({ time: 5000 })
+    await set({ time: 4000 })
     await expect(canvas).toHaveAttribute('data-transition', 'true')
     const entering = await pixels()
     await set({ time: 2200 })
     await expect(canvas).toHaveAttribute('data-transition', 'false')
-    await set({ time: 4980 })
+    await set({ time: 3980 })
     await expect(canvas).toHaveAttribute('data-transition', 'false')
-    await set({ time: 5000 })
+    await set({ time: 4000 })
     await expect(canvas).toHaveAttribute('data-transition', 'true')
-    await set({ time: 5200 })
+    await set({ time: 4200 })
     await expect(canvas).toHaveAttribute('data-transition', 'true')
     const leaving = await pixels()
-    await set({ time: 5400 })
+    await set({ time: 4400 })
     await expect(canvas).toHaveAttribute('data-transition', 'false')
     expect(new Set([before, entering, leaving]).size).toBe(3)
     await page.screenshot({ path: `artifacts/lyric-handoff-${mode}.png` })
@@ -231,7 +232,7 @@ test('lyric designs animate their adjacent-line handoffs', async ({ page }) => {
   await expect(canvas).toHaveAttribute('data-transition', 'false')
 })
 
-test('redesigned lyrics clear old letters at handoff while the arc keeps a continuous outgoing position', async ({ page }) => {
+test('all lyric scores replace old letter silhouettes with ink dust at handoff', async ({ page }) => {
   await page.goto('/tests/fixtures/kinetic-lyrics.html')
   const shifts = await page.evaluate(async () => {
     const modulePath = '/src/features/lyrics/kinetic-composition.ts'
@@ -261,12 +262,12 @@ test('redesigned lyrics clear old letters at handoff while the arc keeps a conti
       engine.draw(context, { ...frame, index: 1, time: 4000 })
       if (before !== 1) throw new Error(`Expected one current old-line glyph for ${mode}`)
       return { mode, oldLettersAfter: positions.length - before,
-        distance: positions.length === 2 ? Math.hypot(positions[1].x - positions[0].x, positions[1].y - positions[0].y) : 0 }
+        particles: engine.particles }
     })
   })
-  for (const { mode, oldLettersAfter, distance } of shifts) {
-    expect(oldLettersAfter, mode).toBe(mode === 'stardust' ? 1 : 0)
-    expect(distance, mode).toBeLessThan(1)
+  for (const { mode, oldLettersAfter, particles } of shifts) {
+    expect(oldLettersAfter, mode).toBe(0)
+    expect(particles, mode).toBeGreaterThan(0)
   }
 })
 

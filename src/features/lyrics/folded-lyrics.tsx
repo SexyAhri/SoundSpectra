@@ -1,4 +1,4 @@
-import { useLayoutEffect, useRef } from 'react'
+import { useLayoutEffect, useRef, useState } from 'react'
 import { Canvas, useFrame, useThree } from '@react-three/fiber'
 import { AdditiveBlending, CanvasTexture, Color, DoubleSide, Group, LinearFilter, Mesh, PerspectiveCamera, PlaneGeometry, ShaderMaterial, Vector3 } from 'three'
 import { activeLine, type LyricLine } from './model'
@@ -9,12 +9,18 @@ import { foldedLayout, type FoldedLayout } from './folded-layout'
 import { createFoldedStage } from './folded-stage'
 import { lyricFont, lyricWeight, measureLyricGlyphs, type LyricFontStyle } from './lyric-typography'
 import { useLyricFont } from './use-lyric-font'
-import { quietLyricAudio, type LyricAudio } from './lyric-audio'
+import { lyricAccent, quietLyricAudio, type LyricAudio } from './lyric-audio'
+import type { RenderQuality } from '../spectrum/model'
+import { lyricRenderBudget } from './lyric-render-budget'
+import { FrameBudget } from '../spectrum/render-budget'
+import { lyricRelease } from './lyric-motion'
+import { foldedDust } from './folded-dust'
 
 export interface FoldedLyricsProps {
   lines: LyricLine[]; time: number; readTime?: () => number; playing: boolean; desktop: boolean;
   fontSize: number; fontStyle?: LyricFontStyle; regionWidth?: number; reduced: boolean; backgroundOpacity: number;
   palette: LyricPalette; readability: 'soft' | 'contrast'; readAudio?: () => Readonly<LyricAudio>;
+  quality?: RenderQuality; flow?: 'flight' | 'aurora' | 'drift';
 }
 const maxPanelGlyphs = 32
 const rasterScale = 2
@@ -38,8 +44,8 @@ function foldGroups(glyphs: TimedGlyph[]) {
 }
 
 // Static masks only. Folding and highlighting are entirely GPU driven.
-function panel(glyphs: TimedGlyph[], palette: LyricPalette, contrast: boolean, style: LyricFontStyle, weight: number) {
-  const canvas = document.createElement('canvas'), context = canvas.getContext('2d')!
+function panel(glyphs: TimedGlyph[], palette: LyricPalette, contrast: boolean, style: LyricFontStyle, weight: number, dustLimit: number) {
+  const canvas = document.createElement('canvas'), context = canvas.getContext('2d', { willReadFrequently: true })!
   const metrics = measureLyricGlyphs(context, glyphs, 96, style, 'folded', weight)
   const texts = glyphs.map(g => g.hidden ? ' ' : g.text)
   const widths = metrics.map(metric => metric.advance)
@@ -66,14 +72,14 @@ function panel(glyphs: TimedGlyph[], palette: LyricPalette, contrast: boolean, s
     cyan: { value: new Color(palette.prism[0]) }, violet: { value: new Color(palette.prism[1]) },
     shadow: { value: new Color(palette.shadow) }, outline: { value: contrast ? 1 : 0 },
     texel: { value: [1.1 * rasterScale / canvas.width, 1.1 * rasterScale / canvas.height] }, pixelRatio: { value: 1 }, light: { value: 1 },
-    clock: { value: 0 }, flare: { value: 0 },
+    flare: { value: 0 }, release: { value: 0 },
     beam: { value: new Vector3(0, 1, -1) },
   }, vertexShader: 'varying vec2 vUv; void main(){vUv=uv;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.);}', fragmentShader: `
     uniform sampler2D mask; uniform vec3 spans[32]; uniform vec3 sung; uniform vec3 unsung;
     uniform vec3 beam;
     uniform vec3 shadow; uniform vec3 cyan; uniform vec3 violet;
     uniform float outline; uniform vec2 texel; uniform float pixelRatio; uniform float opacity; uniform float light;
-    uniform float clock; uniform float flare; varying vec2 vUv;
+    uniform float flare; uniform float release; varying vec2 vUv;
     void main(){float a=texture2D(mask,vUv).a; float edge=a;
       // Contrast needs a visible screen-space rim even at the smallest font.
       vec2 stepUv=outline>.5 ? max(texel,fwidth(vUv)*pixelRatio*1.25) : texel;
@@ -83,39 +89,51 @@ function panel(glyphs: TimedGlyph[], palette: LyricPalette, contrast: boolean, s
       edge=max(edge,texture2D(mask,vUv-vec2(0.,stepUv.y)).a);
       float alpha=max(a,edge*outline); if(alpha<.01)discard; float lit=0.;
       for(int i=0;i<32;i++){vec3 s=spans[i]; if(vUv.x>=s.x && vUv.x<=s.y)lit=max(lit,s.z);}
-      float iridescence=.5+.5*sin(vUv.x*5.+vUv.y*3.-clock*.8);
       vec3 warm=vec3(1.,.94,.83);
       vec3 ink=mix(mix(unsung,warm,.48),mix(sung,warm,.70),lit)*light;
       float wordX=(vUv.x-beam.x)/max(.001,beam.y-beam.x);
-      float glint=beam.z<0.?0.:exp(-pow((wordX-beam.z)*9.,2.))*step(0.,wordX)*step(wordX,1.);
-      ink=mix(ink,mix(cyan,violet,iridescence),glint*.48);
-      ink+=warm*(glint*.10+flare*.06)*lit;
-      gl_FragColor=vec4(mix(shadow,ink,a/max(alpha,.001)),alpha*opacity);
+      float p=clamp(beam.z,0.,1.),phase=p*6.2831853;
+      float envelope=pow(max(0.,sin(p*3.14159265)),.65)*step(0.,beam.z);
+      float front=-.18+p*1.36+sin(vUv.y*7.+phase)*.055;
+      float crestDistance=(wordX-front)/(.19+.045*sin(phase));float crest=exp(-crestDistance*crestDistance);
+      float wakeDistance=(wordX-front+.27+.055*sin(phase))/.29;float wake=exp(-wakeDistance*wakeDistance);
+      float swirl=.5+.5*sin(wordX*8.-phase*1.4+vUv.y*2.);
+      float inside=step(0.,wordX)*step(wordX,1.);
+      float amount=envelope*min(.88,crest*.80+wake*.46)*inside;
+      ink=mix(ink,mix(cyan,violet,swirl),amount);
+      ink=mix(ink,warm,envelope*crest*.16*inside);
+      ink+=warm*flare*.06*lit;
+      float erode=smoothstep(release/.32-.025,release/.32+.025,vUv.x);
+      gl_FragColor=vec4(mix(shadow,ink,a/max(alpha,.001)),alpha*opacity*(release>0.?erode:1.));
       #include <colorspace_fragment>
     }` })
   const geometry = new PlaneGeometry(maskWidth / 96, 1.5)
   geometry.translate(width / 192, 0, 0)
   const mesh = new Group(), ink = new Mesh(geometry, material)
   ink.frustumCulled = false; ink.renderOrder = 3; mesh.add(ink)
+  const dust = foldedDust(context.getImageData(0, 0, canvas.width, canvas.height).data, canvas.width, canvas.height, palette, dustLimit)
+  mesh.add(dust.points)
   const foilGeometry = new PlaneGeometry(width / 96 + .18, 1.38)
   foilGeometry.translate(width / 192, 0, 0)
   const foilMaterial = new ShaderMaterial({ transparent: true, depthWrite: false, side: DoubleSide, blending: AdditiveBlending,
-    uniforms: { opacity: { value: 0 }, clock: { value: 0 }, music: { value: new Vector3() }, tint: { value: new Color(palette.accent) } },
-    vertexShader: 'varying vec2 vUv;void main(){vUv=uv;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.);}',
-    fragmentShader: `varying vec2 vUv;uniform float opacity;uniform float clock;uniform vec3 tint;uniform vec3 music;
+    uniforms: { opacity: { value: 0 }, clock: { value: 0 }, bend: { value: 0 }, music: { value: new Vector3() }, tint: { value: new Color(palette.accent) } },
+    vertexShader: 'varying vec2 vUv;varying float vFacing;void main(){vUv=uv;vec4 mv=modelViewMatrix*vec4(position,1.);vFacing=abs(dot(normalize(normalMatrix*normal),normalize(-mv.xyz)));gl_Position=projectionMatrix*mv;}',
+    fragmentShader: `varying vec2 vUv;varying float vFacing;uniform float opacity;uniform float clock;uniform float bend;uniform vec3 tint;uniform vec3 music;
       void main(){vec2 p=vUv;float cut=step(.07,p.x+p.y)*step(p.x+p.y,1.93);
         float edge=exp(-min(p.x,1.-p.x)*180.)*.4+exp(-min(p.y,1.-p.y)*100.)*.18;
-        float fold=exp(-abs(p.x-.02)*90.);float scan=exp(-abs(p.x-fract(clock*.24))*(45.-music.y*12.));
-        float a=(.018+edge*(.6+music.z*.9)+fold*(.25+music.x*.4)+scan*(.07+music.y*.32))*cut*opacity;
-        gl_FragColor=vec4(mix(tint,vec3(.55,1.,.91),p.y),a);
+        float ridgeWidth=max(fwidth(p.x)*1.2,.006+bend*.008+music.z*.005);
+        float fold=exp(-abs(p.x-.02)/ridgeWidth);float scan=exp(-abs(p.x-fract(clock*.24))*(45.-music.y*12.));
+        float rim=1.-vFacing;
+        float a=(.018+edge*(.6+music.z*.9)+fold*(.35+music.x*.65+rim*.8)+scan*(.07+music.y*.32))*cut*opacity;
+        gl_FragColor=vec4(mix(tint,vec3(.55,1.,.91),clamp(p.y*.6+bend*.2+music.z*.2,0.,1.)),a);
         #include <colorspace_fragment>
       }` })
   const foil = new Mesh(foilGeometry, foilMaterial)
   foil.position.z = -.045; foil.frustumCulled = false; foil.renderOrder = 0; mesh.add(foil)
   const cue = Math.min(...glyphs.filter(g => g.text.trim() && !g.hidden).map(g => g.start))
   const cues = [...new Set(glyphs.filter(g => g.text.trim() && !g.hidden).map(g => g.start))]
-  return { mesh, width: width / 96, spans, glyphs, material, foil, cue, cues,
-    dispose() { texture.dispose(); geometry.dispose(); material.dispose(); foilGeometry.dispose(); foilMaterial.dispose() } }
+  return { mesh, width: width / 96, spans, glyphs, material, foil, dust, cue, cues,
+    dispose() { texture.dispose(); geometry.dispose(); material.dispose(); foilGeometry.dispose(); foilMaterial.dispose(); dust.dispose() } }
 }
 
 function makeLine(line: LyricLine, next: LyricLine | undefined, previous: LyricLine | undefined, palette: LyricPalette, contrast: boolean, style: LyricFontStyle, weight: number, deferred = false) {
@@ -124,7 +142,7 @@ function makeLine(line: LyricLine, next: LyricLine | undefined, previous: LyricL
   const groups = foldGroups(glyphs), group = new Group()
   const prepare = () => {
     if (panels.length < groups.length) {
-      const item = panel(groups[panels.length], palette, contrast, style, weight)
+      const item = panel(groups[panels.length], palette, contrast, style, weight, Math.floor(2000 / Math.max(1, groups.length)))
       panels.push(item); group.add(item.mesh)
     }
     return panels.length === groups.length
@@ -141,6 +159,8 @@ function Scene(props: FoldedLyricsProps) {
   const style = props.fontStyle ?? 'modern'
   const weight = lyricWeight(style, Math.min(props.fontSize * size.width / (1920 * (props.regionWidth ?? .88)) * 2.35, size.height * .26), 'folded')
   const cache = useRef(new Map<number, ReturnType<typeof makeLine>>())
+  const cadence = useRef(new FrameBudget()), nextFrame = useRef(0), lastPaint = useRef(0)
+  useLayoutEffect(() => () => clearTimeout(nextFrame.current), [])
   const prewarm = useRef<{ index: number; object: ReturnType<typeof makeLine>; timer: number } | undefined>(undefined)
   const cancelPrewarm = () => {
     const job = prewarm.current
@@ -182,10 +202,12 @@ function Scene(props: FoldedLyricsProps) {
       item.material.uniforms.cyan.value.set(props.palette.prism[0])
       item.material.uniforms.violet.value.set(props.palette.prism[1])
       item.foil.material.uniforms.tint.value.set(props.palette.accent)
+      item.dust.material.uniforms.cyan.value.set(props.palette.prism[0])
+      item.dust.material.uniforms.violet.value.set(props.palette.prism[1])
     }))
     invalidate()
   }, [props.palette, invalidate])
-  useLayoutEffect(() => { invalidate() }, [props.time, props.playing, props.reduced, props.fontSize, props.regionWidth, props.backgroundOpacity, size, invalidate])
+  useLayoutEffect(() => { clearTimeout(nextFrame.current); invalidate() }, [props.time, props.playing, props.reduced, props.fontSize, props.regionWidth, props.backgroundOpacity, props.quality, props.flow, size, invalidate])
   useLayoutEffect(() => {
     const lens = camera as PerspectiveCamera
     // At z=0 one world unit equals one CSS pixel; depth still changes apparent scale.
@@ -194,13 +216,20 @@ function Scene(props: FoldedLyricsProps) {
     lens.far = lens.position.z + 8000; lens.updateProjectionMatrix(); invalidate()
   }, [camera, size, invalidate])
   useLayoutEffect(() => {
-    const wake = () => { if (!document.hidden || latest.current.desktop) invalidate() }
+    const wake = () => { clearTimeout(nextFrame.current); if (!document.hidden || latest.current.desktop) invalidate() }
     document.addEventListener('visibilitychange', wake)
     return () => document.removeEventListener('visibilitychange', wake)
   }, [invalidate])
   useFrame(() => {
     const p = latest.current
+    clearTimeout(nextFrame.current)
     if (document.hidden && !p.desktop) return
+    const budget = lyricRenderBudget(p.quality, p.reduced), now = performance.now()
+    const schedule = () => {
+      if (p.playing) nextFrame.current = window.setTimeout(invalidate, budget.fps ? Math.max(0, 1000 / budget.fps - (performance.now() - lastPaint.current) - 2) : 0)
+    }
+    if (p.playing && lastPaint.current && !cadence.current.due(now, budget.fps)) { schedule(); return }
+    lastPaint.current = now
     const time = p.readTime?.() ?? p.time, index = activeLine(p.lines, time)
     const audio = p.playing && !p.reduced ? p.readAudio?.() ?? quietLyricAudio : quietLyricAudio
     const wanted = new Set([index - 1, index, index + 1].filter(i => i >= 0 && i < p.lines.length))
@@ -221,14 +250,22 @@ function Scene(props: FoldedLyricsProps) {
     })
     const visible: number[] = []
     const poses: number[][] = []
-    let energy = 0
+    let energy = 0, particles = 0
+    const dustIndex = [index, index - 1].find(i => {
+      const line = p.lines[i]; if (!line) return false
+      const release = lyricRelease(line.start, Math.min(line.end, p.lines[i + 1]?.start ?? Infinity), time)
+      return release > 0 && release < 1
+    })
     cache.current.forEach((object, i) => {
       const { group, panels, choreography, line } = object
       const end = Math.min(line.end, p.lines[i + 1]?.start ?? Infinity)
-      group.visible = time >= line.start - choreography.lead && time < end + choreography.tail
+      const release = p.reduced ? 0 : lyricRelease(line.start, end, time)
+      group.visible = time >= line.start - choreography.lead && time < end + (p.reduced ? 0 : Math.max(choreography.tail, 430))
       if (!group.visible) return
-      visible.push(i)
-      const { enter, exit } = choreography.evaluate(time)
+      if (time < end + choreography.tail) visible.push(i)
+      const { enter } = choreography.evaluate(time)
+      // Keep the final word readable; folding and erosion share one terminal breath.
+      const exit = p.reduced ? 0 : release * release * (3 - 2 * release) * .7
       const layoutKey = `${size.width}:${size.height}:${p.fontSize}:${p.regionWidth}`
       if (object.layoutKey !== layoutKey) {
         object.layout = foldedLayout(panels.map(item => item.width), size.width, size.height, p.fontSize, p.regionWidth ?? .88)
@@ -265,8 +302,8 @@ function Scene(props: FoldedLyricsProps) {
           return Math.max(peak, age >= 0 && age < 720 ? Math.exp(-age / 210) : 0)
         }, 0)
         energy = Math.max(energy, pulse)
-        const release = clamp(elapsed / 330)
-        const resting = .16 * (1 - release)
+        const recovery = clamp(elapsed / 330)
+        const resting = .16 * (1 - recovery)
         const fold = p.reduced ? 0 : Math.max(unfolding, 1 - enter) + exit * .92
         const angle = p.reduced ? 0 : (fold * 1.52 + resting * settle * (1 - exit)) * (n % 2 ? -1 : 1)
         item.mesh.scale.setScalar(position.rowScale)
@@ -276,8 +313,16 @@ function Scene(props: FoldedLyricsProps) {
           : Math.min(1, enter * 1.6) * (.32 + .68 * settle) * (1 - exit) ** .85
         item.material.uniforms.light.value = 1 - Math.abs(Math.sin(angle)) * .24
         item.material.uniforms.pixelRatio.value = gl.getPixelRatio()
-        item.material.uniforms.clock.value = p.reduced ? 0 : time / 1000
         item.material.uniforms.flare.value = p.reduced ? 0 : pulse
+        item.material.uniforms.release.value = release
+        item.dust.points.visible = !p.reduced && i === dustIndex
+        const dustCount = Math.min(item.dust.count, Math.floor(budget.particles / Math.max(1, panels.length)))
+        item.dust.points.geometry.setDrawRange(0, dustCount)
+        if (item.dust.points.visible) particles += dustCount
+        const du = item.dust.material.uniforms
+        du.release.value = release; du.accent.value = lyricAccent(audio)
+        du.flow.value = p.flow === 'flight' ? 1 : p.flow === 'aurora' ? 2 : 0
+        du.resolution.value = size.height * gl.getPixelRatio()
         item.glyphs.forEach((glyph, j) => { item.spans[j].z = glyph.timed ? clamp((time - glyph.start) / Math.max(1, glyph.end - glyph.start)) : time >= glyph.start ? 1 : 0 })
         const active = item.glyphs.find(g => !g.hidden && g.text.trim() && time >= g.start && time < (g.timed ? g.end : g.start + 650))
         const beam = item.material.uniforms.beam.value as Vector3
@@ -290,7 +335,8 @@ function Scene(props: FoldedLyricsProps) {
         item.foil.visible = !p.reduced
         item.foil.material.uniforms.opacity.value = item.material.uniforms.opacity.value * (.07 + activity * 1.8 + pulse * .18 + audio.impact * .72 + audio.energy * .10)
         item.foil.material.uniforms.clock.value = time / 1000 + n * .17
-        item.foil.material.uniforms.music.value.set(audio.bass, audio.body, audio.treble)
+        item.foil.material.uniforms.bend.value = Math.abs(Math.sin(angle))
+        item.foil.material.uniforms.music.value.set(Math.max(audio.bass, lyricAccent(audio)), audio.body, audio.treble)
       })
       // Adjacent panels share a hinge. Folding shortens the whole row like a concertina;
       // it never spreads individual words along a decorative path.
@@ -327,15 +373,30 @@ function Scene(props: FoldedLyricsProps) {
     }
     if (import.meta.env.DEV) data.poses = JSON.stringify(poses)
     data.frames = String(Number(data.frames ?? 0) + 1)
-    if (p.playing) invalidate()
-  })
+    data.particles = String(particles); data.quality = p.quality ?? 'balanced'; data.fps = String(budget.fps)
+    gl.render(scene, camera)
+    schedule()
+  }, 1)
   return null
 }
 
 export function FoldedLyrics(props: FoldedLyricsProps) {
   const fontsReady = useLyricFont(props.lines, props.fontStyle)
+  const surface = useRef<HTMLDivElement>(null)
+  const [size, setSize] = useState({ width: 1, height: 1 })
+  useLayoutEffect(() => {
+    const node = surface.current!
+    const measure = () => {
+      const width = node.clientWidth, height = node.clientHeight
+      setSize(old => old.width === width && old.height === height ? old : { width, height })
+    }
+    const observer = new ResizeObserver(measure); observer.observe(node); measure()
+    return () => observer.disconnect()
+  }, [])
+  const budget = lyricRenderBudget(props.quality, props.reduced)
+  const dpr = Math.min(devicePixelRatio || 1, budget.scale, Math.sqrt(budget.pixels / Math.max(1, size.width * size.height)), 4096 / Math.max(1, size.width, size.height))
   const opacity = clamp(props.backgroundOpacity / 100)
-  return <div className="folded-lyrics" aria-hidden="true" style={{ background: opacity ? `radial-gradient(ellipse closest-side, ${props.palette.shadow}${Math.round(opacity * 255).toString(16).padStart(2, '0')} 0%, transparent 100%)` : 'transparent' }}>
-    <Canvas frameloop="demand" dpr={[1, 2]} camera={{ position: [0, 0, 1000], fov: 36, near: .1, far: 10000 }} gl={{ alpha: true, antialias: true }}>{fontsReady && <Scene {...props} />}</Canvas>
+  return <div ref={surface} className="folded-lyrics" aria-hidden="true" style={{ background: opacity ? `radial-gradient(ellipse closest-side, ${props.palette.shadow}${Math.round(opacity * 255).toString(16).padStart(2, '0')} 0%, transparent 100%)` : 'transparent' }}>
+    <Canvas frameloop="demand" dpr={dpr} camera={{ position: [0, 0, 1000], fov: 36, near: .1, far: 10000 }} gl={{ alpha: true, antialias: true }}>{fontsReady && <Scene {...props} />}</Canvas>
   </div>
 }

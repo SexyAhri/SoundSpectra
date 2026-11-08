@@ -9,9 +9,21 @@ export interface LyricAudio {
   treble: number;
   impact: number;
   energy: number;
+  /** Captured onset metadata; absence never blocks a lyric transition. */
+  onset?: boolean;
+  beatAge?: number;
+  beatStrength?: number;
+  sustain?: number;
 }
 export const quietLyricAudio: Readonly<LyricAudio> = Object.freeze({ bass: 0, body: 0, treble: 0, impact: 0, energy: 0 })
 const unit = (value: number) => Number.isFinite(value) ? Math.max(0, Math.min(1, value)) : 0
+
+/** Envelope of an observed event, never an extrapolated beat or BPM clock. */
+export function lyricAccent(audio: Readonly<LyricAudio> | undefined) {
+  if (!audio) return 0
+  const age = audio.beatAge ?? Infinity
+  return unit(Math.max(audio.impact, age >= 0 ? (audio.beatStrength ?? 0) * Math.exp(-age / 140) : 0))
+}
 
 /** Read the scene's existing capture timeline. This never generates a beat or a song position. */
 export function lyricAudio(frame: MusicDriverFrame | null | undefined): Readonly<LyricAudio> {
@@ -21,6 +33,7 @@ export function lyricAudio(frame: MusicDriverFrame | null | undefined): Readonly
     bass: transient(0), body: transient(1), treble: transient(2),
     impact: unit(Math.max(transient(0), transient(1) * .72, transient(2) * .32)),
     energy: unit(frame.displayIntensity ?? frame.intensity),
+    onset: frame.onset, beatAge: Math.max(0, frame.beatAge), beatStrength: unit(frame.beatStrength), sustain: unit(frame.sustain),
   }
 }
 

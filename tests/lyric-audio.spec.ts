@@ -23,7 +23,8 @@ test('lyrics share capture onsets without advancing the source or inventing stal
   expect(readLyricAudio(analysis, 10000)).toBe(quietLyricAudio)
   expect(readLyricAudio(undefined, 1080)).toBe(quietLyricAudio)
   const accents = lyricAudio({ ...frame, transients: [.8, .4, .2], displayIntensity: .6 })
-  expect(accents).toEqual({ bass: .8, body: .4, treble: .2, impact: .8, energy: .6 })
+  expect(accents).toEqual({ bass: .8, body: .4, treble: .2, impact: .8, energy: .6,
+    onset: frame.onset, beatAge: Math.max(0, frame.beatAge), beatStrength: frame.beatStrength, sustain: frame.sustain })
   expect(lyricAudio({ ...frame, audible: false })).toBe(quietLyricAudio)
 })
 

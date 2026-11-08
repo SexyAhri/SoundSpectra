@@ -47,18 +47,28 @@ export function measureLyricGlyphs(ctx: CanvasRenderingContext2D, glyphs: TimedG
 const mix = (a: string, b: string, t: number) => '#' + [1, 3, 5].map(i => Math.round(
   parseInt(a.slice(i, i + 2), 16) * (1 - t) + parseInt(b.slice(i, i + 2), 16) * t).toString(16).padStart(2, '0')).join('')
 
-/** The light is ink: one clipped fill, no duplicate letters or blurred shadows. */
+/** Seekable liquid ink, sampled across the source word and painted only once. */
 export function lyricInk(ctx: CanvasRenderingContext2D, palette: LyricPalette, width: number, size: number,
   sung: number, progress: number, active: boolean, reduced: boolean, offset = 0) {
   const base = mix(mix(palette.unsung, '#f6f0e5', .48), mix(palette.sung, '#fff8ea', .70), sung)
   if (reduced || !active) return base
-  const center = (progress - .5) * width
-  const ink = ctx.createLinearGradient(-width / 2 - offset, -size * .24, width / 2 - offset, size * .24)
-  const peak = Math.max(.12, Math.min(.88, center / Math.max(1, width) + .5))
-  ink.addColorStop(0, base)
-  ink.addColorStop(Math.max(.001, peak - .12), mix(base, palette.prism[0], .26))
-  ink.addColorStop(peak, mix(base, palette.prism[2], .58))
-  ink.addColorStop(Math.min(.999, peak + .10), mix(base, palette.prism[1], .36))
-  ink.addColorStop(1, base)
+  const p = Math.max(0, Math.min(1, progress)), phase = p * Math.PI * 2
+  const tilt = Math.sin(phase) * size * .42
+  const ink = ctx.createLinearGradient(-width / 2 - offset, -tilt, width / 2 - offset, tilt)
+  // Enter and settle without a flash at either word boundary. The second pool
+  // trails the advancing front, so long notes gather color instead of just scanning.
+  const envelope = Math.sin(Math.PI * p) ** .65
+  const front = -.18 + p * 1.36
+  for (let i = 0; i <= 20; i++) {
+    const x = i / 20
+    const crest = Math.exp(-(((x - front) / (.19 + .045 * Math.sin(phase))) ** 2))
+    const wake = Math.exp(-(((x - front + .27 + .055 * Math.sin(phase)) / .29) ** 2))
+    const swirl = .5 + .5 * Math.sin(x * 8 - phase * 1.4)
+    const color = mix(palette.prism[0], palette.prism[1], swirl)
+    const pool = mix(color, palette.prism[2], crest * .48)
+    const amount = envelope * Math.min(.88, crest * .80 + wake * .46)
+    const liquid = mix(base, pool, amount)
+    ink.addColorStop(x, mix(liquid, '#fff8ea', envelope * crest * .16))
+  }
   return ink
 }
