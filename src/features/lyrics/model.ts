@@ -6,8 +6,11 @@ export interface LyricDocument { key: string; status: string; message: string; f
 export const trackKey = (info: Pick<NowPlaying, 'title' | 'artist' | 'album'>) => `${info.title}\u001f${info.artist}\u001f${info.album}`
 export const emptyLyrics: LyricDocument = { key: '', status: 'waiting', message: '等待播放器提供歌曲信息', file: null, lines: [] }
 export function playbackPosition(info: NowPlaying, now: number) {
-  if (!info.updated || now - info.updated > 4000 || !info.timelineAvailable || info.duration <= 0) return null
-  return Math.min(info.duration, Math.max(0, info.position + (info.playing ? Math.max(0, now - info.updated) / 1000 : 0))) * 1000
+  const checkpoint = info.timelineSource === 'kugou-checkpoint'
+  if (!info.updated || ![info.position, info.duration, info.updated, now].every(Number.isFinite) || info.position < 0 || info.duration < 0 || info.updated > now + 2000 || now - info.updated > 4000 || !info.timelineAvailable || info.duration <= 0 && !checkpoint) return null
+  if (info.timelineSource && (!Number.isFinite(info.timelineValidUntil) || now > info.timelineValidUntil!)) return null
+  const position = Math.max(0, info.position + (info.playing ? Math.max(0, now - info.updated) / 1000 : 0))
+  return (info.duration > 0 ? Math.min(info.duration, position) : position) * 1000
 }
 export function activeLine(lines: LyricLine[], time: number) {
   let low = 0, high = lines.length

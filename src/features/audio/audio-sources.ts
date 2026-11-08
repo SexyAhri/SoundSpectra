@@ -10,7 +10,7 @@ export interface AudioSources {
   discovery: { targets: AudioTarget[]; warning: string | null };
 }
 export const previewCatalog = [
-  ['qqmusic', 'QQ 音乐'], ['netease', '网易云音乐'], ['kugou', '酷狗音乐'], ['kuwo', '酷我音乐'],
+  ['qqmusic', 'QQ 音乐'], ['netease', '网易云音乐'], ['kugou', '酷狗音乐'],
   ['soda', '汽水音乐'],
 ].map(([id, name]) => ({ id, name }))
 const key = 'soundspectra.audio-source.v1'
@@ -26,7 +26,7 @@ export function sourceOptions(snapshot: AudioSources) {
   return options
 }
 function migrateSource(source: AudioSource): AudioSource {
-  return source?.mode === 'process' || source?.mode === 'player' && ['spotify', 'apple', 'itunes', 'foobar', 'musicbee', 'aimp'].includes(source.id) ? { mode: 'auto' } : source
+  return source?.mode === 'process' || source?.mode === 'player' && ['kuwo', 'spotify', 'apple', 'itunes', 'foobar', 'musicbee', 'aimp'].includes(source.id) ? { mode: 'auto' } : source
 }
 function validSource(value: unknown): value is AudioSource {
   if (!value || typeof value !== 'object') return false

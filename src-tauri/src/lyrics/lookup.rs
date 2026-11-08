@@ -69,6 +69,7 @@ where
     let mut online = pin!(online);
     let mut cancelled = pin!(cancel.cancelled());
     let (mut local_done, mut online_done) = (false, false);
+    let mut failure: Option<LyricDocument> = None;
     poll_fn(|cx| {
         if cancelled.as_mut().poll(cx).is_ready() {
             return Poll::Ready(None);
@@ -76,26 +77,48 @@ where
         if !local_done {
             if let Poll::Ready(found) = local.as_mut().poll(cx) {
                 local_done = true;
-                if let Some(found) = found.filter(valid) {
-                    return Poll::Ready(Some(found));
+                if let Some(found) = found {
+                    if valid(&found) {
+                        return Poll::Ready(Some(found));
+                    }
+                    remember_failure(&mut failure, found);
                 }
             }
         }
         if !online_done {
             if let Poll::Ready(found) = online.as_mut().poll(cx) {
                 online_done = true;
-                if let Some(found) = found.filter(valid) {
-                    return Poll::Ready(Some(found));
+                if let Some(found) = found {
+                    if valid(&found) {
+                        return Poll::Ready(Some(found));
+                    }
+                    remember_failure(&mut failure, found);
                 }
             }
         }
         if local_done && online_done {
-            Poll::Ready(None)
+            Poll::Ready(failure.take())
         } else {
             Poll::Pending
         }
     })
     .await
+}
+fn remember_failure(failure: &mut Option<LyricDocument>, found: LyricDocument) {
+    if !matches!(found.status.as_str(), "error" | "ambiguous") {
+        return;
+    }
+    if failure.is_none() {
+        *failure = Some(found);
+    } else if let Some(previous) = failure.as_mut() {
+        if !previous.message.contains(&found.message) {
+            previous.message.push_str("；");
+            previous.message.push_str(&found.message);
+        }
+        if found.status == "error" {
+            previous.status = found.status;
+        }
+    }
 }
 fn valid(document: &LyricDocument) -> bool {
     document.status == "ready" && !document.lines.is_empty()
@@ -129,6 +152,34 @@ mod tests {
             .enable_all()
             .build()
             .unwrap()
+    }
+    #[test]
+    fn reports_source_failures_only_after_other_sources_finish() {
+        runtime().block_on(async {
+            let failed = || async {
+                Some(LyricDocument {
+                    status: "error".into(),
+                    message: "AMLL 请求较多，请稍后重试".into(),
+                    ..Default::default()
+                })
+            };
+            let result = first_valid(failed(), async { None }, Arc::default())
+                .await
+                .unwrap();
+            assert_eq!(result.status, "error");
+            assert!(result.message.contains("请求较多"));
+            let good = async {
+                tokio::time::sleep(Duration::from_millis(10)).await;
+                Some(found("fallback"))
+            };
+            assert_eq!(
+                first_valid(failed(), good, Arc::default())
+                    .await
+                    .unwrap()
+                    .key,
+                "fallback"
+            );
+        });
     }
     #[test]
     fn either_source_can_win_and_the_losing_future_is_dropped() {

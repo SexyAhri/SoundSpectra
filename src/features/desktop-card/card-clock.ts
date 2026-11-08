@@ -2,7 +2,7 @@ import { useLayoutEffect, useRef, type RefObject } from 'react'
 import { playbackPosition } from '../lyrics/model'
 import type { NowPlaying } from './use-now-playing'
 
-export const cardPosition = (info: NowPlaying, now: number) => info.issue || info.playbackAvailable === false || ![info.position, info.duration, info.updated, now].every(Number.isFinite) || info.updated > now + 2000 ? null : playbackPosition({ ...info, timelineAvailable: info.timelineAvailable ?? info.duration > 0 }, now)
+export const cardPosition = (info: NowPlaying, now: number) => info.issue || info.playbackAvailable === false || info.duration <= 0 || ![info.position, info.duration, info.updated, now].every(Number.isFinite) || info.updated > now + 2000 ? null : playbackPosition({ ...info, timelineAvailable: info.timelineAvailable ?? info.duration > 0 }, now)
 const stamp = (seconds: number) => `${Math.floor(seconds / 60)}:${String(Math.floor(seconds % 60)).padStart(2, '0')}`
 
 export function useCardClock(info: NowPlaying, root: RefObject<HTMLElement | null>, active: boolean, desktop: boolean, demo: boolean, layout: string) {

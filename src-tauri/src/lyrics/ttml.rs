@@ -30,6 +30,23 @@ pub fn is_ttml(text: &str) -> bool {
         && text.contains(TTML)
 }
 
+pub(super) fn metadata(text: &str) -> Option<(String, String, String)> {
+    let doc = document(text).ok()?;
+    let values = |key: &str| -> Vec<String> {
+        doc.descendants()
+            .filter(|n| n.tag_name().name() == "meta" && n.attribute("key") == Some(key))
+            .filter_map(|n| n.attribute("value"))
+            .filter(|v| !v.trim().is_empty())
+            .map(str::to_owned)
+            .collect()
+    };
+    Some((
+        values("musicName").into_iter().next().unwrap_or_default(),
+        values("artists").join(" / "),
+        values("album").into_iter().next().unwrap_or_default(),
+    ))
+}
+
 fn time(value: &str) -> Option<u64> {
     let value = value.trim();
     let milliseconds = if let Some(ms) = value.strip_suffix("ms") {

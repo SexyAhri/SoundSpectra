@@ -42,6 +42,15 @@ fn artist_parts(value: &str) -> Vec<String> {
         .filter(|v| !v.is_empty())
         .collect()
 }
+pub(super) fn same_artists(a: &str, b: &str) -> bool {
+    let mut a = artist_parts(a);
+    let mut b = artist_parts(b);
+    a.sort();
+    a.dedup();
+    b.sort();
+    b.dedup();
+    !a.is_empty() && a == b
+}
 fn score(song: &Song, info: &NowPlaying) -> Option<u16> {
     if folded(&info.title).is_empty()
         || folded(&info.artist).is_empty()

@@ -4,6 +4,18 @@ import { test, expect, type Page } from '@playwright/test'
 const sourceKey = 'soundspectra.audio-source.v1'
 const selector = (page: Page) => page.getByRole('combobox', { name: '音乐来源', exact: true })
 
+test('removed player selection migrates to auto and the menu lists the four supported players', async ({ page }) => {
+  await page.addInitScript(key => localStorage.setItem(key, JSON.stringify({ mode: 'player', id: 'kuwo' })), sourceKey)
+  await page.goto('/')
+  await expect(selector(page)).toHaveText('自动识别')
+  await expect(page.getByRole('alert')).toHaveCount(0)
+  await selector(page).click()
+  await expect(page.getByRole('option')).toHaveCount(5)
+  await expect(page.getByRole('option', { name: '酷我音乐', exact: false })).toHaveCount(0)
+  await expect(page.getByRole('option', { name: '酷狗音乐', exact: false })).toBeVisible()
+  await expect(page.getByRole('option', { name: '汽水音乐', exact: false })).toBeVisible()
+})
+
 test('browser source persists independently of appearance and reports preview only', async ({ page }) => {
   await page.goto('/')
   await selector(page).click()
@@ -107,7 +119,7 @@ test('delayed discovery cannot undo a committed player; retired custom apps neve
   await page.evaluate(() => { (window as any).__holdRead = true })
   await expect.poll(() => page.evaluate(() => !!(window as any).__releaseRead)).toBe(true)
   await selector(page).click()
-  await expect(page.getByRole('option')).toHaveCount(6)
+  await expect(page.getByRole('option')).toHaveCount(5)
   await expect(page.getByRole('option', { name: 'OtherMusic.exe', exact: false })).toHaveCount(0)
   await page.getByRole('option', { name: 'QQ 音乐', exact: false }).click()
   await expect(selector(page)).toHaveText('QQ 音乐')
@@ -118,7 +130,7 @@ test('delayed discovery cannot undo a committed player; retired custom apps neve
   await expect(selector(page)).toHaveText('自动识别')
   await selector(page).click()
   await expect(page.getByRole('option', { name: 'ClosedMusic.exe', exact: false })).toHaveCount(0)
-  await expect(page.getByRole('option')).toHaveCount(6)
+  await expect(page.getByRole('option')).toHaveCount(5)
 })
 
 test('source menu fits a narrow viewport with keyboard access', async ({ page }) => {

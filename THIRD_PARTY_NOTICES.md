@@ -14,6 +14,14 @@ Windows clipboard image import uses `arboard` 3.7.0 (MIT OR Apache-2.0), Copyrig
 
 TTML parsing uses `roxmltree` 0.20.0 (MIT OR Apache-2.0), Copyright (c) 2018 Yevhenii Reizner. Its MIT notice is in `licenses/roxmltree-MIT.txt`.
 
+Read-only NetEase client song metadata access uses `rusqlite` 0.40.2 (MIT), Copyright (c) 2014 The rusqlite developers. Its complete notice is in `licenses/rusqlite-MIT.txt`. The bundled SQLite library is public domain.
+
+The byte transformation for read-only NetEase playback event decoding in `src-tauri/src/now_playing/netease.rs` is adapted from Coooookies/netease-cloudmusic-detector, commit `f86eb7c83914ffcc045ca2279655fda2b87b279c` (MIT), Copyright (c) 2025 ButterCookies. Its complete notice is in `licenses/netease-cloudmusic-detector-MIT.txt`. Playback event validation, incremental reading and clock reconstruction are implemented in SoundSpectra.
+
+Read-only Soda client lyric cache decoding uses `rmpv` 1.3.1 (MIT), Copyright (c) 2017 Evgeny Safronov. Its complete notice is in `licenses/rmpv-MIT.txt`. The format 2 page reader and bounded record decoding are implemented in SoundSpectra; no client JavaScript, native library, credentials, or lyrics are bundled.
+
+For songs identified by the installed NetEase client's local metadata database, missing lyrics may be retrieved at runtime from NetEase's public lyric endpoint. This sends the verified song ID without client cookies or login credentials. Responses are cached in SoundSpectra's own data directory; the player's database and cache files are not modified. No NetEase lyrics are bundled.
+
 Online lyrics are retrieved at runtime from the AMLL TTML public HTTP API (https://api.amll.dev; documentation: https://amll.dev/reference/http-api/overview). Song IDs, original TTML and contributor usernames are retained in the local cache. No third-party song lyrics are bundled. Availability in a public lyric database does not transfer ownership of the lyrics or grant SoundSpectra rights to the underlying recordings.
 
 QQ local lyric decoding uses `lyrics-crypto` 0.5.1 (Apache-2.0), from ChouChiu/Lyrics-Helper. The QMC1 envelope key and transformation in `src-tauri/src/lyrics.rs` are adapted from Jixun Wu's `qmc-decode`, https://github.com/jixunmoe/qmc-decode (MIT):

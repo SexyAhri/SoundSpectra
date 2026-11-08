@@ -22,7 +22,7 @@ export function useLyrics(settings: LyricSettings, info: NowPlaying, active = tr
     }
     void read()
     return () => { disposed = true; clearTimeout(timer) }
-  }, [settings.enabled, settings.folder, active, key, info.title])
+  }, [settings.enabled, settings.folder, active, key, info.title, info.duration, info.source, info.processId, info.sessionId, info.trackId])
   if (!native) return { ...emptyLyrics, message: '请在客户端中读取本地歌词；模拟预览可查看动效' }
   if (!settings.enabled || !info.title || document.key !== key) return emptyLyrics
   return document

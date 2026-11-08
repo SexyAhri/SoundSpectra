@@ -15,6 +15,9 @@ use windows::{
     },
     Storage::Streams::DataReader,
 };
+mod accessibility;
+mod kugou;
+mod netease;
 
 #[link(name = "runtimeobject")]
 extern "system" {
@@ -32,6 +35,10 @@ pub struct NowPlaying {
     pub position: f64,
     pub duration: f64,
     pub timeline_available: bool,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub timeline_source: Option<&'static str>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub timeline_valid_until: Option<u64>,
     pub playing: bool,
     pub source: String,
     pub process_id: Option<u32>,
@@ -65,7 +72,6 @@ pub(crate) fn matches_session(id: &str, target: &Target) -> bool {
         Some("qqmusic") => &["qqmusic"],
         Some("netease") => &["cloudmusic", "netease"],
         Some("kugou") => &["kugou"],
-        Some("kuwo") => &["kwmusic", "kuwo"],
         Some("soda") => &["sodamusic", "汽水音乐"],
         Some("spotify") => &["spotify"],
         Some("apple") => &["applemusic"],
@@ -268,6 +274,9 @@ pub fn start(state: Arc<AppState>) {
     thread::spawn(move || {
         let initialized = unsafe { RoInitialize(1) } >= 0;
         let mut manager = None;
+        let mut kugou_clock = kugou::Clock::default();
+        let mut netease_clock = netease::Clock::default();
+        let mut accessibility = accessibility::Reader::default();
         while !state.shutdown.load(Ordering::Relaxed) {
             let status = state.status.lock().unwrap().clone();
             let revision = state.audio_source.lock().unwrap().revision;
@@ -301,6 +310,14 @@ pub fn start(state: Arc<AppState>) {
                     ..NowPlaying::default()
                 });
                 value.process_id = Some(target.pid);
+                value.source = target.name.clone();
+                accessibility.update(Some(&target), &mut value, now());
+                netease_clock.update(&target, &mut value, now());
+                kugou_clock.update(&target, &mut value, now());
+            } else {
+                accessibility.update(None, &mut value, now());
+                kugou_clock = kugou::Clock::default();
+                netease_clock = netease::Clock::default();
             }
             if value.updated == 0 {
                 value.updated = now();
@@ -338,6 +355,172 @@ pub fn start(state: Arc<AppState>) {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    #[ignore = "Requires a playing NetEase process; only reads SMTC and the encoded event log"]
+    fn installed_netease_event_clock_advances_without_playback_controls() {
+        let pid: u32 = std::env::var("SOUNDSPECTRA_TEST_NETEASE_PID")
+            .expect("set the active NetEase main PID")
+            .parse()
+            .unwrap();
+        let initialized = unsafe { RoInitialize(1) } >= 0;
+        struct Apartment(bool);
+        impl Drop for Apartment {
+            fn drop(&mut self) {
+                if self.0 {
+                    unsafe { RoUninitialize() }
+                }
+            }
+        }
+        let _apartment = Apartment(initialized);
+        let manager = Manager::RequestAsync().unwrap().join().unwrap();
+        let target = Target {
+            pid,
+            executable: "cloudmusic.exe".into(),
+            name: "网易云音乐".into(),
+            player_id: Some("netease".into()),
+            audible: true,
+        };
+        let mut clock = netease::Clock::default();
+        let started = std::time::Instant::now();
+        let mut first: Option<(String, f64, std::time::Instant)> = None;
+        while started.elapsed() < Duration::from_secs(12) {
+            let mut value = read(&manager, &target).unwrap();
+            assert!(
+                !value.title.is_empty(),
+                "independent SMTC song metadata is required for this check"
+            );
+            let title = value.title.clone();
+            let artist = value.artist.clone();
+            clock.update(&target, &mut value, now());
+            assert_eq!(value.title, title);
+            assert_eq!(value.artist, artist);
+            assert_eq!(
+                value.timeline_source,
+                Some("netease-events"),
+                "no verified event clock for current SMTC song"
+            );
+            assert!(value.timeline_available && value.duration > 0.0);
+            assert!(value.timeline_valid_until.unwrap() >= now());
+            if value.playing {
+                if let Some((id, position, at)) = &first {
+                    if *id == value.track_id && at.elapsed() >= Duration::from_secs(2) {
+                        let advance = value.position - position;
+                        assert!((advance - at.elapsed().as_secs_f64()).abs() < 0.25);
+                        eprintln!("Verified minimized-capable NetEase clock: {} / {}; {:.3}s -> {:.3}s / {:.3}s",value.title,value.artist,position,value.position,value.duration);
+                        return;
+                    }
+                    if *id != value.track_id {
+                        first = None
+                    }
+                }
+                if first.is_none() {
+                    first = Some((value.track_id, value.position, std::time::Instant::now()))
+                }
+            } else {
+                first = None
+            }
+            thread::sleep(Duration::from_millis(500));
+        }
+        panic!("NetEase must remain playing for two consecutive seconds");
+    }
+    #[test]
+    #[ignore = "Reads installed media sessions; never invokes playback controls"]
+    fn installed_media_sessions_read_only() {
+        let initialized = unsafe { RoInitialize(1) } >= 0;
+        let manager = Manager::RequestAsync().unwrap().join().unwrap();
+        for (id, executable) in [("netease", "cloudmusic.exe"), ("soda", "SodaMusic.exe")] {
+            let target = Target {
+                pid: 0,
+                executable: executable.into(),
+                name: id.into(),
+                player_id: Some(id.into()),
+                audible: false,
+            };
+            let value = read(&manager, &target).unwrap();
+            eprintln!(
+                "{id}: title={}, artist={}, position={}, duration={}, playing={}, timeline={}",
+                value.title,
+                value.artist,
+                value.position,
+                value.duration,
+                value.playing,
+                value.timeline_available
+            );
+        }
+        drop(manager);
+        if initialized {
+            unsafe { RoUninitialize() };
+        }
+    }
+    #[test]
+    #[ignore = "Requires a playing KuGou session; only reads SMTC and playback checkpoints"]
+    fn installed_kugou_checkpoint_advances_without_playback_controls() {
+        let initialized = unsafe { RoInitialize(1) } >= 0;
+        struct Apartment(bool);
+        impl Drop for Apartment {
+            fn drop(&mut self) {
+                if self.0 {
+                    unsafe { RoUninitialize() };
+                }
+            }
+        }
+        let _apartment = Apartment(initialized);
+        let manager = Manager::RequestAsync().unwrap().join().unwrap();
+        let target = Target {
+            pid: 0,
+            executable: "KuGou.exe".into(),
+            name: "酷狗音乐".into(),
+            player_id: Some("kugou".into()),
+            audible: true,
+        };
+        let mut clock = kugou::Clock::default();
+        let config =
+            std::path::PathBuf::from(std::env::var_os("APPDATA").unwrap()).join("KuGou8/KuGou.ini");
+        let mut scanner = crate::lyrics::discovery::Scanner::new(
+            crate::lyrics::discovery::kugou_directories(&config),
+        );
+        let mut entries = Vec::new();
+        loop {
+            let (found, more) = scanner.step();
+            entries.extend(found);
+            if !more {
+                break;
+            }
+        }
+        let started = std::time::Instant::now();
+        let mut previous: Option<(String, f64)> = None;
+        while started.elapsed() < Duration::from_secs(55) {
+            let mut value = read(&manager, &target).unwrap();
+            clock.update(&target, &mut value, now());
+            if value.timeline_source == Some("kugou-checkpoint") && value.playing {
+                assert!(value.timeline_available);
+                assert!(value.timeline_valid_until.unwrap() >= now());
+                assert!(value.track_id.contains(":kugou:"));
+                if let Some((id, position)) = &previous {
+                    if *id == value.track_id && value.position > *position {
+                        let lyrics = crate::lyrics::load(&entries, &value);
+                        assert_eq!(
+                            lyrics.status, "ready",
+                            "{}: {}",
+                            value.title, lyrics.message
+                        );
+                        assert!(lyrics.lines.iter().any(|line| !line.words.is_empty()));
+                        eprintln!(
+                            "Verified current KuGou song: {} / {}, {} timed lines",
+                            value.title,
+                            value.artist,
+                            lyrics.lines.len()
+                        );
+                        eprintln!("Verified live KuGou checkpoint clock: {:.3}s -> {:.3}s; duration {:.3}s",position,value.position,value.duration);
+                        return;
+                    }
+                }
+                previous = Some((value.track_id, value.position));
+            }
+            thread::sleep(Duration::from_millis(500));
+        }
+        panic!("KuGou must remain playing and publish a changed checkpoint within 55 seconds");
+    }
     #[test]
     fn media_timestamp_is_winrt_epoch_and_seek_is_not_smoothed() {
         let observed = 1_700_000_000_000;

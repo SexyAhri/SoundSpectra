@@ -14,9 +14,20 @@ test('media clock uses observation time and snaps pause, seek, stale and missing
   expect(cardPosition(info, 5001)).toBeNull()
   expect(cardPosition({ ...info, timelineAvailable: false }, 1500)).toBeNull()
   expect(cardPosition({ ...info, duration: 0 }, 1500)).toBeNull()
+  expect(cardPosition({ ...info, duration: 0, timelineSource: 'kugou-checkpoint', timelineValidUntil: 2000 }, 1500)).toBeNull()
   expect(cardPosition({ ...info, playbackAvailable: false }, 1500)).toBeNull()
   expect(cardPosition({ ...info, position: NaN }, 1500)).toBeNull()
   expect(cardPosition({ ...info, updated: 9000 }, 1500)).toBeNull()
+})
+
+test('NetEase event position updates the music card and expires with the native reader', async ({ page }) => {
+  await page.goto('/tests/fixtures/music-card.html')
+  await page.evaluate(() => (window as any).cardProbe.set({ position: 61, duration: 260.48, playing: false, timelineAvailable: true, playbackAvailable: true, timelineSource: 'netease-events', timelineValidUntil: Date.now() + 10000, issue: null }))
+  await expect(page.locator('#card-frame .mc-time')).toHaveText('1:01 / 4:20')
+  await page.evaluate(() => (window as any).cardProbe.set({ position: 12.5 }))
+  await expect(page.locator('#card-frame .mc-time')).toHaveText('0:12 / 4:20')
+  await page.evaluate(() => (window as any).cardProbe.set({ timelineValidUntil: Date.now() - 1 }))
+  await expect(page.locator('#card-frame article')).toHaveAttribute('data-timeline', 'unavailable')
 })
 
 test('small and large cards preserve readable titles and scale the same composition in preview', async ({ page }) => {

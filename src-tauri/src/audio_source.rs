@@ -31,11 +31,6 @@ pub const PLAYERS: &[Player] = &[
         executables: &["KuGou.exe"],
     },
     Player {
-        id: "kuwo",
-        name: "酷我音乐",
-        executables: &["KwMusic.exe"],
-    },
-    Player {
         id: "soda",
         name: "汽水音乐",
         executables: &["SodaMusic.exe", "汽水音乐.exe"],
@@ -151,8 +146,10 @@ pub fn read(settings_path: &Path) -> SourceState {
         let source = match source {
             Source::Process { .. } => Source::Auto,
             Source::Player { ref id }
-                if ["spotify", "apple", "itunes", "foobar", "musicbee", "aimp"]
-                    .contains(&id.as_str()) =>
+                if [
+                    "kuwo", "spotify", "apple", "itunes", "foobar", "musicbee", "aimp",
+                ]
+                .contains(&id.as_str()) =>
             {
                 Source::Auto
             }
@@ -400,6 +397,11 @@ mod tests {
     }
     #[test]
     fn source_validation_rejects_unknown_players_paths_and_shared_hosts() {
+        assert_eq!(
+            PLAYERS.iter().map(|p| p.id).collect::<Vec<_>>(),
+            ["qqmusic", "netease", "kugou", "soda"]
+        );
+        assert!(player_for("KwMusic.exe").is_none());
         for name in [
             "explorer.exe",
             "svchost.exe",
