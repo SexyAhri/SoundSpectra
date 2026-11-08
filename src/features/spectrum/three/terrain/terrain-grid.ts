@@ -29,13 +29,15 @@ export function createTerrainGrid(grid: number) {
     T.FloatType,
   );
   texture.needsUpdate = true;
-  // Shared corner positions sample the same height on both neighboring patches.
-  // Six vertices per patch replace the thirty-six vertices of disconnected boxes.
-  const s = step / 2, geometry = new T.InstancedBufferGeometry();
-  geometry.setAttribute('position', new T.Float32BufferAttribute([
-    -s, 0, -s, -s, 0, s, s, 0, s, s, 0, -s,
-  ], 3));
-  geometry.setIndex([0, 1, 2, 0, 2, 3]);
+  // Separate caps and side normals preserve the column silhouette. All columns
+  // still share one geometry/draw call and sample the existing GPU height field.
+  const column = new T.BoxGeometry(step, 1, step);
+  column.translate(0, 0.5, 0);
+  const geometry = new T.InstancedBufferGeometry();
+  geometry.setIndex(column.index);
+  geometry.setAttribute("position", column.getAttribute("position"));
+  geometry.setAttribute("normal", column.getAttribute("normal"));
+  column.dispose();
   geometry.setAttribute("aOffset", new T.InstancedBufferAttribute(offsets, 2));
   geometry.setAttribute("aSample", new T.InstancedBufferAttribute(uv, 2));
   geometry.setAttribute("aSeed", new T.InstancedBufferAttribute(seeds, 1));

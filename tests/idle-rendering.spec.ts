@@ -70,16 +70,7 @@ test('hidden previews sleep and resume at current playback while embedded deskto
 
 test('the live meter settles without DOM writes and wakes for audio after idling', async ({ page }) => {
   await page.route('**/src/main.tsx*', route => route.fulfill({ contentType: 'text/javascript', body: `
-    import React from '/node_modules/.vite/deps/react.js';
-    import ReactDOM from '/node_modules/.vite/deps/react-dom_client.js';
-    import { LiveMeter } from '/src/features/desktop-card/live-meter.tsx';
-    const bands = { current: new Float32Array(96) }, receivedAt = { current: 0 };
-    window.sound = () => { bands.current.fill(.8); receivedAt.current = performance.now(); };
-    window.meterWrites = 0; window.meterFrames = 0;
-    new MutationObserver(records => { window.meterWrites += records.length }).observe(document.getElementById('root'), { attributes: true, subtree: true });
-    const request = window.requestAnimationFrame.bind(window);
-    window.requestAnimationFrame = callback => request(now => { window.meterFrames++; callback(now); });
-    ReactDOM.createRoot(document.getElementById('root')).render(React.createElement(LiveMeter, { bands, receivedAt }));
+    import '/tests/fixtures/live-meter.tsx';
   ` }))
   await page.goto('/?meter-idle-probe')
   const bars = page.locator('svg rect')

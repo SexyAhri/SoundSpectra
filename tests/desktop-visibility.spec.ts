@@ -14,7 +14,7 @@ test('fine desktop effects remain visible on light, dark and mixed wallpaper at 
   const rows = await page.evaluate(async () => {
     const { renderVisualStudy, studySettings } = await import('/src/features/spectrum/visual-study.ts')
     const rows = []
-    for (const effect of ['rhythm_balls','rhythm_rain','ripple','volume_rain','star_flight','cosmic_web'] as const) {
+    for (const effect of ['rhythm_balls','rhythm_rain','ripple','volume_rain','star_flight','cosmic_web','aurora_flow','tidal_knot','layered_tides'] as const) {
       const report = await renderVisualStudy(document.body, { ...studySettings(effect,'daily'), opacity:85 },
         { width:480, height:270, points:[{id:'sustain',time:5.2}] })
       const image = new Image(); image.src = report.frames[0].image; await image.decode()

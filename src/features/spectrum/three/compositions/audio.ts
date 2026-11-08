@@ -2,6 +2,8 @@ import type { SceneMotion } from '../motion'
 
 type CompositionAudio = {
   step: number
+  time: number
+  revision: number
   bands: Float32Array
   accents: Float32Array
   /** Four causal onset fronts: age in seconds and captured strength. */
@@ -12,11 +14,17 @@ const states = new WeakMap<SceneMotion, CompositionAudio>()
 export function compositionAudio(motion: SceneMotion, reduced: boolean) {
   let state = states.get(motion)
   if (!state) {
-    state = { step: -1, bands: new Float32Array(3), accents: new Float32Array(3), waves: new Float32Array(8) }
+    state = { step: -1, time: motion.simulationTime, revision: motion.resetRevision, bands: new Float32Array(3), accents: new Float32Array(3), waves: new Float32Array(8) }
     states.set(motion, state)
+  }
+  if (state.revision !== motion.resetRevision) {
+    state.revision = motion.resetRevision; state.waves.fill(0); state.step = -1
+    state.time = motion.simulationTime
   }
   if (state.step === motion.stepIndex) return state
   state.step = motion.stepIndex
+  const eventElapsed = Math.max(motion.stepSeconds, motion.simulationTime - state.time)
+  state.time = motion.simulationTime
   // A short attack and a non-oscillating release shape the sustained surface.
   // Keep onsets/bright accents on their own fast path: the old .65s low-pass
   // erased articulation, whereas direct transients in geometry snapped it back.
@@ -29,7 +37,7 @@ export function compositionAudio(motion: SceneMotion, reduced: boolean) {
   if (reduced || !motion.transporting) state.waves.fill(0)
   else {
     for (let i = 0; i < 8; i += 2) {
-      state.waves[i] += motion.stepSeconds
+      state.waves[i] += eventElapsed
       if (state.waves[i] > 2.8) state.waves[i + 1] = 0
     }
     if (motion.frame?.onset && motion.onsetStrength > 0) {

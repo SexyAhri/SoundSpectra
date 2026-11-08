@@ -1,4 +1,5 @@
 // Opt-in local developer HUD. No network, persisted settings or audio changes.
+import { previewResizeMetrics } from '../preview/resize-settling';
 let panel: HTMLPreElement | undefined;
 let raf = 0, previous = 0, gap = 0, longTask = 0, resizes = 0, until = 0;
 const observer = new PerformanceObserver(list => {
@@ -12,7 +13,8 @@ function tick(now: number) {
   previous = now;
   const canvases = [...document.querySelectorAll<HTMLCanvasElement>('canvas[data-renderer="three"]')];
   panel.textContent = `Resize diagnostics · F8 close\nRAF max gap ${gap.toFixed(1)} ms · long task ${longTask.toFixed(1)} ms · resize events ${resizes}\n` +
-    canvases.map(c => `${c.dataset.scene} · ${c.width}×${c.height} · context ${c.dataset.contextId} · preparations ${c.dataset.preparations} · programs ${c.dataset.programs}\nframe ${c.dataset.frameMs} ms · buffer resize ${c.dataset.resizeMs} ms`).join('\n');
+    `native request ${previewResizeMetrics.nativeMs.toFixed(1)} ms · pending ${previewResizeMetrics.pending}\n` +
+    canvases.map(c => `${c.dataset.scene} · ${c.width}×${c.height} · context ${c.dataset.contextId} · preparations ${c.dataset.preparations} · programs ${c.dataset.programs}\nframe ${c.dataset.frameMs} ms · buffer resize ${c.dataset.resizeMs} ms\nfirst resized frame ${c.dataset.resizeFirstFrameMs ?? '—'} ms · resume ${c.dataset.resizeResumeMs ?? '—'} ms · held ${c.dataset.resizePaused}`).join('\n');
   raf = requestAnimationFrame(tick);
 }
 const reset = () => { gap=0;longTask=0;resizes=0;until=performance.now()+5000;previous=performance.now(); };

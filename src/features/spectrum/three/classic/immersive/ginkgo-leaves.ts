@@ -3,7 +3,7 @@ import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js'
 import { commonUniforms, flowDriver, material, mesh, randomStream, surfaceGeometry, uniformSource, type FlowEffect } from '../flow/shared'
 import { reactiveUniforms, reactiveSource, updateReactiveUniforms } from '../../reactive-motion'
 
-interface Crown { center:T.Vector3; radius:T.Vector3 }
+interface Crown { center:T.Vector3; radius:T.Vector3; weight:number }
 
 /** Broad, low boughs support an uneven crown; foliage grows along the wood. */
 function treeGeometry() {
@@ -26,7 +26,7 @@ function treeGeometry() {
   // straight, equally thin branches meeting at one point.
   const limbs=[
     [-10.2,1.6,1.1],[-11,5,-.8],[-7.6,8.1,.3],[-4.4,10.5,-.8],
-    [-.5,11.4,0],[4.2,10.4,-1.2],[8.5,7.7,.6],[11.1,4.5,-.6],[9.5,1.4,1.2],
+    [-1.5,12.2,0],[4.2,9.4,-1.2],[8.5,7.7,.6],[11.8,3.8,-.6],[9.5,1.4,1.2],
     [-5.6,4,-3.2],[2.5,6,-3.9],[5.5,2.8,3.3],[-4,3.1,3.4],
     [-3.2,6.4,1.8],[1.5,7.6,2.4],[4.8,5.4,1.8],[0,3.2,2.8],
   ]
@@ -40,7 +40,8 @@ function treeGeometry() {
       const tip=end.clone().add(v((j-1)*1.8+(random()-.5)*.8,(j===1?1.5:-.15)+random()*.7,(j-1)*1.2))
       const mid=start.clone().lerp(tip,.5);mid.y+=.3
       branch([start,mid,tip],.1,.012,7,4)
-      crowns.push({center:tip,radius:v(2.4+random()*.6,1.7+random()*.7,1.6+random()*.7)})
+      const mass=.64+random()*.68
+      crowns.push({center:tip,radius:v((1.65+random()*1.1)*mass,1.15+random()*1.35,(1.3+random()*.9)*mass),weight:mass*mass})
       for(let k=0;k<2;k++){
         const r=.55+k*.25,twig=mid.clone().lerp(tip,r),finish=twig.clone().add(v((random()-.5)*1.5,.65+random()*.6,(random()-.5)*1.4))
         branch([twig,finish],.025,.004,3,3)
@@ -151,16 +152,23 @@ export function createGinkgoLeaves(detail:number):FlowEffect {
   mesh(group,tree.geometry,bark).name='ginkgo-trunk-and-branches'
   const random=randomStream(71381),eco=detail<.8,canopy=eco?5000:7800,ground=170,count=canopy+ground
   const anchors:number[]=[],seeds:number[]=[],modes:number[]=[],lights:number[]=[]
+  const crownWeights:number[]=[]
+  let totalWeight=0
+  for(const crown of tree.crowns){totalWeight+=crown.weight;crownWeights.push(totalWeight)}
   for(let i=0;i<count;i++){
-    const onGround=i>=canopy,crown=tree.crowns[i%tree.crowns.length]
+    const onGround=i>=canopy,pick=random()*totalWeight
+    const crownIndex=crownWeights.findIndex(weight=>pick<weight),crown=tree.crowns[crownIndex]
     const azimuth=random()*Math.PI*2,vertical=random()*2-1
     // Distribute leaves through each lobe, with an irregular outer silhouette.
-    const r=Math.pow(random(),.36),ring=Math.sqrt(1-vertical*vertical)
+    const r=Math.pow(random(),.48),ring=Math.sqrt(1-vertical*vertical)
     const nx=Math.cos(azimuth)*ring,ny=vertical,nz=Math.sin(azimuth)*ring
-    const x=crown.center.x+nx*r*crown.radius.x,y=crown.center.y+ny*r*crown.radius.y,z=crown.center.z+nz*r*crown.radius.z
+    // Lobed growth follows each twig. Stable, differently sized masses leave
+    // branch windows rather than forming identical spherical clumps.
+    const edge=.84+.13*Math.sin(azimuth*3+crownIndex*1.7)+.09*Math.cos(vertical*5+azimuth*2)
+    const x=crown.center.x+nx*r*crown.radius.x*edge,y=crown.center.y+ny*r*crown.radius.y*edge,z=crown.center.z+nz*r*crown.radius.z
     const ga=random()*Math.PI*2,gr=Math.pow(random(),.65)*10.5
     anchors.push(onGround?Math.cos(ga)*gr:x,onGround?-11.03:y,onGround?Math.sin(ga)*gr*.42+1:z,
-      onGround?.07+random()*.065:.075+random()*.06)
+      onGround?.07+random()*.065:.067+random()*.065)
     seeds.push(random(),random(),random(),random());modes.push(onGround?1:0)
     const sun=Math.max(0,-nx*.45+ny*.65+nz*.5)
     // Local volume shadow and a shared upper-left light retain large crown

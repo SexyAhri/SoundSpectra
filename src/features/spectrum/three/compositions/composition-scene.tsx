@@ -82,10 +82,13 @@ export function CompositionScene({
       for (let y = 0; y < rows; y++)
         for (let x = 0; x < columns; x++) {
           const i = y * columns + x,
-            s = (Math.sin(i * 127.1 + 37.7) * 43758.5453) % 1;
-          seed[i] = Math.abs(s);
-          uv[i * 2] = (x + 0.18 * s) / columns;
-          uv[i * 2 + 1] = (y + 0.5 + 0.18 * s) / rows;
+            s = Math.abs((Math.sin(i * 127.1 + 37.7) * 43758.5453) % 1),
+            sy = Math.abs((Math.sin(i * 269.5 + 91.3) * 22578.1459) % 1);
+          seed[i] = s;
+          // Independent stratified offsets remove diagonal rows while keeping
+          // the same sample count and even coverage at viewport boundaries.
+          uv[i * 2] = (x + 0.5 + (s - 0.5) * 0.92) / columns;
+          uv[i * 2 + 1] = (y + 0.5 + (sy - 0.5) * 0.92) / rows;
         }
       geometry.setAttribute(
         "position",

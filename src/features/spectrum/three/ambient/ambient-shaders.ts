@@ -1,4 +1,4 @@
-import { reactiveSource } from '../reactive-motion'
+import { reactiveSource } from "../reactive-motion";
 
 export const audioUniforms = `${reactiveSource}
 uniform float uPhase;
@@ -11,12 +11,13 @@ uniform float uTouch;
 uniform vec2 uPointer;
 uniform float uSpread;
 uniform float uBrightness;
+uniform float uDesktop;
 uniform vec3 uMid;
 uniform vec3 uWarm;
 uniform vec3 uHigh;
-`
+`;
 
-const flowerPose=`
+const flowerPose = `
 mat2 flowerTurn(float a){return mat2(cos(a),sin(a),-sin(a),cos(a));}
 vec3 flowerPose(vec3 p,float flower){
   float tilt=flower<.5?.48:flower<1.5?.95:.7;
@@ -25,7 +26,7 @@ vec3 flowerPose(vec3 p,float flower){
   p.xz=flowerTurn(sin(uPhase*.09+flower*1.7)*.075)*p.xz;
   return p;
 }
-`
+`;
 export const petalVertex = `${audioUniforms}${flowerPose}
 attribute vec4 aPetal;
 attribute vec4 aOrigin;
@@ -43,11 +44,11 @@ void main() {
   float opening=resting+trailing*.25-bass*.12+uTouch*.06;
   float angle=aPetal.x+t*t*.13*sin(seed*19.)+sin(uPhase*.16+seed*9.)*.025*t;
   float outline=sqrt(max(0.,sin(t*3.14159265)));
-  float baseWidth=(1.6-ring*.25)*(flower<.5?1.:.52);
+  float baseWidth=(1.25-ring*.22)*(flower<.5?1.:.52);
   float width=outline*baseWidth*(1.+s*.09*sin(seed*17.));
   float radius=.15+t*(4.15-ring*.75)*(.91+seed*.16)*opening;
-  float cup=ring*.15+t*t*(.65+ring*.25+bass*.7-trailing*.28);
-  cup+=pow(t,6.)*(.55+seed*.35)+s*s*outline*(.64+ring*.045);
+  float cup=ring*.19+t*t*(.3+ring*.36+bass*.7-trailing*.28);
+  cup+=pow(t,6.)*(-.44+ring*.32+seed*.2)+s*s*outline*(.25+ring*.045);
   cup+=sin(s*5.+t*9.+seed*17.)*outline*.035;
   cup+=t*t*(flower<.5?0.:1.2);
   vec3 p=vec3(cos(angle)*radius-sin(angle)*width*s,
@@ -66,15 +67,15 @@ void main() {
   float outlineSlope=3.14159265*cos(t*3.14159265)/max(.06,2.*outline);
   float angleSlope=2.*t*.13*sin(seed*19.)+sin(uPhase*.16+seed*9.)*.025;
   float widthSlope=outlineSlope*baseWidth*(1.+s*.09*sin(seed*17.));
-  float cupSlope=2.*t*(.65+ring*.25+bass*.7-trailing*.28+(flower<.5?0.:1.2));
-  cupSlope+=6.*pow(t,5.)*(.55+seed*.35)+s*s*outlineSlope*(.64+ring*.045);
+  float cupSlope=2.*t*(.3+ring*.36+bass*.7-trailing*.28+(flower<.5?0.:1.2));
+  cupSlope+=6.*pow(t,5.)*(-.44+ring*.32+seed*.2)+s*s*outlineSlope*(.25+ring*.045);
   cupSlope+=(sin(s*5.+t*9.+seed*17.)*outlineSlope+cos(s*5.+t*9.+seed*17.)*outline*9.)*.035;
   cupSlope+=responseSlope*.65*(.4+.6*seed)+2.*t*sin(uPhase*.23+seed*9.)*(.035+trailing*.12);
   vec3 radial=vec3(cos(angle),sin(angle),0.),side=vec3(-sin(angle),cos(angle),0.);
   vec3 lengthTangent=radial*((4.15-ring*.75)*(.91+seed*.16)*opening-angleSlope*width*s)
     +side*(widthSlope*s+angleSlope*radius)+vec3(0.,0.,cupSlope);
   vec3 widthTangent=side*(width+s*outline*baseWidth*.09*sin(seed*17.))
-    +vec3(0.,0.,2.*s*outline*(.64+ring*.045)+cos(s*5.+t*9.+seed*17.)*outline*.175);
+    +vec3(0.,0.,2.*s*outline*(.25+ring*.045)+cos(s*5.+t*9.+seed*17.)*outline*.175);
   vec3 normal=cross(lengthTangent,widthTangent);normal/=max(length(normal),.00001);
   vNormal=mat3(modelMatrix)*flowerPose(normal,flower);
   p=flowerPose(p*aOrigin.w,flower);
@@ -82,7 +83,7 @@ void main() {
   p+=aOrigin.xyz*vec3(uSpread,1.,1.);
   vWorld=(modelMatrix*vec4(p,1.)).xyz;vUv=uv;vLayer=ring;vSeed=seed;vFlower=flower;
   gl_Position = projectionMatrix * viewMatrix * vec4(vWorld, 1.);
-}`
+}`;
 
 export const petalFragment = `${audioUniforms}
 varying vec2 vUv;
@@ -101,20 +102,20 @@ void main() {
   float veinPhase=(vUv.x-.5)*(48.-t*17.)+sin(t*8.+vSeed*9.)*.8;
   float vein=pow(max(0.,.5+.5*cos(veinPhase)),16.)*exp(-pow(fwidth(veinPhase),2.)*.5);
   float edge=(1.-smoothstep(.96,1.,across))*smoothstep(0.,.025,t)*(1.-smoothstep(.985,1.,t));
-  vec3 ivory=uHigh,blush=mix(uMid,ivory,.22);
-  vec3 color=mix(blush,ivory,smoothstep(.08,.98,t)*.65);
-  color=mix(color,uWarm,exp(-t*7.)*.35);
+  vec3 ivory=uHigh,blush=mix(uMid,uWarm,.25);
+  vec3 color=mix(blush,ivory,smoothstep(.12,.98,t)*.58);
+  color=mix(color,uWarm,exp(-t*5.)*.48);
   vec3 light=normalize(vec3(-.55,.8,1.));
-  float diffuse=.22+.78*max(0.,dot(normal,light));
-  float transmission=pow(max(0.,dot(-normal,light)),2.)*(.12+t*.16);
-  float silk=pow(max(0.,dot(reflect(-light,normal),view)),22.);
-  color*=(diffuse+transmission+rim*.18-vein*.012)*(.68+.32*smoothstep(.03,.65,t));
-  color+=ivory*(silk*.15+uGesture.z*.07*pow(t,6.)*step(.7,vSeed));
+  float diffuse=.25+.62*max(0.,dot(normal,light));
+  float transmission=pow(max(0.,dot(-normal,light)),1.4)*(.25+t*.28);
+  float silk=pow(max(0.,dot(reflect(-light,normal),view)),38.);
+  color*=(diffuse+transmission+rim*.22-vein*.055)*(.48+.52*smoothstep(.02,.65,t));
+  color+=ivory*(silk*.065+uGesture.z*.07*pow(t,6.)*step(.7,vSeed));
   color*=uBrightness*(vFlower<.5?1.:.76);
-  float alpha=edge*(.87+exp(-t*5.)*.10-rim*.14);
+  float alpha=edge*(.92-t*.14-rim*.16);
   if(alpha<.01)discard;
   gl_FragColor = vec4(color, alpha);
-}`
+}`;
 
 export const dustVertex = `${audioUniforms}
 uniform vec2 uResolution;
@@ -169,7 +170,7 @@ void main() {
       * uBrightness * (1. + uBodyBands.z*.6 + local*step(.72,aSeed.y)*.8 + vSpark * .4 + uTouch * .2);
     vAlpha *= mix(.6,.95,1.-smoothstep(15.,85.,distanceToCamera));
   }
-}`
+}`;
 
 export const dustFragment = `
 varying float vAlpha;
@@ -179,14 +180,14 @@ void main() {
   float alpha = exp(-dot(p,p) * 22.) * vAlpha;
   if (dot(p,p) > .25 || alpha < .01) discard;
   gl_FragColor = vec4(vColor * alpha, alpha);
-}`
+}`;
 
 export const trailFragment = `
 varying float vAlpha;
 varying vec3 vColor;
 varying float vTrail;
 void main() { float alpha = vAlpha * vTrail * .2; if(alpha<.002)discard; gl_FragColor = vec4(vColor * alpha, alpha); }
-`
+`;
 
 export const coreVertex = `${audioUniforms}${flowerPose}
 uniform vec2 uResolution;
@@ -200,9 +201,9 @@ void main() {
   gl_Position = projectionMatrix * mv;
   gl_PointSize=clamp(2.4*aOrigin.w*18./max(1.,-mv.z)*uResolution.y/900.,.8,3.);
   vColor=mix(uWarm,uHigh,.6)*uBrightness*(.65+uGesture.z*.3);vAlpha=.55;
-}`
+}`;
 
-export const pollenVertex=`${audioUniforms}
+export const pollenVertex = `${audioUniforms}
 uniform vec2 uResolution;attribute vec3 aSeed;
 varying float vAlpha;varying vec3 vColor;
 void main(){
@@ -216,4 +217,4 @@ void main(){
   gl_PointSize=clamp((1.2+aSeed.x)*18./max(1.,-mv.z)*uResolution.y/900.,.65,3.);
   vColor=mix(uWarm,uHigh,.7)*uBrightness*(.7+uDragBands.z*.4);
   vAlpha=smoothstep(0.,.1,rise)*(1.-smoothstep(.8,1.,rise))*(.12+aSeed.z*.28);
-}`
+}`;

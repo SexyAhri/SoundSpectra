@@ -2,7 +2,7 @@ import { audioShader } from "./audio";
 
 export const particleVertex = /* glsl */ `
 ${audioShader}
-uniform float uTime,uKind,uLayer,uBass,uMiddle,uShape,uPixelHeight;
+uniform float uTime,uKind,uLayer,uBass,uMiddle,uShape,uPixelHeight,uDaily;
 uniform float uMapBend,uMapUnfold,uScatter;
 uniform float uSeaFill;
 uniform mat4 uSeaProjection;
@@ -18,7 +18,9 @@ void main(){
   if(uKind<.5){
     // Advect particles through one persistent surface coordinate. Independent
     // time signs in the old folds made neighbouring streams visibly reverse.
-    float a=uv.x*2.*PI+t*.12,b=acos(uv.y*2.-1.);
+    float longitude=uv.x*2.*PI;
+    float latitude=uv.y+sin(longitude*3.+uv.y*8.)*sin(uv.y*PI)*.018;
+    float a=longitude+t*.12,b=acos(clamp(latitude*2.-1.,-1.,1.));
     float fold=sin(a*3.+b*2.2);
     float r=3.3+.40*fold+.18*sin(b*5.-a*2.);
     float lobe=fold;
@@ -31,7 +33,9 @@ void main(){
     vec3 normal=normalize(normalMatrix*normalize(p));
     vec3 eye=normalize(-(modelViewMatrix*vec4(p,1.)).xyz);
     vLight=.24+.76*pow(max(0.,dot(normal,eye)),.65);
-    vFade=(.42+.58*pow(.5+.5*sin(a*11.+b*4.),2.))*(1.-uLayer*.28);
+    float gathering=.5+.5*sin(a*5.+b*3.+sin(b*7.)*.7);
+    vFade=(.50+.67*pow(gathering,1.6))*(1.-uLayer*.38);
+    vFade*=.75+.25*smoothstep(-.35,.8,dot(normal,eye));
     vMusic=front*.8+uAccents.x*max(0.,lobe)*.35;
   }else{
     // Project a fixed particle grid onto the sea, keeping useful sampling in
@@ -41,7 +45,10 @@ void main(){
     float travel=clamp(-uSeaEye.y/min(-.08,ray.y),0.,180.);
     vec3 covered=uSeaEye+ray*travel;
     float x=mix((uv.x-.5)*32.,covered.x,uSeaFill);
-    float z=mix((uv.y-.5)*25.,covered.z+3.,uSeaFill),flow=z-t*1.8;
+    float z=mix((uv.y-.5)*25.,covered.z+3.,uSeaFill);
+    x+=sin(z*.43+x*.16)*.16;
+    z+=sin(x*.38-z*.21)*.13;
+    float flow=z-t*1.8;
     float radius=length(vec2(x*.74,z));
     float front=onsetWave(length(vec2(x*.65,z+6.))+uLayer,9.,1.1);
     float y=sin(x*.22+flow*.25)*(1.15+uBass*2.1)*uShape;
@@ -53,7 +60,9 @@ void main(){
     p=vec3(x,y,z-3.);
     vLight=.48+.52*pow(.5+.5*sin(x*.22+flow*.25),2.);
     vFade=smoothstep(0.,.045,uv.x)*smoothstep(0.,.045,1.-uv.x)*smoothstep(0.,.06,uv.y)*smoothstep(0.,.06,1.-uv.y);
-    vFade*=1.-uLayer*.60;
+    float crest=.5+.5*sin(x*.22+flow*.25);
+    float gathering=.5+.5*sin(x*.57+flow*.16+sin(z*.31));
+    vFade*=(1.-uLayer*.66)*(.72+.50*crest)*(.78+.30*gathering);
     vMusic=front*.75+uAccents.y*max(0.,sin(x*.32-z*.41))*.35;
   }
   if(uKind<.5){
@@ -66,6 +75,7 @@ void main(){
   vec4 view=modelViewMatrix*vec4(p,1.);
   gl_Position=projectionMatrix*view;
   gl_PointSize=clamp(uPixelHeight*.043/max(1.,-view.z)*(.62+seed*.65),.7,3.8);
+  gl_PointSize*=1.+uDaily*(.08+.20*smoothstep(.62,.94,seed))*(1.-uLayer*.5);
 }
 `;
 export const particleFragment = /* glsl */ `
@@ -83,7 +93,7 @@ void main(){
   float sparkle=(uTreble*.5+uAccents.z*1.4)*step(.82,vSeed)*stream;
   color=mix(color,uHigh,clamp(stream*.42+vLight*.18+vMusic*.5+sparkle*.5,0.,.9));
   float light=(.45+vLight*.55)*(1.+vMusic*.85+sparkle);
-  float alpha=dotAlpha*vFade*(.55+vSeed*.35)*(1.-uDaily*.12);
+  float alpha=dotAlpha*vFade*(.55+vSeed*.35);
   if(alpha<.015)discard;
   gl_FragColor=vec4(color*light,alpha);
 }

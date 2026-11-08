@@ -67,6 +67,10 @@ export class SceneMotion {
   /** Accepted simulation steps, independent of audio timestamps and GPU passes. */
   stepIndex = 0;
   stepSeconds = 0;
+  /** Accepted simulation time, including steps when a particular layer is absent. */
+  simulationTime = 0;
+  /** Event caches must follow source resets even when the new clock is later. */
+  resetRevision = 0;
   private transportSpeed = 0;
   private readonly flows = new Map<string, { phase: number; speed: number; step: number }>();
 
@@ -87,6 +91,7 @@ export class SceneMotion {
   }
 
   reset(preservePath = false) {
+    this.resetRevision++;
     this.driver.reset();
     this.envelope.reset();
     this.ripples.length = 0;
@@ -147,6 +152,7 @@ export class SceneMotion {
     const elapsed = Math.max(0, Math.min(0.1, Number.isFinite(dt) ? dt : 0));
     this.stepIndex++;
     this.stepSeconds = elapsed;
+    this.simulationTime += elapsed;
     this.elapsed += elapsed * 1000;
     const frame = sharedFrame
       ? {

@@ -75,5 +75,8 @@ void main() {
   vec3 color=mix(uWarm,uMid,smoothstep(.04,.65,y));
   color=mix(color,uHigh,smoothstep(.35,.95,y)*.35);
   color=mix(color,uHigh,filament*(.16+spectralLight*.32));
+  // Keep a darker body between the luminous folds on pale wallpapers.
+  color*=mix(1.,.55+.55*fine,uDesktop);
+  alpha*=1.+uDesktop*(hem*.7+filament*.6);
   gl_FragColor=vec4(color*alpha*uBrightness,alpha);
 }`;

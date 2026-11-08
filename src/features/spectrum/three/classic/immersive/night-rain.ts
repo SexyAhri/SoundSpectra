@@ -8,7 +8,8 @@ import { reactiveUniforms, reactiveSource, updateReactiveUniforms } from '../../
 const rainSpace = `${wetField}${reactiveSource}
 uniform float uImmersive;
 uniform vec3 uHighlight;
-float rainRate(vec4 seed){return .55+seed.z*.25;}
+float rainNear(vec4 seed){return smoothstep(-105.,12.,mix(-130.,12.,pow(seed.y,.7)));}
+float rainRate(vec4 seed){return mix(.39,.78,rainNear(seed))*(.88+seed.z*.24);}
 float rainCycle(vec4 seed){return fract(seed.w+(uPhase+uDrift.x*.12)*rainRate(seed));}
 float rainEnabled(vec4 seed){return step(hash(seed.z*29.17+seed.x*17.31),uCount);}
 vec3 rainLanding(vec4 seed){
@@ -18,7 +19,7 @@ vec3 rainLanding(vec4 seed){
 }
 `
 const rainVertex = `${rainSpace}
-attribute vec4 aSeed;varying vec2 vUv;varying vec3 vColor;varying float vAlpha;
+attribute vec4 aSeed;varying vec2 vUv;varying vec3 vColor;varying float vAlpha,vNear;
 void main(){
   float cycle=rainCycle(aSeed);vec3 landing=rainLanding(aSeed);
   float height=(1.-cycle)*78.;
@@ -26,22 +27,23 @@ void main(){
   float air=sin(aSeed.w*17.+uPhase*.17)*uDragBands.y*.24;
   vec3 p=landing+vec3((uWind+air*.025)*height,height,0.);
   float note=musicFront(aSeed.x,.6,.07,vec3(1.,.65,.25));
-  float extent=(.32+near*.78+aSeed.z*.24)*(.8+uWidth*.2);
+  float extent=(.26+pow(near,1.6)*1.65+aSeed.z*.19)*(.8+uWidth*.2);
   extent*=1.+note*step(.75,aSeed.z)*.26;
   p+=vec3(uWind,1.,0.)*(uv.y-.5)*extent;
   vec4 mv=modelViewMatrix*vec4(p,1.);
-  mv.x+=(uv.x-.5)*(.022+max(0.,-mv.z)*.0042)*uWidth;
-  gl_Position=projectionMatrix*mv;vUv=uv;
+  mv.x+=(uv.x-.5)*(.025+max(0.,-mv.z)*mix(.0026,.0052,near))*uWidth*(1.+(1.-uImmersive)*near*.35);
+  gl_Position=projectionMatrix*mv;vUv=uv;vNear=near;
   vColor=mix(uColor,uHighlight,.25+near*.45);
-  vAlpha=(.27+near*.45+aSeed.z*.10)*(1.+note*.25)
+  vAlpha=(.16+near*.57+aSeed.z*.08)*(1.+note*.25)
     *smoothstep(0.,.025,cycle)*(1.-smoothstep(.97,1.,cycle))
     *smoothstep(0.,1.3,height)*smoothstep(2.,7.,-mv.z)
     *rainEnabled(aSeed)*depthFade(p);
 }`
-const rainFragment = `varying vec2 vUv;varying vec3 vColor;varying float vAlpha;
+const rainFragment = `varying vec2 vUv;varying vec3 vColor;varying float vAlpha,vNear;
 void main(){
   float x=(vUv.x-.5)*2.,y=clamp(vUv.y,0.,1.);
-  float core=exp(-x*x*3.),caps=smoothstep(0.,.07,y)*(1.-smoothstep(.70,1.,y));
+  float core=exp(-x*x*mix(2.,4.6,vNear))*(1.-smoothstep(.72,1.,abs(x)));
+  float caps=smoothstep(0.,mix(.18,.06,vNear),y)*(1.-smoothstep(.70,1.,y));
   float a=core*caps*(.35+.65*pow(1.-y,.7))*vAlpha;
   if(a<.003)discard;gl_FragColor=vec4(vColor*a,a);
 }`

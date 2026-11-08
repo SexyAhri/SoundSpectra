@@ -45,7 +45,9 @@ export function CameraRig() {
       fov =
         config.effect === "rhythm_balls"
           ? Math.min(38, 90 / camera.aspect)
-          : config.effect === 'rhythm_rain' ? 54 : 62;
+          : config.effect === "rhythm_rain"
+            ? 54
+            : 62;
       const lens =
         Math.tan((31 * Math.PI) / 180) / Math.tan((fov * Math.PI) / 360);
       const scale =
@@ -56,9 +58,16 @@ export function CameraRig() {
         .fromArray(viewpoints[config.effect] ?? [0, 9, 30])
         .multiplyScalar(scale);
       target.set(0, 0, 0);
-      if(config.effect==='rhythm_rain'){
-        target.set(0,-8,-24);
-        base.fromArray(viewpoints.rhythm_rain).sub(target).multiplyScalar(scale).add(target);
+      if (config.effect === "rhythm_rain") {
+        target.set(0, -8, -24);
+        base
+          .fromArray(viewpoints.rhythm_rain)
+          .sub(target)
+          .multiplyScalar(scale)
+          .add(target);
+      } else if (config.effect === "vortex") {
+        target.set(0, 1, -100);
+        base.set(0, 10, 27).sub(target).multiplyScalar(scale).add(target);
       }
     } else {
       const flight = config.effect === "star_flight";

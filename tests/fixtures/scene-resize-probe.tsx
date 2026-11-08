@@ -2,6 +2,7 @@ import { createRoot } from 'react-dom/client'
 import { ThreeSceneCanvas } from '../../src/features/spectrum/three/scene-canvas'
 import { defaults } from '../../src/features/spectrum/model'
 import { FiberSceneRenderer } from '../../src/features/spectrum/three/r3f/fiber-renderer'
+import { withPreviewResize } from '../../src/features/preview/resize-settling'
 
 export function mountSceneResizeProbe(demo = false) {
   const host = document.createElement('div')
@@ -9,17 +10,25 @@ export function mountSceneResizeProbe(demo = false) {
   document.body.append(host)
   const original = FiberSceneRenderer.prototype.resize
   let world: FiberSceneRenderer | undefined, resizes = 0, bufferWrites = 0
+  let nextResize: Promise<void> | undefined, releaseResize: (() => void) | undefined
+  let releaseNative: (() => void) | undefined, nativeDone: Promise<void> | undefined
   FiberSceneRenderer.prototype.resize = function (...args) {
     if (!world) for (const key of ['width','height']) {
       const descriptor = Object.getOwnPropertyDescriptor(HTMLCanvasElement.prototype,key)!
       Object.defineProperty(this.canvas,key,{...descriptor,set(value:number){bufferWrites++;descriptor.set!.call(this,value)}})
     }
     world = this; resizes++
+    const waiting = nextResize; nextResize = undefined
+    if (waiting) return waiting.then(() => original.apply(this, args))
     return original.apply(this, args)
   }
   const root = createRoot(host)
   root.render(<ThreeSceneCanvas settings={{ ...defaults, effect:'aurora_flow',quality:'eco', sceneMode:'immersive' }} demo={demo} bands={{current:new Float32Array(96)}} receivedAt={{current:0}} />)
   return {
+    holdNativeResize() { nativeDone = withPreviewResize(() => new Promise<void>(resolve => { releaseNative = resolve })) },
+    async releaseNativeResize() { releaseNative?.(); await nativeDone },
+    holdNextResize() { nextResize = new Promise(resolve => { releaseResize = resolve }) },
+    releaseResize() { releaseResize?.(); releaseResize = undefined },
     resize(width:number,height:number) { host.style.width=width+'px';host.style.height=height+'px' },
     snapshot() {
       const canvas=host.querySelector('canvas')

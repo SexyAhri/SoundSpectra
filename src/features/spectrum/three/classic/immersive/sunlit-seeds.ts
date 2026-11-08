@@ -3,17 +3,26 @@ import { commonUniforms,flowDriver,randomStream,uniformSource,type FlowEffect } 
 import { reactiveUniforms, reactiveSource, updateReactiveUniforms } from '../../reactive-motion'
 
 const vertex=`${uniformSource}${reactiveSource}
+uniform float uDaylight;
 attribute vec4 aSeed;attribute vec3 aTangent;attribute vec2 aFiber;attribute float aHero,aKind;
 varying vec2 vFiber;varying float vAlpha,vTint,vNote,vKind;
 void main(){
  float cycle=fract(aSeed.y+uPhase*(.009+aSeed.w*.008)),height=cycle*64.-32.;
  vec3 center=vec3((aSeed.x-.5)*96.+height*uTwist+sin(uPhase*.13+aSeed.y*13.)*(2.+uDragBands.y*2.5),height,-92.+aSeed.z*101.);
- if(aHero>.5){
+ if(aHero>.5&&aHero<2.5){
    center=aHero<1.5?vec3(-7.,-2.,2.):vec3(10.,5.,-17.);
    center.xy+=vec2(sin(uPhase*.11+aHero)*1.5,cos(uPhase*.09+aHero)*1.2);
    center.x+=uTwist*3.;
  }
- float scale=(aHero>.5?(aHero<1.5?3.25:2.5):(.55+aSeed.w*1.05))*uTrail;
+ // A small persistent middle-distance stream connects the two foreground
+ // heads to the distant field; no extra instances or cycle resets in view.
+ if(aHero>2.5){
+   float lane=aHero-3.,q=uPhase*.10+lane*1.7;
+   center=vec3(-22.+lane*8.2,-7.+lane*3.2,-39.-aSeed.z*15.);
+   center+=vec3(sin(q)*2.8,cos(q*.73)*1.8,sin(q*.59)*2.);
+   center.x+=uTwist*(center.y+12.);
+ }
+ float scale=(aHero>2.5?1.25+aSeed.w*.65:aHero>.5?(aHero<1.5?3.25:2.5):(.55+aSeed.w*1.05))*uTrail;
  float angle=(aSeed.x-.5)*.9+sin(uPhase*.24+aSeed.y*9.+uDrift.y*.35)*(.18+uDragBands.y*.14);
  float lean=sin(uPhase*.37+aSeed.x*16.)*.08;
  float note=musicFront(aSeed.y,.7,.09,vec3(.65,1.,.4))*step(.5,aSeed.w);
@@ -32,7 +41,7 @@ void main(){
  vec2 side=vec2(-direction.y,direction.x);side/=max(length(side),.00001);
  // Real ribbons keep the small strands antialiased at every pixel ratio.
  float width=aKind>.5?.055*sin(clamp(aFiber.y,.01,.99)*3.14159265):(.006+max(0.,-mv.z)*.00018);
- mv.xy+=side*aFiber.x*width*scale;
+ mv.xy+=side*aFiber.x*width*scale*(1.+(1.-uDaylight)*.3);
  gl_Position=projectionMatrix*mv;
  vFiber=aFiber;vTint=aSeed.w;vNote=note;vKind=aKind;
  vAlpha=(aHero>.5?1.:smoothstep(0.,.07,cycle)*(1.-smoothstep(.90,1.,cycle)))*smoothstep(1.,6.,-mv.z);
@@ -87,7 +96,7 @@ export function createSunlitSeeds(detail:number):FlowEffect{
  }
  const capacity=Math.round(66*Math.max(.6,Math.min(1.3,detail))),random=randomStream(51231),seeds=new Float32Array(capacity*4)
  for(let i=0;i<seeds.length;i++)seeds[i]=random()
- const heroes=Float32Array.from({length:capacity},(_,i)=>i<2?i+1:0)
+ const heroes=Float32Array.from({length:capacity},(_,i)=>i<7?i+1:0)
  const geometry=new T.InstancedBufferGeometry().setIndex(indices).setAttribute('position',new T.Float32BufferAttribute(positions,3))
    .setAttribute('aHero',new T.InstancedBufferAttribute(heroes,1)).setAttribute('aKind',new T.Float32BufferAttribute(kinds,1))
    .setAttribute('aTangent',new T.Float32BufferAttribute(tangents,3)).setAttribute('aFiber',new T.Float32BufferAttribute(fibers,2)).setAttribute('aSeed',new T.InstancedBufferAttribute(seeds,4))

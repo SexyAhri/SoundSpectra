@@ -51,6 +51,7 @@ export class FiberSceneRenderer {
   private stopped = false;
   private ready = false;
   private resizeRevision = 0;
+  private resizedAt: number | undefined;
   readonly diagnostics: VisualDiagnostics = {preparations:new Set()};
   private composition: CompositionId | undefined;
   private readonly transition = new SceneTransition();
@@ -255,6 +256,7 @@ export class FiberSceneRenderer {
         // materials and manual frame loop instead of reconfiguring/remounting.
         this.store!.setState({ size: logicalSize, viewport: { ...state.viewport,
           ...state.viewport.getCurrentViewport(state.camera, undefined, logicalSize), dpr } });
+        this.resizedAt = performance.now();
       }
       this.canvas.dataset.resizeMs = (performance.now() - resizeStarted).toFixed(2);
     } catch (error) {
@@ -358,8 +360,14 @@ export class FiberSceneRenderer {
     if (this.store) {
       this.renderer.info.reset();
       const start = performance.now();
+      const frames = this.canvas.dataset.frames;
       try{this.store.getState().advance(this.time, false)}catch(error){this.recover(error);return false}
       this.canvas.dataset.frameMs = (performance.now() - start).toFixed(2);
+      if (this.resizedAt !== undefined && this.canvas.dataset.frames !== frames) {
+        this.canvas.dataset.resizeFirstFrameMs = this.canvas.dataset.frameMs;
+        this.canvas.dataset.resizeResumeMs = (performance.now() - this.resizedAt).toFixed(2);
+        this.resizedAt = undefined;
+      }
       this.canvas.dataset.programs = String(this.renderer.info.programs?.length ?? 0);
     }
     this.canvas.dataset.scene = config.effect;

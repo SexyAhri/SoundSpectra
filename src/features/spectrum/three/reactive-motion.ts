@@ -4,7 +4,7 @@ import type { SceneMotion } from './motion'
 
 interface Gesture { age: number; strength: number; origin: number; band: number }
 interface Response {
-  step: number; beat: number; clock: number; body: Float64Array; drag: Float64Array
+  step: number; time: number; revision: number; beat: number; clock: number; body: Float64Array; drag: Float64Array
   gesture: Float64Array; drift: Float64Array; waves: Gesture[]
 }
 const states = new WeakMap<SceneMotion, Map<MusicEffect, Response>>()
@@ -25,19 +25,26 @@ export function reactiveMotion(motion: SceneMotion, effect: MusicEffect, reduced
   if (!effects) { effects = new Map(); states.set(motion, effects) }
   let state = effects.get(effect)
   if (!state) {
-    state = { step: -1, beat: -1, clock: -1, body: new Float64Array(3), drag: new Float64Array(3),
+    state = { step: -1, time: motion.simulationTime, revision: motion.resetRevision, beat: -1, clock: -1, body: new Float64Array(3), drag: new Float64Array(3),
       gesture: new Float64Array(3), drift: new Float64Array(3), waves: [] }
     effects.set(effect, state)
+  }
+  if (state.revision !== motion.resetRevision) {
+    state.revision = motion.resetRevision
+    state.time = motion.simulationTime
+    state.waves.length = 0; state.beat = -1; state.clock = -1; state.step = -1
   }
   if (state.step === motion.stepIndex) return state
   state.step = motion.stepIndex
   const dt = motion.stepSeconds, frame = motion.frame
+  const eventElapsed = Math.max(dt, motion.simulationTime - state.time)
+  state.time = motion.simulationTime
   if (frame && frame.now < state.clock) {
     state.waves.length = 0; state.beat = -1
   }
   if (frame) state.clock = frame.now
   const [attack, release, lag] = profiles[effect] ?? [.2, .6, .25]
-  for (const wave of state.waves) wave.age += dt
+  for (const wave of state.waves) wave.age += eventElapsed
   state.waves = state.waves.filter(wave => wave.age < 3)
   if (reduced) state.waves.length = 0
   if (!reduced && motion.transporting && frame?.onset && frame.beatIndex !== state.beat) {

@@ -91,6 +91,7 @@ export function ThreeSceneCanvas({
       dirty = true,
       wasSilent = false;
     let resizePaused = false;
+    let resizePending = false, resizeVersion = 0;
     let recoveryNotice = '';
     const windowResizing = () => { if (!desktop) settlePreviewResize(); };
     if (!desktop) window.addEventListener('resize', windowResizing);
@@ -293,19 +294,27 @@ export function ThreeSceneCanvas({
           fail,
         );
         const resize = (desired = current.current.settings) => {
+          resizePending = true;
           if (!desktop && previewResizePending()) {
             clearTimeout(resizeTimer);
-            resizeTimer = window.setTimeout(resize, 48);
+            resizeTimer = window.setTimeout(() => resize(desired), 48);
             return;
           }
+          const version = ++resizeVersion;
           try {
             void world?.resize(
               desired,
               current.current.regionCount,
               {preview:!desktop,deferSceneChange:true},
-            ).then(() => { if (!stopped) dirty = true; });
+            ).catch(error => { if (!stopped) fail(error); }).finally(() => {
+              if (!stopped && version === resizeVersion) {
+                resizePending = false;
+                dirty = true;
+              }
+            });
             dirty = true;
           } catch (error) {
+            if (version === resizeVersion) resizePending = false;
             fail(error);
           }
         };
@@ -313,6 +322,10 @@ export function ThreeSceneCanvas({
           // Native maximize/restore emits a burst of intermediate sizes. CSS
           // stretches the last frame while GPU buffers settle once at the end.
           clearTimeout(resizeTimer);
+          // Keep presentation held until the final buffer AND camera size are
+          // committed. An expired native quiet timer alone is not sufficient.
+          resizePending = true;
+          resizeVersion++;
           resizeTimer = window.setTimeout(resize, 90);
         });
         observer.observe(canvas.parentElement!);
@@ -433,7 +446,7 @@ export function ThreeSceneCanvas({
             motion.step(audio, dt, config.music, reduced.matches, shared);
             // Do not clear or reset the scene: CSS retains the last frame while
             // native presentation changes size, and transport still follows audio.
-            const paused = !desktop && previewResizePending(now);
+            const paused = !desktop && (previewResizePending(now) || resizePending);
             if (resizePaused !== paused) dirty = true;
             resizePaused = paused;
             canvas.dataset.resizePaused = String(paused);

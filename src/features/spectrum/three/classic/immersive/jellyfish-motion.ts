@@ -2,6 +2,8 @@ import type { SceneMotion } from '../../motion'
 
 interface JellyfishMotion {
   step: number
+  time: number
+  revision: number
   events: { age: number; strength: number }[]
   stroke: Float32Array
   wake: Float32Array
@@ -15,12 +17,20 @@ const states = new WeakMap<SceneMotion, JellyfishMotion>()
 export function jellyfishMotion(motion: SceneMotion, reduced: boolean) {
   let state = states.get(motion)
   if (!state) {
-    state = { step: -1, events: [], stroke: new Float32Array(7), wake: new Float32Array(7), tip: new Float32Array(7), travel: new Float32Array(7) }
+    state = { step: -1, time: motion.simulationTime, revision: motion.resetRevision, events: [], stroke: new Float32Array(7), wake: new Float32Array(7), tip: new Float32Array(7), travel: new Float32Array(7) }
     states.set(motion, state)
+  }
+  if (state.revision !== motion.resetRevision) {
+    state.revision = motion.resetRevision; state.events.length = 0; state.step = -1
+    state.time = motion.simulationTime
   }
   if (state.step === motion.stepIndex) return state
   state.step = motion.stepIndex
   const dt = Math.max(0, Math.min(.1, motion.stepSeconds)), active = !reduced && motion.transporting
+  // Age existing attacks across absent layers; only this step adds swim travel.
+  const missed = Math.max(0, motion.simulationTime - state.time - dt)
+  state.time = motion.simulationTime
+  for (const event of state.events) event.age += missed
   if (!active) state.events.length = 0
   else if (motion.frame?.onset && motion.onsetStrength > 0) {
     if (state.events.length === 4) state.events.shift()

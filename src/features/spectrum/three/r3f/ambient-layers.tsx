@@ -39,13 +39,16 @@ export function useLightFieldUniforms(effect: MusicEffect) {
       uAuroraPhase: { value: 0 },
       uPhase: { value: 0 },
       uVolume: { value: 0 },
-      uSustain:{value:0},uOnsetAge:{value:10},uOnsetStrength:{value:0},
+      uSustain: { value: 0 },
+      uOnsetAge: { value: 10 },
+      uOnsetStrength: { value: 0 },
       uBands: { value: new T.Vector3() },
       uSpectrum: { value: new Float32Array(48) },
       uTouch: { value: 0 },
       uPointer: { value: new T.Vector2() },
       uSpread: { value: 1 },
       uBrightness: { value: 1 },
+      uDesktop: { value: 0 },
       uMode: {
         value: effect === "star_flight" ? 1 : effect === "aurora_flow" ? 2 : 0,
       },
@@ -67,12 +70,20 @@ export function useLightFieldUniforms(effect: MusicEffect) {
     u.uWarm.value.set(aurora ? palette.main : palette.accent);
     u.uHigh.value.set(palette.high);
     u.uAuroraPhase.value = motion.auroraPhase;
-    u.uPhase.value = motion.flowPhase(effect, .8 + config.music.speed * .16, .25, reduced);
+    u.uPhase.value = motion.flowPhase(
+      effect,
+      0.8 + config.music.speed * 0.16,
+      0.25,
+      reduced,
+    );
     updateReactiveUniforms(u, motion, effect, reduced);
     u.uVolume.value = motion.energy;
-    u.uSustain.value=motion.frame?.audible?motion.frame.sustain:0;
-    u.uOnsetAge.value=Math.min(10,Math.max(0,(motion.frame?.beatAge??10000)/1000));
-    u.uOnsetStrength.value=motion.onsetStrength;
+    u.uSustain.value = motion.frame?.audible ? motion.frame.sustain : 0;
+    u.uOnsetAge.value = Math.min(
+      10,
+      Math.max(0, (motion.frame?.beatAge ?? 10000) / 1000),
+    );
+    u.uOnsetStrength.value = motion.onsetStrength;
     u.uBands.value.fromArray(motion.musicalBands);
     u.uAccents.value.fromArray(motion.accents);
     if (motion.frame) u.uSpectrum.value.set(motion.frame.spectrum);
@@ -87,6 +98,7 @@ export function useLightFieldUniforms(effect: MusicEffect) {
     u.uPointer.value.lerp(pointer, reduced ? 1 : 1 - Math.exp(-dt / 0.1));
     u.uSpread.value = config.music.ambientSpread;
     u.uBrightness.value = config.music.fieldBrightness / 45;
+    u.uDesktop.value = config.sceneMode === "daily" ? 1 : 0;
     u.uResolution.value.set(gl.domElement.width, gl.domElement.height);
     u.uImpulse.value = reduced ? 0 : (motion.frame?.pulse ?? 0);
   }, -1);
@@ -205,10 +217,7 @@ export function AmbientLayers({
     [flight, aurora, detail],
   );
   const cores = useMemo(
-    () =>
-      flight || aurora
-        ? null
-        : petalCoreGeometry(),
+    () => (flight || aurora ? null : petalCoreGeometry()),
     [flight, aurora],
   );
   const segments = Math.max(96, Math.round(160 * Math.min(detail, 1.4)));
@@ -248,7 +257,12 @@ export function AmbientLayers({
           kind="points"
         />
       )}
-      <ParticleField count={count} uniforms={uniforms} flight={flight} petals={!flight&&!aurora} />
+      <ParticleField
+        count={count}
+        uniforms={uniforms}
+        flight={flight}
+        petals={!flight && !aurora}
+      />
       {flight && (
         <>
           <ParticleField count={count} uniforms={uniforms} flight trails />
