@@ -8,7 +8,12 @@ import { isClassicEffect } from "../../music-engine/catalog";
 import { fullscreenGeometry } from "./resources";
 import { useVisualRuntime } from "./runtime";
 import { visualQuality } from "./quality";
-import { TransitionOutput } from './transition-output';
+import { TransitionOutput } from "./transition-output";
+import {
+  desktopVisibility,
+  desktopVisibilitySource,
+  desktopVisibilityComposite,
+} from "./desktop-visibility";
 
 // One color conversion and premultiplied-alpha output, shared by every visual layer.
 const fragment = `uniform sampler2D uBloom0,uBloom1,uBloom2;
@@ -16,11 +21,17 @@ const fragment = `uniform sampler2D uBloom0,uBloom1,uBloom2;
 uniform float uBloomStrength,uSceneBrightness,uTransparentScene;
 uniform vec4 uFocusBounds;
 uniform float uFocusActive,uFocusCue;
-${compositeFragment}`
-  .replace('#include <tonemapping_fragment>','gl_FragColor.rgb = ACESFilmicToneMapping(gl_FragColor.rgb);')
+${compositeFragment.replace("void main() {", `${desktopVisibilitySource}\nvoid main() {`)}`
+  .replace(
+    "#include <tonemapping_fragment>",
+    "gl_FragColor.rgb = ACESFilmicToneMapping(gl_FragColor.rgb);",
+  )
   // Preserve dark gradients in the byte transition buffers. Store sqrt-encoded
   // premultiplied light; TransitionOutput decodes before any energy mixing.
-  .replace('#include <premultiplied_alpha_fragment>', '#include <premultiplied_alpha_fragment>\n gl_FragColor.rgb=sqrt(max(gl_FragColor.rgb,vec3(0.)));')
+  .replace(
+    "#include <premultiplied_alpha_fragment>",
+    "#include <premultiplied_alpha_fragment>\n gl_FragColor.rgb=sqrt(max(gl_FragColor.rgb,vec3(0.)));",
+  )
   .replace(
     "vec4 terrain = texture2D(uImage, uv);",
     `vec2 focusPoint=uRegion.xy+vec2(uv.x,1.-uv.y)*uRegion.zw;
@@ -46,10 +57,10 @@ terrain.a=max(terrain.a,clamp(max(max(glow.r,glow.g),glow.b)*.6,0.,.45));`,
     "float backdropAlpha = .985 * uImmersive;",
     "float backdropAlpha = .985 * uImmersive * (1. - uTransparentScene);",
   )
-  .replace('alpha *= uOpacity * mix(border, 1., uImmersive);',`alpha *= uOpacity * mix(border, 1., uImmersive);
-  vec2 clearCenter=(uv-vec2(.43,.55))/vec2(.3,.38);
-  float desktopQuiet=exp(-dot(clearCenter,clearCenter)*2.)*.62;
-  alpha*=1.-desktopQuiet*(1.-uImmersive)*(1.-step(3.,uResolution.x/uResolution.y));`);
+  .replace(
+    "terrain.a = clamp(terrain.a, 0., 1.);",
+    `terrain.a = clamp(terrain.a, 0., 1.);${desktopVisibilityComposite}`,
+  );
 
 export function SceneCompositor() {
   const runtime = useVisualRuntime(),
@@ -64,7 +75,7 @@ export function SceneCompositor() {
       postCamera = new T.Camera(),
       geometry = fullscreenGeometry();
     const uniforms = {
-      toneMappingExposure: {value: .95},
+      toneMappingExposure: { value: 0.95 },
       uImage: { value: image.texture },
       uLow: { value: new T.Color() },
       uWarm: { value: new T.Color() },
@@ -81,9 +92,10 @@ export function SceneCompositor() {
       uBloomStrength: { value: 0 },
       uSceneBrightness: { value: 1 },
       uTransparentScene: { value: 0 },
-      uFocusBounds: {value:new T.Vector4()},
-      uFocusActive: {value:0},
-      uFocusCue: {value:0},
+      uDesktopVisibility: { value: new T.Vector2(1, 0) },
+      uFocusBounds: { value: new T.Vector4() },
+      uFocusActive: { value: 0 },
+      uFocusCue: { value: 0 },
     };
     const material = new T.ShaderMaterial({
       uniforms,
@@ -107,7 +119,7 @@ export function SceneCompositor() {
       hdr,
       stamp: "",
       frames: 0,
-      focusKey: null as string|null,
+      focusKey: null as string | null,
       cueAge: 10,
       focusTime: NaN,
     };
@@ -126,12 +138,21 @@ export function SceneCompositor() {
     runtime.diagnostics.image = pass.image;
     runtime.diagnostics.bloom = pass.bloom;
     runtime.diagnostics.capture = () => pass.output.capture(gl);
-    const prepare=async()=>{
-      const effect=runtime.settings.effect;
-      const bloom=(isClassicEffect(effect)&&effect!=='ripple')||effect==='aurora_flow'||runtime.composition==='passage';
-      const previous=gl.getRenderTarget();gl.setRenderTarget(pass.output.live);
-      const post=gl.compileAsync(pass.postScene,pass.postCamera);gl.setRenderTarget(previous);
-      await Promise.all([post,pass.output.prepare(gl),...(bloom?[pass.bloom.prepare(gl)]:[])]);
+    const prepare = async () => {
+      const effect = runtime.settings.effect;
+      const bloom =
+        (isClassicEffect(effect) && effect !== "ripple") ||
+        effect === "aurora_flow" ||
+        runtime.composition === "passage";
+      const previous = gl.getRenderTarget();
+      gl.setRenderTarget(pass.output.live);
+      const post = gl.compileAsync(pass.postScene, pass.postCamera);
+      gl.setRenderTarget(previous);
+      await Promise.all([
+        post,
+        pass.output.prepare(gl),
+        ...(bloom ? [pass.bloom.prepare(gl)] : []),
+      ]);
     };
     runtime.diagnostics.preparations?.add(prepare);
     return () => {
@@ -153,35 +174,71 @@ export function SceneCompositor() {
     const classic = isClassicEffect(config.effect),
       snow = config.effect === "ripple",
       aurora = config.effect === "aurora_flow",
-      particleComposition = runtime.composition === 'sculpture' || runtime.composition === 'expanse',
-      bloom = (classic && !snow) || aurora || runtime.composition === 'passage';
-    const focus=runtime.focus, key=focus?.lineKey??null;
-    if(key!==pass.focusKey){
-      pass.cueAge=pass.focusKey&&key&&motion.frame?.audible&&motion.transporting&&!runtime.reduced?0:10;
-      pass.focusKey=key;
+      particleComposition =
+        runtime.composition === "sculpture" ||
+        runtime.composition === "expanse",
+      bloom = (classic && !snow) || aurora || runtime.composition === "passage";
+    const focus = runtime.focus,
+      key = focus?.lineKey ?? null;
+    if (key !== pass.focusKey) {
+      pass.cueAge =
+        pass.focusKey &&
+        key &&
+        motion.frame?.audible &&
+        motion.transporting &&
+        !runtime.reduced
+          ? 0
+          : 10;
+      pass.focusKey = key;
     }
-    const focusTime=motion.frame?.now??0;
-    if(pass.focusTime!==focusTime)pass.cueAge+=Math.max(0,Math.min(.1,runtime.dt));
-    pass.focusTime=focusTime;
-    const focusBounds=focus?.bounds;
+    const focusTime = motion.frame?.now ?? 0;
+    if (pass.focusTime !== focusTime)
+      pass.cueAge += Math.max(0, Math.min(0.1, runtime.dt));
+    pass.focusTime = focusTime;
+    const focusBounds = focus?.bounds;
     // Scene shading is part of the lyric background, including transition history.
     // A zero slider value must leave the underlying scene's pixels untouched.
-    u.uFocusActive.value=focusBounds?T.MathUtils.clamp((focus?.backgroundOpacity??0)/100,0,1):0;
-    if(focusBounds)u.uFocusBounds.value.set(focusBounds.x,focusBounds.y,focusBounds.width,focusBounds.height);
-    u.uFocusCue.value=u.uFocusActive.value>0&&!runtime.reduced&&motion.frame?.audible&&motion.transporting?Math.exp(-pass.cueAge*5):0;
-    gl.domElement.dataset.focus=focusBounds?JSON.stringify(focusBounds):'';
-    gl.domElement.dataset.focusCue=u.uFocusCue.value.toFixed(4);
+    u.uFocusActive.value = focusBounds
+      ? T.MathUtils.clamp((focus?.backgroundOpacity ?? 0) / 100, 0, 1)
+      : 0;
+    if (focusBounds)
+      u.uFocusBounds.value.set(
+        focusBounds.x,
+        focusBounds.y,
+        focusBounds.width,
+        focusBounds.height,
+      );
+    u.uFocusCue.value =
+      u.uFocusActive.value > 0 &&
+      !runtime.reduced &&
+      motion.frame?.audible &&
+      motion.transporting
+        ? Math.exp(-pass.cueAge * 5)
+        : 0;
+    gl.domElement.dataset.focus = focusBounds
+      ? JSON.stringify(focusBounds)
+      : "";
+    gl.domElement.dataset.focusCue = u.uFocusCue.value.toFixed(4);
     // Keep HDR where emitted light needs it. Opaque terrain and nonemissive petals
     // retain their smaller byte targets, especially important for large desktop regions.
     const imageType =
       pass.hdr &&
-      (isClassicEffect(config.effect) || config.effect === "aurora_flow" || !!runtime.composition)
+      (isClassicEffect(config.effect) ||
+        config.effect === "aurora_flow" ||
+        !!runtime.composition)
         ? T.HalfFloatType
         : T.UnsignedByteType;
-    const stamp = `${width}:${height}:${config.quality}:${regions}:${imageType}:${config.effect}:${runtime.composition ?? ''}`;
+    const stamp = `${width}:${height}:${config.quality}:${regions}:${imageType}:${config.effect}:${runtime.composition ?? ""}`;
     if (pass.stamp !== stamp) {
       const samples = Math.min(
-        particleComposition || ['rhythm_rain','ripple','dream_stars'].includes(config.effect) ? 0 : runtime.composition === 'passage' ? (config.quality === 'eco' ? 0 : 2) : visualQuality(config.quality, regions).samples,
+        particleComposition ||
+          ["rhythm_rain", "ripple", "dream_stars"].includes(config.effect)
+          ? 0
+          : runtime.composition === "passage"
+            ? config.quality === "eco"
+              ? 0
+              : 2
+            : visualQuality(config.quality, regions).samples,
         gl.capabilities.maxSamples,
       );
       if (
@@ -193,7 +250,16 @@ export function SceneCompositor() {
         pass.image.dispose();
       }
       pass.image.setSize(width, height);
-      if (bloom) pass.bloom.resize(width, height, runtime.composition === 'passage' && config.quality !== 'eco' ? 'balanced' : config.quality, regions, pass.hdr);
+      if (bloom)
+        pass.bloom.resize(
+          width,
+          height,
+          runtime.composition === "passage" && config.quality !== "eco"
+            ? "balanced"
+            : config.quality,
+          regions,
+          pass.hdr,
+        );
       pass.stamp = stamp;
     }
     u.uLow.value.set(palette.low);
@@ -202,12 +268,14 @@ export function SceneCompositor() {
       u.uLow.value.multiplyScalar(0);
       u.uWarm.value.multiplyScalar(0);
     }
-    u.uSceneBrightness.value = classic || runtime.composition
-      ? config.effect === "rhythm_skin" || runtime.composition === 'expanse'
-        ? Math.min(0.95, 0.68 * Math.sqrt(config.music.fieldBrightness / 45))
-        : config.music.fieldBrightness / 45
-      : 1;
+    u.uSceneBrightness.value =
+      classic || runtime.composition
+        ? config.effect === "rhythm_skin" || runtime.composition === "expanse"
+          ? Math.min(0.95, 0.68 * Math.sqrt(config.music.fieldBrightness / 45))
+          : config.music.fieldBrightness / 45
+        : 1;
     u.uTransparentScene.value = snow ? 1 : 0;
+    u.uDesktopVisibility.value.fromArray(desktopVisibility(config.effect));
     u.uOpacity.value = (config.opacity / 100) * motion.presence;
     u.uImmersive.value = config.sceneMode === "immersive" ? 1 : 0;
     u.uResolution.value.set(width, height);
@@ -229,11 +297,11 @@ export function SceneCompositor() {
     u.uBloom1.value = pass.bloom.texture(1);
     u.uBloom2.value = pass.bloom.texture(2);
     u.uBloomStrength.value = bloom ? (aurora ? 0.2 : strength) : 0;
-    pass.output.resize(width,height);
+    pass.output.resize(width, height);
     gl.setRenderTarget(pass.output.live);
     gl.clear();
     gl.render(pass.postScene, pass.postCamera);
-    pass.output.draw(gl,runtime.transition,pass.uniforms);
+    pass.output.draw(gl, runtime.transition, pass.uniforms);
     const canvas = gl.domElement;
     canvas.dataset.frames = String(++pass.frames);
     canvas.dataset.drawCalls = String(gl.info.render.calls);
