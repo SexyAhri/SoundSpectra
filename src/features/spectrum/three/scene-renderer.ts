@@ -7,7 +7,7 @@ import type { FrameOptions } from '../../performance/runtime';
 
 export interface ThreeSceneRenderer {
   readonly renderer: WebGLRenderer;
-  resize(config: SpectrumSettings, regionCount: number, options?: {preview?:boolean;deferSceneChange?:boolean}): Promise<void>;
+  resize(config: SpectrumSettings, regionCount: number, options?: {preview?:boolean;deferSceneChange?:boolean;adaptive?:boolean}): Promise<void>;
   hover?(clientX: number, clientY: number): void;
   hit(clientX: number, clientY: number): { x: number; z: number } | null;
   draw(

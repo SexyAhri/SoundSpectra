@@ -50,6 +50,12 @@ async function nativeWorkspace(page: Page, desktop: boolean) {
   await page.goto(desktop ? '/?window=overlay' : '/')
   await expect(page.locator('.three-scene-surface canvas')).toHaveCount(2)
   await expect.poll(() => page.evaluate(() => (window as any).sceneIntegration.mediaPolls)).toBeGreaterThan(5)
+  // Media polling can finish before shader preparation and the initial resize.
+  // Begin idle sampling only after both scenes have presented the silent input.
+  for (const canvas of await page.locator('.three-scene-surface canvas').all()) {
+    await expect(canvas).toHaveAttribute('data-rms', '0.0000')
+    await expect(canvas).toHaveAttribute('data-resize-paused', 'false')
+  }
 }
 
 const sample = (page: Page, duration = 1700) => page.evaluate(async duration => {

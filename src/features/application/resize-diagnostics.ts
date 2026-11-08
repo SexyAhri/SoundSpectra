@@ -14,7 +14,7 @@ function tick(now: number) {
   const canvases = [...document.querySelectorAll<HTMLCanvasElement>('canvas[data-renderer="three"]')];
   panel.textContent = `Resize diagnostics · F8 close\nRAF max gap ${gap.toFixed(1)} ms · long task ${longTask.toFixed(1)} ms · resize events ${resizes}\n` +
     `native request ${previewResizeMetrics.nativeMs.toFixed(1)} ms · pending ${previewResizeMetrics.pending}\n` +
-    canvases.map(c => `${c.dataset.scene} · ${c.width}×${c.height} · context ${c.dataset.contextId} · preparations ${c.dataset.preparations} · programs ${c.dataset.programs}\nframe ${c.dataset.frameMs} ms · buffer resize ${c.dataset.resizeMs} ms\nfirst resized frame ${c.dataset.resizeFirstFrameMs ?? '—'} ms · resume ${c.dataset.resizeResumeMs ?? '—'} ms · held ${c.dataset.resizePaused}`).join('\n');
+    canvases.map(c => `${c.dataset.scene} · ${c.width}×${c.height} · context ${c.dataset.contextId} · preparations ${c.dataset.preparations} · programs ${c.dataset.programs}\nCPU submit ${c.dataset.frameMs} ms · GPU ${c.dataset.gpuMs ?? '—'} ms (${c.dataset.gpuTiming ?? 'off'})\nvisual scale ${c.dataset.renderScale ?? '1'} · FBO ${c.dataset.sceneBuffer ?? '—'} · occluded ${c.dataset.occluded ?? 'false'}\nbuffer resize ${c.dataset.resizeMs} ms · first resized frame ${c.dataset.resizeFirstFrameMs ?? '—'} ms · resume ${c.dataset.resizeResumeMs ?? '—'} ms · held ${c.dataset.resizePaused}`).join('\n');
   raf = requestAnimationFrame(tick);
 }
 const reset = () => { gap=0;longTask=0;resizes=0;until=performance.now()+5000;previous=performance.now(); };

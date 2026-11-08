@@ -171,6 +171,10 @@ export function SceneCompositor() {
       palette = resolveEffectPalette(config);
     const width = gl.domElement.width,
       height = gl.domElement.height;
+    // Only the visual FBOs scale. The presentation canvas and DOM text stay sharp.
+    const scale = runtime.renderScale ?? 1;
+    const sceneWidth = Math.max(1, Math.round(width * scale));
+    const sceneHeight = Math.max(1, Math.round(height * scale));
     const classic = isClassicEffect(config.effect),
       snow = config.effect === "ripple",
       aurora = config.effect === "aurora_flow",
@@ -228,7 +232,7 @@ export function SceneCompositor() {
         !!runtime.composition)
         ? T.HalfFloatType
         : T.UnsignedByteType;
-    const stamp = `${width}:${height}:${config.quality}:${regions}:${imageType}:${config.effect}:${runtime.composition ?? ""}`;
+    const stamp = `${sceneWidth}:${sceneHeight}:${config.quality}:${regions}:${imageType}:${config.effect}:${runtime.composition ?? ""}`;
     if (pass.stamp !== stamp) {
       const samples = Math.min(
         particleComposition ||
@@ -249,11 +253,11 @@ export function SceneCompositor() {
         pass.image.texture.type = imageType;
         pass.image.dispose();
       }
-      pass.image.setSize(width, height);
+      pass.image.setSize(sceneWidth, sceneHeight);
       if (bloom)
         pass.bloom.resize(
-          width,
-          height,
+          sceneWidth,
+          sceneHeight,
           runtime.composition === "passage" && config.quality !== "eco"
             ? "balanced"
             : config.quality,
@@ -278,7 +282,7 @@ export function SceneCompositor() {
     u.uDesktopVisibility.value.fromArray(desktopVisibility(config.effect));
     u.uOpacity.value = (config.opacity / 100) * motion.presence;
     u.uImmersive.value = config.sceneMode === "immersive" ? 1 : 0;
-    u.uResolution.value.set(width, height);
+    u.uResolution.value.set(sceneWidth, sceneHeight);
     const b = config.bounds;
     u.uRegion.value.set(b.x, b.y, b.width, b.height);
     u.uMaskCount.value = config.masks.length;
@@ -297,7 +301,7 @@ export function SceneCompositor() {
     u.uBloom1.value = pass.bloom.texture(1);
     u.uBloom2.value = pass.bloom.texture(2);
     u.uBloomStrength.value = bloom ? (aurora ? 0.2 : strength) : 0;
-    pass.output.resize(width, height);
+    pass.output.resize(sceneWidth, sceneHeight);
     gl.setRenderTarget(pass.output.live);
     gl.clear();
     gl.render(pass.postScene, pass.postCamera);
@@ -308,6 +312,8 @@ export function SceneCompositor() {
     canvas.dataset.geometries = String(gl.info.memory.geometries);
     canvas.dataset.textures = String(gl.info.memory.textures);
     canvas.dataset.bloomLevels = bloom ? String(pass.bloom.count) : "0";
+    canvas.dataset.renderScale = String(scale);
+    canvas.dataset.sceneBuffer = `${sceneWidth}x${sceneHeight}`;
   }, 1);
   return createPortal(
     <mesh

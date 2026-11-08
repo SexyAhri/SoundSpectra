@@ -20,6 +20,9 @@ import { mappingValues } from '../../../performance/mapping';
 import type { FrameOptions } from '../../../performance/runtime';
 import { originalMapping } from '../../../performance/model';
 import { native } from '../../bridge';
+import { budgets } from '../../render-budget';
+import { AdaptiveResolution } from './adaptive-resolution';
+import { GpuFrameTimer } from './gpu-frame-timer';
 
 extend({
   Mesh: T.Mesh,
@@ -52,6 +55,11 @@ export class FiberSceneRenderer {
   private ready = false;
   private resizeRevision = 0;
   private resizedAt: number | undefined;
+  private adaptiveEnabled = false;
+  private readonly resolution = new AdaptiveResolution();
+  private gpuTimer?: GpuFrameTimer;
+  private timingStamp = '';
+  private lastFrameAt = 0;
   readonly diagnostics: VisualDiagnostics = {preparations:new Set()};
   private composition: CompositionId | undefined;
   private readonly transition = new SceneTransition();
@@ -213,7 +221,8 @@ export class FiberSceneRenderer {
     });
     return this.preparation;
   }
-  async resize(config: SpectrumSettings, regions: number, options: {preview?:boolean;deferSceneChange?:boolean} = {}) {
+  async resize(config: SpectrumSettings, regions: number, options: {preview?:boolean;deferSceneChange?:boolean;adaptive?:boolean} = {}) {
+    this.adaptiveEnabled = options.adaptive === true;
     const resizeStarted = performance.now();
     const revision = ++this.resizeRevision;
     this.regions = regions;
@@ -355,13 +364,35 @@ export class FiberSceneRenderer {
       mapping: mappingValues(config.effect,options.mapping,motion,reduced),
     });
     if(this.stamp!==this.sceneStamp(config)||!this.store)void this.prepareScene().catch(this.recover);
-    if(!this.shadersReady)return false;
+    if(!this.shadersReady){this.timingStamp='';this.gpuTimer?.discard();return false}
     this.time += dt;
     if (this.store) {
       this.renderer.info.reset();
       const start = performance.now();
       const frames = this.canvas.dataset.frames;
+      const timingStamp = `${config.effect}:${config.quality}:${this.regions}:${this.canvas.width}:${this.canvas.height}:${this.adaptiveEnabled}:${this.transition.active}:${presentationPaused}`;
+      if (timingStamp !== this.timingStamp || start - this.lastFrameAt > 500) {
+        this.timingStamp = timingStamp;
+        this.resolution.settle(start);
+        this.gpuTimer?.discard();
+      }
+      this.lastFrameAt = start;
+      const measure = this.adaptiveEnabled && !presentationPaused && !this.transition.active;
+      if (measure) {
+        this.gpuTimer ??= new GpuFrameTimer(this.renderer.getContext() as WebGL2RenderingContext);
+        const timerRevision = this.gpuTimer.revision;
+        const gpuMs = this.gpuTimer.poll();
+        if (timerRevision !== this.gpuTimer.revision) this.resolution.settle(start);
+        this.canvas.dataset.gpuTiming = this.gpuTimer.supported ? 'asynchronous' : 'unavailable';
+        if (gpuMs !== undefined) {
+          this.canvas.dataset.gpuMs = gpuMs.toFixed(2);
+          this.resolution.sample(gpuMs, start, reduced ? 15 : budgets[config.quality].fps);
+        }
+        this.gpuTimer.begin();
+      }
+      this.runtime.renderScale = this.adaptiveEnabled ? this.resolution.scale : 1;
       try{this.store.getState().advance(this.time, false)}catch(error){this.recover(error);return false}
+      finally { this.gpuTimer?.end(); }
       this.canvas.dataset.frameMs = (performance.now() - start).toFixed(2);
       if (this.resizedAt !== undefined && this.canvas.dataset.frames !== frames) {
         this.canvas.dataset.resizeFirstFrameMs = this.canvas.dataset.frameMs;
@@ -384,6 +415,7 @@ export class FiberSceneRenderer {
   dispose() {
     if (this.stopped) return;
     this.stopped = true;
+    this.gpuTimer?.discard();
     const unmount = () => flushSync(() => this.root.unmount());
     // Three polls each material's program until compilation finishes. Retain
     // those materials until then, including when the canvas closes mid-startup.

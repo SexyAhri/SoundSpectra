@@ -18,6 +18,7 @@ export interface VisualRuntime {
   motion: SceneMotion;
   reduced: boolean;
   presentationPaused?: boolean;
+  renderScale?: number;
   dt: number;
   regions: number;
   pointer: Vector2;

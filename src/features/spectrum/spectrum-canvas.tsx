@@ -17,6 +17,7 @@ export interface SpectrumCanvasProps {
   className?: string;
   desktop?: boolean;
   active?: boolean;
+  suspended?: boolean;
   regionCount?: number;
   interactive?: boolean;
   onViewChange?: (view: SceneView) => void;

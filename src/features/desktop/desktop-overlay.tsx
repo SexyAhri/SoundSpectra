@@ -17,6 +17,7 @@ import { layerIndex } from '../preview/scene-layers';
 import { useRail } from '../rail/use-rail';
 import { railObstacles } from '../lyrics/avoid-rail';
 import { PerformanceProvider } from '../performance/runtime';
+import { useDesktopOcclusion } from './use-desktop-occlusion';
 import {
   describeError,
   getStatus,
@@ -29,6 +30,8 @@ import {
 export function DesktopOverlay() {
   const [settings, setSettings] = useState(defaults);
   const [editing, updateEditing] = useState(false);
+  const occluded = useDesktopOcclusion();
+  const suspended = occluded && !editing;
   const [error, setError] = useState<string | null>(null);
   const rail = useRail();
   const [screen, setScreen] = useState({ width: window.innerWidth, height: window.innerHeight });
@@ -115,7 +118,7 @@ export function DesktopOverlay() {
   };
   return (
     <PerformanceProvider info={nowPlaying}><SceneFocusProvider><div className={`desktop-overlay ${editing ? "editing" : ""}`}>
-      {wallpaperNeedsSurface(settings.wallpaperDepth)&&(settings.enabled||editing)&&<DesktopWallpaper settings={settings.wallpaperDepth} masks={settings.masks} analysis={analysis} active={settings.enabled||editing}/>}
+      {wallpaperNeedsSurface(settings.wallpaperDepth)&&(settings.enabled||editing)&&<DesktopWallpaper settings={settings.wallpaperDepth} masks={settings.masks} analysis={analysis} active={(settings.enabled||editing)&&!suspended}/>}
       {sceneRegions(settings).filter(region => region.visible).map(region => {
         const bounds = relativeBounds(region.bounds, displayBounds(settings));
         return <div key={region.id} className="desktop-region" data-region-id={region.id} style={{ position: 'absolute', zIndex: layerIndex(settings, `effect:${region.id}`), left: `${bounds.x * 100}%`, top: `${bounds.y * 100}%`, width: `${bounds.width * 100}%`, height: `${bounds.height * 100}%` }}><SpectrumCanvas
@@ -127,10 +130,11 @@ export function DesktopOverlay() {
         demo={false}
         desktop
         active={settings.enabled || editing}
+        suspended={suspended}
         regionCount={sceneRegions(settings).filter(region => region.visible).length}
       /></div>})}
-      {settings.desktopCard.enabled && <CardLayer zIndex={layerIndex(settings, 'card')} settings={settings.desktopCard} info={nowPlaying} color={colors.cardColor} bands={bands} receivedAt={receivedAt} host={displayBounds(settings)} desktop active={settings.enabled} />}
-      {settings.lyrics.enabled && <LyricLayer analysis={analysis} appearance={colors.settings} cardAccent={settings.desktopCard.enabled ? settings.desktopCard.accentColor : undefined} obstacles={railObstacles(rail.settings, screen)} zIndex={layerIndex(settings, 'lyrics')} settings={settings.lyrics} document={lyricDocument} info={nowPlaying} host={displayBounds(settings)} desktop active={settings.enabled} />}
+      {settings.desktopCard.enabled && <CardLayer zIndex={layerIndex(settings, 'card')} settings={settings.desktopCard} info={nowPlaying} color={colors.cardColor} bands={bands} receivedAt={receivedAt} host={displayBounds(settings)} desktop active={settings.enabled&&!suspended} />}
+      {settings.lyrics.enabled && <LyricLayer analysis={analysis} appearance={colors.settings} cardAccent={settings.desktopCard.enabled ? settings.desktopCard.accentColor : undefined} obstacles={railObstacles(rail.settings, screen)} zIndex={layerIndex(settings, 'lyrics')} settings={settings.lyrics} document={lyricDocument} info={nowPlaying} host={displayBounds(settings)} desktop active={settings.enabled&&!suspended} />}
       {editing && (
         <>
           <div className="overlay-toolbar">

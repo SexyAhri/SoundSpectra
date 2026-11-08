@@ -28,6 +28,7 @@ export function ThreeSceneCanvas({
   demo,
   desktop = false,
   active = true,
+  suspended = false,
   regionCount = 1,
   className,
   interactive = !desktop,
@@ -44,11 +45,13 @@ export function ThreeSceneCanvas({
     ...regionStyle(settings), quality: settings.quality, masks: settings.masks,
   }), [settings]);
   const ref = useRef<HTMLCanvasElement>(null);
+  const wake = useRef<(() => void) | undefined>(undefined);
   const current = useRef({
     settings,
     visualSignature,
     demo,
     active,
+    suspended,
     regionCount,
     interactive,
     onViewChange,
@@ -59,16 +62,19 @@ export function ThreeSceneCanvas({
   const [restart,setRestart]=useState(0);
   useEffect(()=>{if(fatalEffect.current&&fatalEffect.current!==settings.effect){fatalEffect.current=null;setRestart(value=>value+1)}},[settings.effect]);
   useEffect(() => {
+    const wasSuspended = current.current.suspended;
     current.current = {
       settings,
       visualSignature,
       demo,
       active,
+      suspended,
       regionCount,
       interactive,
       onViewChange,
     };
-  }, [settings, visualSignature, demo, active, regionCount, interactive, onViewChange]);
+    if (wasSuspended !== suspended) wake.current?.();
+  }, [settings, visualSignature, demo, active, suspended, regionCount, interactive, onViewChange]);
   useEffect(() => {
     view.current = settings.view;
   }, [settings.view]);
@@ -93,6 +99,7 @@ export function ThreeSceneCanvas({
     let resizePaused = false;
     let resizePending = false, resizeVersion = 0;
     let recoveryNotice = '';
+    let occlusionDormant = false;
     const windowResizing = () => { if (!desktop) settlePreviewResize(); };
     if (!desktop) window.addEventListener('resize', windowResizing);
     let viewRaf = 0;
@@ -305,7 +312,7 @@ export function ThreeSceneCanvas({
             void world?.resize(
               desired,
               current.current.regionCount,
-              {preview:!desktop,deferSceneChange:true},
+              {preview:!desktop,deferSceneChange:true,adaptive:desktop},
             ).catch(error => { if (!stopped) fail(error); }).finally(() => {
               if (!stopped && version === resizeVersion) {
                 resizePending = false;
@@ -368,6 +375,20 @@ export function ThreeSceneCanvas({
           if (stopped) return;
           try {
             const next = current.current;
+            canvas.dataset.occluded = String(next.suspended);
+            if (next.suspended) {
+              if (!occlusionDormant) motion.reset(true);
+              occlusionDormant = true;
+              previous = 0;
+              dirty = true;
+              // No RAF or timer while covered; the visibility prop wakes this root.
+              return;
+            }
+            if (occlusionDormant) {
+              occlusionDormant = false;
+              previous = 0;
+              dirty = true;
+            }
             if (
               !next.active ||
               (!desktop && (!onscreen || !nativeVisible || document.hidden))
@@ -483,6 +504,12 @@ export function ThreeSceneCanvas({
             fail(error);
           }
         };
+        wake.current = () => {
+          if (stopped) return;
+          cancelAnimationFrame(raf);
+          clearTimeout(timer);
+          raf = requestAnimationFrame(draw);
+        };
         canvas.dataset.renderer = "three";
         raf = requestAnimationFrame(draw);
       } catch (error) {
@@ -493,6 +520,7 @@ export function ThreeSceneCanvas({
     queueMicrotask(initialize);
     return () => {
       stopped = true;
+      wake.current = undefined;
       cancelAnimationFrame(raf);
       cancelAnimationFrame(viewRaf);
       clearTimeout(timer);

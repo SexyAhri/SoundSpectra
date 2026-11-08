@@ -17,6 +17,8 @@ mod desktop;
 #[cfg(target_os = "macos")]
 #[path = "platform/macos/desktop.rs"]
 mod desktop;
+#[cfg(windows)]
+mod desktop_occlusion;
 mod dsp;
 #[cfg(windows)]
 mod kugou_sync;
@@ -76,6 +78,19 @@ pub struct AppState {
     config_error: Mutex<Option<String>>,
     path: PathBuf,
     shutdown: AtomicBool,
+    desktop_occluded: AtomicBool,
+}
+
+#[derive(Clone, Serialize)]
+struct DesktopOcclusion {
+    occluded: bool,
+}
+
+#[tauri::command]
+fn get_desktop_occlusion(state: State<'_, Arc<AppState>>) -> DesktopOcclusion {
+    DesktopOcclusion {
+        occluded: state.desktop_occluded.load(Ordering::Relaxed),
+    }
 }
 
 #[tauri::command]
@@ -415,6 +430,7 @@ pub fn run() {
             rail::debug_rail_drop_state,
             rail::debug_rail_visibility,
             get_status,
+            get_desktop_occlusion,
             update_settings,
             apply_scene,
             system_tray::sync_scene_shortcuts,
@@ -467,6 +483,7 @@ pub fn run() {
                 config_error: Mutex::new(error),
                 path,
                 shutdown: AtomicBool::new(false),
+                desktop_occluded: AtomicBool::new(false),
             });
             app.manage(state.clone());
             app.manage(rail::RailState::new(app.handle()));
@@ -477,6 +494,8 @@ pub fn run() {
                 }
             }
             start_desktop_recovery(app.handle().clone(), state.clone());
+            #[cfg(windows)]
+            desktop_occlusion::start(app.handle().clone(), state.clone());
             now_playing::start(state.clone());
             #[cfg(windows)]
             kugou_sync::start(state.clone());

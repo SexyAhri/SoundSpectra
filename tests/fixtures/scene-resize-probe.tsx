@@ -4,7 +4,7 @@ import { defaults } from '../../src/features/spectrum/model'
 import { FiberSceneRenderer } from '../../src/features/spectrum/three/r3f/fiber-renderer'
 import { withPreviewResize } from '../../src/features/preview/resize-settling'
 
-export function mountSceneResizeProbe(demo = false) {
+export function mountSceneResizeProbe(demo = false, desktop = false) {
   const host = document.createElement('div')
   host.style.cssText = 'width:320px;height:180px'
   document.body.append(host)
@@ -23,8 +23,10 @@ export function mountSceneResizeProbe(demo = false) {
     return original.apply(this, args)
   }
   const root = createRoot(host)
-  root.render(<ThreeSceneCanvas settings={{ ...defaults, effect:'aurora_flow',quality:'eco', sceneMode:'immersive' }} demo={demo} bands={{current:new Float32Array(96)}} receivedAt={{current:0}} />)
+  const render = (suspended = false) => root.render(<ThreeSceneCanvas settings={{ ...defaults, effect:'aurora_flow',quality:'eco', sceneMode:'immersive' }} demo={demo} desktop={desktop} suspended={suspended} bands={{current:new Float32Array(96)}} receivedAt={{current:0}} />)
+  render()
   return {
+    suspend(value: boolean) { render(value) },
     holdNativeResize() { nativeDone = withPreviewResize(() => new Promise<void>(resolve => { releaseNative = resolve })) },
     async releaseNativeResize() { releaseNative?.(); await nativeDone },
     holdNextResize() { nextResize = new Promise(resolve => { releaseResize = resolve }) },
