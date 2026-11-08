@@ -1,15 +1,12 @@
 use crate::AppState;
-use serde::Deserialize;
-#[cfg(windows)]
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 use tauri::{State, WebviewWindow};
 
 #[cfg(windows)]
 static MEDIA_OPERATION: std::sync::Mutex<()> = std::sync::Mutex::new(());
 
-#[cfg(windows)]
-#[derive(Clone, Default, Serialize)]
+#[derive(Clone, Default, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct MediaCapabilities {
     pub previous: bool,

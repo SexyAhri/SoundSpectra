@@ -1,5 +1,4 @@
 use crate::{audio_discovery, macos_helper, AppState};
-use serde::{Deserialize, Serialize};
 use std::{
     sync::{atomic::Ordering, Arc},
     thread,
@@ -7,22 +6,8 @@ use std::{
 };
 use tauri::{State, WebviewWindow};
 
-#[derive(Clone, Default, Serialize, Deserialize)]
-#[serde(default, rename_all = "camelCase")]
-pub struct NowPlaying {
-    pub title: String,
-    pub artist: String,
-    pub album: String,
-    pub cover: Option<String>,
-    pub position: f64,
-    pub duration: f64,
-    pub timeline_available: bool,
-    pub playing: bool,
-    pub source: String,
-    pub process_id: Option<u32>,
-    pub updated: u64,
-    pub issue: Option<String>,
-}
+pub use crate::now_playing_state::NowPlaying;
+
 fn now() -> u64 {
     SystemTime::now()
         .duration_since(UNIX_EPOCH)
@@ -69,20 +54,7 @@ pub fn start(state: Arc<AppState>) {
                         let bundle = app["bundle"].as_str().ok_or("播放器标识无效")?;
                         let json =
                             macos_helper::json(&["metadata", bundle], Duration::from_secs(8))?;
-                        let mut v: NowPlaying =
-                            serde_json::from_value(json).map_err(|e| e.to_string())?;
-                        v.timeline_available = !v.title.is_empty()
-                            && v.duration.is_finite()
-                            && v.duration > 0.0
-                            && v.position.is_finite()
-                            && v.position >= 0.0;
-                        v.title = v
-                            .title
-                            .chars()
-                            .filter(|c| !c.is_control())
-                            .take(200)
-                            .collect();
-                        Ok::<_, String>(v)
+                        NowPlaying::from_macos_metadata(json, bundle, pid, revision)
                     })();
                     value = result.unwrap_or_else(|error| NowPlaying {
                         issue: Some(format!("播放器未提供可用的自动化歌曲信息：{error}")),
@@ -99,6 +71,8 @@ pub fn start(state: Arc<AppState>) {
                     || old.artist != value.artist
                     || old.album != value.album
                     || old.process_id != value.process_id
+                    || old.session_id != value.session_id
+                    || old.track_id != value.track_id
                 {
                     crate::lyrics::cancel_search(&state);
                 }

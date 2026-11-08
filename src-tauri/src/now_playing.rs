@@ -1,6 +1,5 @@
 use crate::{audio_source::Target, AppState};
 use base64::{engine::general_purpose::STANDARD, Engine};
-use serde::Serialize;
 use std::{
     hash::{DefaultHasher, Hash, Hasher},
     sync::{atomic::Ordering, Arc},
@@ -26,30 +25,8 @@ extern "system" {
     fn RoUninitialize();
 }
 
-#[derive(Clone, Default, Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct NowPlaying {
-    pub title: String,
-    pub artist: String,
-    pub album: String,
-    pub cover: Option<String>,
-    pub position: f64,
-    pub duration: f64,
-    pub timeline_available: bool,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub timeline_source: Option<&'static str>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub timeline_valid_until: Option<u64>,
-    pub playing: bool,
-    pub source: String,
-    pub process_id: Option<u32>,
-    pub updated: u64,
-    pub issue: Option<String>,
-    pub track_id: String,
-    pub playback_available: bool,
-    pub session_id: String,
-    pub controls: crate::card_controls::MediaCapabilities,
-}
+pub use crate::now_playing_state::NowPlaying;
+
 fn now() -> u64 {
     SystemTime::now()
         .duration_since(UNIX_EPOCH)

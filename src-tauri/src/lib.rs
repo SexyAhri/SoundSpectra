@@ -29,6 +29,7 @@ mod now_playing;
 #[cfg(target_os = "macos")]
 #[path = "platform/macos/now_playing.rs"]
 mod now_playing;
+mod now_playing_state;
 mod rail;
 mod scenes;
 mod settings;
