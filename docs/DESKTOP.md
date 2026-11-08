@@ -37,10 +37,10 @@
 
 | 样式 | 展示方式 |
 | --- | --- |
-| `record` 唱片 | 封套、旋转黑胶、曲目信息和播放控制；暂停冻结旋转，音乐驱动小电平 |
-| `compact` 简约 | 紧凑封面、两行文字和细进度线；窄尺寸只保留播放/暂停 |
-| `afternoon` 午后 · 藏书票 | 奶油纸面、封面贴片和宋体歌名；点缀色不改变深色正文 |
-| `floating` 浮签 | 透明错层封面、局部暗衬与细光谱，主体保持稳定 |
+| `record` 唱片 | 半外露封套与黑胶，独立歌名标签；进度沿外露圆弧推进，暂停冻结旋转与进度 |
+| `compact` 简约 | 48–64px 磨砂胶囊、圆形封面和波形轮廓进度；文字保持稳定，窄尺寸只保留播放/暂停 |
+| `afternoon` 午后 · 藏书票 | 双联票根、双色印刷封面、衬线歌名与虚线切口；副券只印真实播放器来源和总时长，未知时长显示破折号 |
+| `floating` 浮签 | 双层亚克力透光面板、固定金属夹和真实播放器来源徽标；封面与板面保持稳定，音乐仅驱动细光谱 |
 
 小尺寸优先保留歌名和控制，长文本省略并提供原文提示。预览与桌面共用组件，按真实屏幕逻辑尺寸排版后缩放。位置和大小可通过预设、精确数值、拖动及方向键调整。
 
@@ -48,7 +48,7 @@
 
 `card-presentation.ts` 同时核对曲目标识与封面地址；解码中或失败时显示占位，迟到的旧封面不能挂到新标题下。媒体轮询串行执行，并拒绝过期音源和已卸载组件的回复。切歌只过渡文字与封套，减少动态效果时关闭旋转和交接动画。
 
-`card-clock.ts` 与歌词共用 `playbackPosition`。暂停冻结进度，跳转直接校准；没有可信时间轴或总时长、快照异常或过期时不显示进度。暂停时更换样式也应立即更新进度线。播放器的播放状态与音频声能独立，静音不等于暂停。
+`card-clock.ts` 与歌词共用 `playbackPosition`。暂停冻结进度，跳转直接校准；没有可信时间轴或总时长、快照异常或过期时不显示进度。唱片的圆弧只覆盖黑胶外露部分，长度映射整首歌曲，圆弧本身不随盘片旋转；简约的波形轮廓也表示播放进度，不混作声能。暂停时更换样式也应立即更新时间线。播放器的播放状态与音频声能独立，静音不等于暂停。
 
 原生按钮仅控制选定且仍有效的媒体会话。独立控制窗口只让按钮区域接收输入，保持不激活窗口，其余区域交还桌面。媒体接口缺少可靠曲目标识时，无法识别所有同名歌曲或客户端内部错误配对；各播放器兼容入口见 [歌词说明](LYRICS.md)。
 
@@ -73,7 +73,19 @@
 
 ## 拾光绳
 
-拾光绳独立于音源和灯效，个人文件引用不随场景收藏覆盖。工作台通过 `RailControls` 编辑、`RailLayer` 预览；Windows 每组使用独立桌面窗口，操作面板由伴随窗口承载。
+拾光绳有独立的桌面输出，个人文件引用不随场景收藏覆盖。工作台通过 `RailControls` 编辑、`RailLayer` 预览；Windows 每组使用独立桌面窗口，操作面板由伴随窗口承载。
+
+每组可在设置中的“拾光绳皮肤 → 更换”独立选择原木拾光、花间小径、紫藤轻垂或秋枝来信，预览与桌面共用绳索绘制和材质。切换皮肤保留挂件内容、顺序和位置，旧配置默认使用花间小径。
+
+花间小径使用三股藤蔓交错编织，搭配奶油白花、柔粉花苞、灰绿叶片和浅麦色木夹；花枝与纸卡配色独立于界面深浅主题。
+
+皮肤配方集中在 `src/features/rail/skin-theme.ts`：名称、绳体粗细、编织参数、植物间距、配色、夹扣和纸卡材质、字体及摆动参数由同一注册表提供。设置缩略图和实际挂件共用配方与 `RailCord`；`RailItemFrame` 负责夹扣和挂件的装配。持久化仍只保存皮肤 ID，旧配置与旧 ID 别名继续兼容。
+
+绳体使用 SVG 弧线，曲线采样由 `rail-wheel.ts` 的 `atX` 统一提供，装饰布局和桌面裁剪共用数据。挂件使用独立的角弹簧模型，以固定时间步积分，限制长帧和最大摆角，并保留短暂停稳段，便于点击；每组只更新可见挂件的 transform，不逐帧更新 React 或发送原生区域。鼠标靠近、悬停、聚焦、拖动和打开面板时阻尼收稳；折叠、布置、页面隐藏或启用减少动态效果时停用。桌面区域按最大摆角保留余量。
+
+每组“音乐联动”默认关闭；开启后可选择轻柔呼吸、节拍轻弹或琴弦共振，并调整 0～100% 幅度。呼吸跟随整体音量，轻弹响应起音，琴弦叠加低频波纹；花叶保留原有配色，仅轻微摆动。联动复用当前选定音源的 `music-analysis` 和采样时钟节拍检测，不依赖灯效输出，不另启采集。每个节拍只消费一次，切换音源、操作期间或恢复显示不会补播旧节拍。绳体、夹扣、挂件与植物共用有界位移（最多 3 个绳体单位），绳端固定；原生区域提前留出余量。采集超过 350ms 无新数据时回落，随后恢复普通微风。浏览器只展示配置和静态预览，不模拟真实音乐接入。
+
+动画复位读取 DOM 上当前声明的绳线路径；React 更新宽度或皮肤后，旧动画清理不能用旧宽度的缓存覆盖新曲线。全屏、缩窄和再次展开均需保持主绳、装饰与挂件的完整对齐。
 
 配置操作依次经过 `useRail` 排队、Rust 校验并保存 `rail.json`、同步桌面窗口和原图标、广播 `rail-changed`。打开文件、浏览目录和复制路径使用独立命令。保存失败保留原状态，旧回复不得覆盖新状态。
 
@@ -97,7 +109,7 @@
 | 工作台与主题 | `tests/workspace-layout.spec.ts`、`tests/workspace-experience.spec.ts`、`tests/theme.spec.ts`、`tests/effect-settings.spec.ts` |
 | 卡片与控制 | `tests/music-card.spec.ts`、`tests/card-stability.spec.ts`、`tests/card-transport.spec.ts` |
 | 壁纸与布置 | `tests/wallpaper-scene.spec.ts`、`tests/wallpaper-depth.spec.ts`、`tests/wallpaper-arrangement.spec.ts` |
-| 拾光绳 | `tests/rail-input.spec.ts`、`tests/rail-recovery.spec.ts`、`tests/rail-order.spec.ts`、`tests/rail-transfer.spec.ts`、`tests/rail-animation.spec.ts`、`tests/rail-media.spec.ts` |
+| 拾光绳 | `tests/rail-input.spec.ts`、`tests/rail-recovery.spec.ts`、`tests/rail-order.spec.ts`、`tests/rail-transfer.spec.ts`、`tests/rail-animation.spec.ts`、`tests/rail-media.spec.ts`、`tests/rail-audio.spec.ts`、`tests/rail-audio-ui.spec.ts` |
 
 工作台检查用 `npm run test:ui`，端口与隔离约定见 [开发与验证](DEVELOPMENT.md)。卡片独立预览入口为 `/tools/music-cards.html?card=record`、`/tools/afternoon-card.html`、`/tools/floating-card.html`，使用生产组件和合成曲目。
 
