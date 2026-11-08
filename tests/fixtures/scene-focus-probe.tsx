@@ -8,7 +8,7 @@ export function mountSceneFocusProbe(){
   const bounds={x:.2,y:.3,width:.4,height:.2}
   function Read({id}:{id:number}){refs[id]=useSceneFocus();return null}
   const render=(visible:boolean,lineKey='one')=>flushSync(()=>root.render(<>
-    <SceneFocusProvider><Read id={0}/>{visible&&<LyricSceneFocus bounds={bounds} lineKey={lineKey}/>}</SceneFocusProvider>
+    <SceneFocusProvider><Read id={0}/>{visible&&<LyricSceneFocus bounds={bounds} lineKey={lineKey} backgroundOpacity={30}/>}</SceneFocusProvider>
     <SceneFocusProvider><Read id={1}/></SceneFocusProvider>
   </>))
   render(true)

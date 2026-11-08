@@ -51,7 +51,7 @@ export class CompositionStudy {
       this.timeline.push(this.audio,this.audio.samplePosition!/48)
     }
     this.motion.step(this.audio,dt,this.settings.music,this.reduced,this.timeline.sample(this.time*1000,this.settings.music))
-    const focus:SceneFocus|undefined=this.reading?{bounds:{x:.1,y:.39,width:.43,height:.23},lineKey:'composition-reading',revision:1}:undefined
+    const focus:SceneFocus|undefined=this.reading?{bounds:{x:.1,y:.39,width:.43,height:.23},lineKey:'composition-reading',revision:1,backgroundOpacity:100}:undefined
     this.world.draw(this.motion,this.settings,this.reduced,dt,focus)
   }
   dispose(){this.world.dispose();return {...this.world.renderer.info.memory}}

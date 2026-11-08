@@ -135,7 +135,7 @@ test('compositions preserve paths through switching, freeze reduced motion, and 
     const switched=[]
     for(const id of ['expanse','passage','sculpture'] as const){await s.select(id);s.step(1/30);switched.push(sample())}
     const before=sample()
-    s.world.draw(s.motion,s.settings,false,0,{bounds:{x:.1,y:.4,width:.4,height:.2},lineKey:'lyric',revision:1})
+    s.world.draw(s.motion,s.settings,false,0,{bounds:{x:.1,y:.4,width:.4,height:.2},lineKey:'lyric',revision:1,backgroundOpacity:100})
     const focused=sample();s.world.draw(s.motion,s.settings,false,0);const unfocused=sample()
     s.reduced=true;for(let i=0;i<30;i++)s.step(1/30);const reduced=sample()
     s.reduced=false;s.level='strong';for(let i=0;i<30;i++)s.step(1/30);const resumed=sample()

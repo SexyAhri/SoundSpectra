@@ -164,9 +164,11 @@ export function SceneCompositor() {
     if(pass.focusTime!==focusTime)pass.cueAge+=Math.max(0,Math.min(.1,runtime.dt));
     pass.focusTime=focusTime;
     const focusBounds=focus?.bounds;
-    u.uFocusActive.value=focusBounds?1:0;
+    // Scene shading is part of the lyric background, including transition history.
+    // A zero slider value must leave the underlying scene's pixels untouched.
+    u.uFocusActive.value=focusBounds?T.MathUtils.clamp((focus?.backgroundOpacity??0)/100,0,1):0;
     if(focusBounds)u.uFocusBounds.value.set(focusBounds.x,focusBounds.y,focusBounds.width,focusBounds.height);
-    u.uFocusCue.value=!runtime.reduced&&motion.frame?.audible&&motion.transporting?Math.exp(-pass.cueAge*5):0;
+    u.uFocusCue.value=u.uFocusActive.value>0&&!runtime.reduced&&motion.frame?.audible&&motion.transporting?Math.exp(-pass.cueAge*5):0;
     gl.domElement.dataset.focus=focusBounds?JSON.stringify(focusBounds):'';
     gl.domElement.dataset.focusCue=u.uFocusCue.value.toFixed(4);
     // Keep HDR where emitted light needs it. Opaque terrain and nonemissive petals

@@ -5,8 +5,9 @@ export interface SceneFocus {
   bounds: SceneBounds | null
   lineKey: string | null
   revision: number
+  backgroundOpacity: number
 }
-export const emptySceneFocus = (): SceneFocus => ({bounds:null,lineKey:null,revision:0})
+export const emptySceneFocus = (): SceneFocus => ({bounds:null,lineKey:null,revision:0,backgroundOpacity:0})
 const Context=createContext<{current:SceneFocus}|null>(null)
 
 /** Each preview/desktop surface owns its focus; no global state or persisted layout. */
@@ -17,13 +18,13 @@ export function SceneFocusProvider({children}:{children:ReactNode}) {
 export const useSceneFocus=()=>useContext(Context)
 
 /** Mounted only while readable lyrics are actually present, after obstacle avoidance. */
-export function LyricSceneFocus({bounds,lineKey}:{bounds:SceneBounds;lineKey:string}) {
+export function LyricSceneFocus({bounds,lineKey,backgroundOpacity}:{bounds:SceneBounds;lineKey:string;backgroundOpacity:number}) {
   const focus=useSceneFocus()
   useEffect(()=>{
-    if(focus)focus.current={bounds:{...bounds},lineKey,revision:focus.current.revision+1}
-  },[focus,bounds.x,bounds.y,bounds.width,bounds.height,lineKey])
+    if(focus)focus.current={bounds:{...bounds},lineKey,backgroundOpacity,revision:focus.current.revision+1}
+  },[focus,bounds.x,bounds.y,bounds.width,bounds.height,lineKey,backgroundOpacity])
   useEffect(()=>()=>{
-    if(focus)focus.current={bounds:null,lineKey:null,revision:focus.current.revision+1}
+    if(focus)focus.current={bounds:null,lineKey:null,backgroundOpacity:0,revision:focus.current.revision+1}
   },[focus])
   return null
 }

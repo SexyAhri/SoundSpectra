@@ -94,7 +94,7 @@ test('lyric focus only changes its local pixels, repeats exactly, and suppresses
     for(let i=0;i<90;i++){motion.step(demoAnalysis(i/30),1/30,config.music,false);world.draw(motion,config,false)}
     const gl=world.renderer.getContext(),read=()=>{const p=new Uint8Array(canvas.width*canvas.height*4);gl.readPixels(0,0,canvas.width,canvas.height,gl.RGBA,gl.UNSIGNED_BYTE,p);return p}
     const original=read()
-    const focus={bounds,lineKey:'first',revision:1}
+    const focus={bounds,lineKey:'first',revision:1,backgroundOpacity:100}
     world.draw(motion,config,false,1/30,focus);const focused=read()
     let inside=0,outside=0
     for(let y=0;y<canvas.height;y++)for(let x=0;x<canvas.width;x++){
@@ -149,5 +149,5 @@ test('two scene providers keep lyric bounds isolated and unmount removes focus',
   expect(result.first[0].lineKey).toBe('one');expect(result.changed[0].lineKey).toBe('two')
   expect(result.hidden[0].bounds).toBeNull()
   expect(result.hidden[0].revision).toBeGreaterThan(result.first[0].revision)
-  for(const state of Object.values(result))expect(state[1]).toEqual({bounds:null,lineKey:null,revision:0})
+  for(const state of Object.values(result))expect(state[1]).toEqual({bounds:null,lineKey:null,revision:0,backgroundOpacity:0})
 })
