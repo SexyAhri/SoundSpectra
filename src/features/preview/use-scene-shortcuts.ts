@@ -14,12 +14,32 @@ export function useSceneShortcuts(options: {
   useEffect(() => {
     if (!native) return
     let disposed = false, applying = false, stop: (() => void) | undefined
-    const sync = () => {
+    let syncing = false, pending = false, retries = 0, retryTimer: number | undefined
+    const sync = async () => {
+      pending = true
+      if (disposed || syncing) return
+      window.clearTimeout(retryTimer)
+      syncing = true
       try {
-        const entries = readLibrary().sort((a, b) => (b.usedAt ?? b.updated) - (a.usedAt ?? a.updated))
-          .slice(0, 3).map(({ id, name }) => ({ id, name }))
-        void invoke('sync_scene_shortcuts', { entries }).catch(error => { if (!disposed) current.current.report(`托盘收藏更新失败：${String(error)}`) })
+        while (pending && !disposed) {
+          pending = false
+          const entries = readLibrary().sort((a, b) => (b.usedAt ?? b.updated) - (a.usedAt ?? a.updated))
+            .slice(0, 3).map(({ id, name }) => ({ id, name }))
+          try {
+            await invoke('sync_scene_shortcuts', { entries })
+            retries = 0
+          } catch (error) {
+            if (disposed) return
+            // The settings webview can load before the native tray is registered.
+            if (String(error) === '托盘尚未就绪，请稍后重试' && retries < 5) {
+              retryTimer = window.setTimeout(() => { void sync() }, 250 * 2 ** retries++)
+              return
+            }
+            current.current.report(`托盘收藏更新失败：${String(error)}`)
+          }
+        }
       } catch { /* The collection dialog owns recovery of malformed saved data. */ }
+      finally { syncing = false }
     }
     sync()
     window.addEventListener('scene-library-changed', sync)
@@ -40,6 +60,6 @@ export function useSceneShortcuts(options: {
       } catch (error) { current.current.report(String(error)) }
       finally { applying = false }
     }).then(unlisten => { if (disposed) unlisten(); else stop = unlisten }).catch(error => current.current.report(String(error)))
-    return () => { disposed = true; stop?.(); window.removeEventListener('scene-library-changed', sync) }
+    return () => { disposed = true; window.clearTimeout(retryTimer); stop?.(); window.removeEventListener('scene-library-changed', sync) }
   }, [])
 }
