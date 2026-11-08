@@ -50,13 +50,20 @@ export function AudioSourcePanel({ status, active }: { status: RuntimeStatus; ac
   const message = !native ? '仅预览设置' : saving ? '正在切换' : status.state === 'error' ? '连接异常'
     : status.state === 'connecting' ? '连接中' : running ? '正在播放' : status.state === 'silent' ? '已连接 · 静音' : '等待启动'
   const problem = error ?? snapshot?.error ?? (native && status.state === 'error' ? status.message : null)
+  const kugou = snapshot?.selection.mode === 'player' ? snapshot.selection.id === 'kugou'
+    : snapshot?.selection.mode === 'auto' && (status.sourceName === '酷狗音乐'
+      || snapshot.discovery.targets.some(target => target.pid === status.processId && target.playerId === 'kugou'))
+  const sync = kugou && native ? snapshot?.kugouSync : undefined
+  const syncMessage = sync?.phase === 'ready' ? '增强同步' : sync?.phase === 'restarting' ? '正在重启以启用同步'
+    : sync?.phase === 'starting' ? '正在启动酷狗' : sync?.phase === 'connecting' ? '正在连接同步'
+      : sync?.phase === 'unavailable' ? '兼容同步' : message
   return <section className="source-section audio-source-panel" aria-label="音频来源">
     <Headphones size={18} className="source-icon" />
     <div className="audio-source-choice"><span>音乐来源</span>
       {snapshot ? <ChoiceSelect label="音乐来源" value={sourceKey(snapshot.selection)} options={sourceOptions(snapshot)} disabled={saving} onChange={value => void save(sourceFromKey(value))} />
         : <span className="source-placeholder">正在读取…</span>}
     </div>
-    <span className={`source-status ${running && native ? 'connected' : ''}`} title={status.message} role="status"><span />{native && status.sourceName ? `${status.sourceName} · ` : ''}{message}</span>
+    <span className={`source-status ${running && native ? 'connected' : ''}`} title={sync?.message || status.message} role="status"><span />{native && (status.sourceName || kugou) ? `${status.sourceName || '酷狗音乐'} · ` : ''}{syncMessage}</span>
     {problem && <div className="audio-source-message"><p role="alert">{problem}</p>
       {snapshot?.error ? <Button size="sm" variant="ghost" disabled={saving} onClick={() => void save({ mode: 'auto' })}>备份并使用自动识别</Button>
         : <Button size="sm" variant="ghost" disabled={saving} onClick={() => lastAttempt.current ? void save(lastAttempt.current) : setRetry(value => value + 1)}><RefreshCw size={12} />重试音源</Button>}</div>}

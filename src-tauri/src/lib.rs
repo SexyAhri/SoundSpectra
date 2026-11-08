@@ -18,6 +18,8 @@ mod desktop;
 #[path = "platform/macos/desktop.rs"]
 mod desktop;
 mod dsp;
+#[cfg(windows)]
+mod kugou_sync;
 mod lyrics;
 #[cfg(target_os = "macos")]
 #[path = "platform/macos/helper.rs"]
@@ -475,6 +477,8 @@ pub fn run() {
             }
             start_desktop_recovery(app.handle().clone(), state.clone());
             now_playing::start(state.clone());
+            #[cfg(windows)]
+            kugou_sync::start(state.clone());
             lyrics::discovery::start(state.clone());
             audio::start(app.handle().clone(), state);
             rail::start(app.handle().clone());

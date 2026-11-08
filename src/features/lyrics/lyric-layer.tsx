@@ -62,10 +62,11 @@ export function LyricLayer({ settings, document, info, demo = false, active = tr
       {settings.motion === 'folded' ? <Suspense fallback={null}><FoldedLyrics lines={lines} time={time} readAudio={readAudio} readTime={()=>((simulated?(Date.now()-demoStart)%demoDuration:playbackPosition(info,Date.now())??0)+settings.offsetMs)} playing={simulated||info.playing} desktop={desktop} fontStyle={settings.fontStyle} fontSize={displayFontSize} regionWidth={placement.bounds.width} reduced={reduced} backgroundOpacity={settings.backgroundOpacity} palette={palette} readability={settings.readability} /></Suspense> : <KineticLyrics lines={lines} index={index} time={time} readAudio={readAudio} readTime={()=>((simulated?(Date.now()-demoStart)%demoDuration:playbackPosition(info,Date.now())??0)+settings.offsetMs)} playing={simulated||info.playing} desktop={desktop} fontStyle={settings.fontStyle} fontSize={displayFontSize} regionWidth={placement.bounds.width} mode={settings.motion} reduced={reduced} backgroundOpacity={settings.backgroundOpacity} palette={palette} readability={settings.readability} />}
       <span className="sr-only" aria-label="当前歌词">{line ? lyricDisplayText(line.text) : '前奏'}</span>
       {simulated && <span className="lyric-demo-label">模拟歌词</span>}
-      {!simulated && !desktop && info.timelineSource === 'kugou-checkpoint' && <span className="lyric-demo-label">备用进度 · 切歌或拖动后需等待本地更新</span>}
+      {!simulated && !desktop && info.timelineSource === 'kugou-checkpoint' && <span className="lyric-demo-label">酷狗兼容进度 · 切歌或拖动后可能等待约 30 秒</span>}
+      {!simulated && !desktop && info.timelineSource === 'kugou-native' && <span className="lyric-demo-label">酷狗增强同步 · 实时播放进度</span>}
       {!simulated && !desktop && info.timelineSource === 'player-accessibility' && <span className="lyric-demo-label">播放器界面进度 · 精度约 1 秒</span>}
       {!simulated && !desktop && info.timelineSource === 'netease-events' && <span className="lyric-demo-label">网易云本地播放事件同步</span>}
-    </> : !safe.crowded && <p className="lyric-empty">{valid && synced === null ? info.sessionId?.toLowerCase().includes('kugou') ? '等待酷狗更新本地播放进度，切歌后也需重新校准' : '歌词已匹配，等待播放器提供有效播放进度' : document.message}</p>}
+    </> : !safe.crowded && <p className="lyric-empty">{valid && synced === null ? info.sessionId?.toLowerCase().includes('kugou') ? '歌词已匹配，等待酷狗更新本地进度（约 30 秒），切歌后也需重新校准' : '歌词已匹配，等待播放器提供有效播放进度' : document.message}</p>}
     {movable && <><span className="lyric-drag-hint" aria-hidden="true">拖动歌词</span><button className="lyric-resize" aria-label="缩放歌词" title="拖动缩放歌词区域" onPointerDown={event => placement.begin(event, true)} /></>}
     {!desktop && safe.crowded && <span className="lyric-space-hint" role="status">拾光绳占用过多空间，请移动或收起部分拾光绳。</span>}
   </div>

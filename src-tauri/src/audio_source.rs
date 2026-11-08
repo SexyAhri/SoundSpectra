@@ -178,6 +178,9 @@ pub struct SourceSnapshot {
     error: Option<String>,
     catalog: &'static [Player],
     discovery: Discovery,
+    #[cfg(windows)]
+    #[serde(rename = "kugouSync")]
+    kugou_sync: crate::kugou_sync::SyncStatus,
 }
 fn settings_window(window: &WebviewWindow) -> Result<(), String> {
     if window.label() != "settings" {
@@ -200,6 +203,8 @@ pub fn get_audio_sources(
         selection: source.selection,
         error: source.error,
         catalog: PLAYERS,
+        #[cfg(windows)]
+        kugou_sync: crate::kugou_sync::status(),
         discovery: state
             .audio_discovery
             .lock()
@@ -207,6 +212,7 @@ pub fn get_audio_sources(
             .clone(),
     })
 }
+
 #[tauri::command]
 pub async fn set_audio_source(
     window: WebviewWindow,

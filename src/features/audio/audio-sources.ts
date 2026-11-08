@@ -8,7 +8,9 @@ export interface AudioSources {
   error: string | null;
   catalog: { id: string; name: string }[];
   discovery: { targets: AudioTarget[]; warning: string | null };
+  kugouSync?: KugouSyncStatus;
 }
+export interface KugouSyncStatus { phase: 'idle' | 'starting' | 'restarting' | 'connecting' | 'ready' | 'unavailable'; message: string }
 export const previewCatalog = [
   ['qqmusic', 'QQ 音乐'], ['netease', '网易云音乐'], ['kugou', '酷狗音乐'],
   ['soda', '汽水音乐'],

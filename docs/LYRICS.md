@@ -54,15 +54,25 @@ SoundSpectra 自有平台缓存按 QQ／汽水分别标记，读取时重新验�
 
 只读实机验证：设置 `SOUNDSPECTRA_TEST_NETEASE_PID` 为正在播放的网易云主进程 PID，运行 `cargo test --lib now_playing::tests::installed_netease_event_clock_advances_without_playback_controls -- --ignored --nocapture`。核验独立 SMTC 歌曲资料、有效总时长和两秒连续推进；暂停、缓冲、拖动、重复播放、旧进程过滤及日志轮换由固定事件测试覆盖。
 
-## 酷狗播放进度兼容
+## 酷狗增强同步与兼容进度
+
+自动识别实际选中酷狗，或手动选择酷狗音源时，后台检查当前酷狗进程的本地同步接口。普通启动的酷狗会通过 Windows Restart Manager 正常退出，再以临时参数 `--remote_debug_port=9225 --remote-debugging-address=127.0.0.1` 启动；手动选择尚未运行的酷狗也会启动一次。不会修改快捷方式或播放器配置。只对注册安装目录中的确切进程请求退出，不强制终止；退出失败、多个主进程或端口被其他程序占用时保留兼容同步。已经启用接口的实例直接复用；相同进程失败后不循环重启，用户关闭酷狗后也不会立即重新拉起，重新选择音源可重试。
+
+重启前只记录当前酷狗媒体会话的歌曲和播放状态；如果原本正在播放，并且客户端重新打开后恢复了同一首歌，则最多请求一次继续播放。原本暂停、歌曲不同或身份无法确认时不操作。播放队列与恢复位置由酷狗自身保存，不发起切歌或拖动。
+
+增强同步通过当前酷狗主进程拥有的回环端口，连接其官方内嵌页面中的原生只读查询 `SuperCall(864)`，每两秒读取歌曲 hash、歌手歌名、真实时长、绝对播放位置及播放状态。连接与查询运行于独立线程，校验端口进程、页面域名、响应大小、响应时延和当前 SMTC 歌曲身份；过期超过五秒的采样不能继续推进时钟。当前查询失败后退避重连，不影响其他播放器。普通系统时间轴正常时仍优先使用系统时间轴。
+
+已验证酷狗 20.1.61.28014：切歌后直接取得新歌进度，切离“推荐”页或最小化仍能读取；其他官方弹窗页面也可提供相同接口。如果客户端尚未加载任何可用内嵌页面，状态悬浮说明会提示打开一次“推荐”页。界面只在现有音源状态中显示“增强同步”、启动／重启／连接过程或“兼容同步”。
 
 部分酷狗 20 客户端的 SMTC 会话提供歌名与播放状态，但 StartTime、EndTime、Position、LastUpdatedTime 全为 0。歌词读取成功并不代表已经取得同步时钟。
 
-系统时间轴缺失时，Windows 适配器只读 KuGou.ini 的 LastPlayingSongHash、LastPlayingTitleName、LastPlayingSongPos。先匹配当前会话的歌手与歌名，再等待本进程观察到歌曲位置发生真实变化的新写入，使用该位置及写入时刻校准时钟。不会从打开应用或切歌时刻开始猜进度；配置的无关写入不会延长锚点有效期。当前实测约 30 秒更新一次，首次启用、切歌或播放状态变化后需要等待新记录，拖动后可能延迟校准。锚点 35 秒后失效，进程、歌曲标识或播放状态变化时重置。
+系统时间轴和增强同步均不可用时，Windows 适配器只读 KuGou.ini 的 LastPlayingSongHash、LastPlayingTitleName、LastPlayingSongPos。先匹配当前会话的歌手与歌名，再等待本进程观察到歌曲位置发生真实变化的新写入，使用该位置及写入时刻校准时钟。不会从打开应用或切歌时刻开始猜进度；配置的无关写入不会延长锚点有效期。当前实测约 30 秒更新一次，首次启用、切歌或播放状态变化后需要等待新记录，拖动后可能延迟校准。锚点 35 秒后失效，进程、歌曲标识或播放状态变化时重置。
 
 歌词可以使用已知位置而无总时长的备用时钟，音乐卡片仍需要真实总时长才显示进度条。KRC 正文 hash 与当前音频 hash 相同时提高匹配优先级；不同 hash 可能来自不同音质或歌词来源，继续按歌曲资料匹配，同分不同正文仍拒绝猜版本。预览标明备用进度，桌面不显示这段说明。
 
-本机只读验证：`cargo test --lib now_playing::tests::installed_kugou_checkpoint_advances_without_playback_controls -- --ignored --nocapture`。要求酷狗保持播放，最多等 55 秒观察新写入，不切歌、不暂停、不调整播放位置。
+增强接口只读验证：设置 `SOUNDSPECTRA_TEST_KUGOU_PID` 后运行 `cargo test --lib now_playing::kugou_bridge::tests::installed_kugou_native_clock_read_only -- --ignored --nocapture`。
+
+兼容进度本机只读验证：`cargo test --lib now_playing::tests::installed_kugou_checkpoint_advances_without_playback_controls -- --ignored --nocapture`。要求酷狗保持播放，最多等 55 秒观察新写入，不切歌、不暂停、不调整播放位置。
 
 ## 缓存与刷新
 

@@ -12,6 +12,10 @@ The GitHub mark in `src/assets/github-mark.svg` is from GitHub's Primer Octicons
 
 Windows clipboard image import uses `arboard` 3.7.0 (MIT OR Apache-2.0), Copyright (c) 2022 The Arboard contributors. Its MIT notice is in `licenses/arboard-MIT.txt`.
 
+KuGou enhanced synchronization uses `tungstenite` 0.28.0 (MIT OR Apache-2.0), Copyright (c) 2017 Alexey Galakhov and (c) 2016 Jason Housley, and `windows-registry` 0.6.1 (MIT OR Apache-2.0), Copyright (c) Microsoft Corporation. Their MIT notices are in `licenses/tungstenite-MIT.txt` and `licenses/windows-registry-MIT.txt`.
+
+The deferred KuGou native status query and progress-unit conversion reference shenruyang123456/kugo-mcp, commit `e045890b322d7bfb1b57892cdfe53215c23f2124` (MIT), Copyright (c) 2026 kugo-mcp contributors. Temporary client launch parameters reference yuan-yannick/kugou-native-mcp, commit `2c3104a417864146ea8c8360f844d44f5e4bcc95` (MIT), Copyright (c) 2026 yuan-yannick. Complete notices are in `licenses/kugo-mcp-MIT.txt` and `licenses/kugou-native-mcp-MIT.txt`. Process ownership checks, graceful restart, source selection, playback preservation and validated clock integration are implemented in SoundSpectra.
+
 TTML parsing uses `roxmltree` 0.20.0 (MIT OR Apache-2.0), Copyright (c) 2018 Yevhenii Reizner. Its MIT notice is in `licenses/roxmltree-MIT.txt`.
 
 Read-only NetEase client song metadata access uses `rusqlite` 0.40.2 (MIT), Copyright (c) 2014 The rusqlite developers. Its complete notice is in `licenses/rusqlite-MIT.txt`. The bundled SQLite library is public domain.

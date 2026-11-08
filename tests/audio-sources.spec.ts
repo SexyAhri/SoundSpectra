@@ -67,9 +67,10 @@ async function nativeFixture(page: Page, failFirst = false) {
       invoke: async (command: string, args: any = {}) => {
         switch (command) {
           case 'get_audio_sources': {
-            const result = { selection: app.__source, error: null, catalog: [{ id: 'qqmusic', name: 'QQ 音乐' }, { id: 'netease', name: '网易云音乐' }], discovery: { warning: null, targets: [
+            const result = { selection: app.__source, error: null, kugouSync: app.__kugouSync, catalog: [{ id: 'qqmusic', name: 'QQ 音乐' }, { id: 'netease', name: '网易云音乐' }], discovery: { warning: null, targets: [
               { pid: 10, executable: 'QQMusic.exe', name: 'QQ 音乐', playerId: 'qqmusic', audible: true },
               { pid: 20, executable: 'OtherMusic.exe', name: 'OtherMusic.exe', playerId: null, audible: true },
+              ...(app.__extraTargets ?? []),
             ] } }
             if (app.__holdRead) {
               app.__holdRead = false
@@ -83,7 +84,7 @@ async function nativeFixture(page: Page, failFirst = false) {
             if (failures-- > 0) throw new Error('测试磁盘写入失败')
             app.__source = args.selection
             return args.selection
-          case 'get_status': return { state: 'listening', message: 'QQ 音乐 · 正在采集专属音频', sourceName: 'QQ 音乐', processId: 10, editing: false, desktopAttached: false }
+          case 'get_status': return app.__status ?? { state: 'listening', message: 'QQ 音乐 · 正在采集专属音频', sourceName: 'QQ 音乐', processId: 10, editing: false, desktopAttached: false }
           case 'get_settings': return { version: 1, enabled: false, color: '#d4c3ff', opacity: 85, sensitivity: 100, decay: 65, reflection: 32, glow: 35, bounds: { x: .12, y: .7, width: .76, height: .22 } }
           case 'get_desktop_background': return { screen: { x: 0, y: 0, width: 1920, height: 1080 }, virtualScreen: { x: 0, y: 0, width: 1920, height: 1080 }, position: 'fill', color: '#25232c', image: null, revision: 'solid', issue: null }
           case 'application_info': return { version: '0.1.0', repository: 'SexyAhri/SoundSpectra', updaterConfigured: false, development: true }
@@ -152,4 +153,33 @@ test('source menu fits a narrow viewport with keyboard access', async ({ page })
   await expect(page.getByRole('option', { name: '汽水音乐', exact: false })).toBeFocused()
   await page.keyboard.press('Enter')
   await expect(selector(page)).toHaveText('汽水音乐')
+})
+
+test('KuGou sync stays in the compact source status for automatic and manual selection', async ({ page }) => {
+  await nativeFixture(page)
+  const status = page.locator('.audio-source-panel .source-status')
+  await page.evaluate(() => {
+    const app = window as any
+    app.__status = { state: 'listening', message: '酷狗音乐 · 正在采集专属音频', sourceName: '酷狗音乐', processId: 30, editing: false, desktopAttached: false }
+    app.__extraTargets = [{ pid: 30, executable: 'KuGou.exe', name: '酷狗音乐', playerId: 'kugou', audible: true }]
+    app.__kugouSync = { phase: 'ready', message: '酷狗增强同步已连接，正在读取实时播放进度。' }
+  })
+  await expect(selector(page)).toHaveText('自动识别')
+  await expect(status).toHaveText('酷狗音乐 · 增强同步')
+  await expect(page.getByRole('button', { name: /启动酷狗/ })).toHaveCount(0)
+  await expect(page.getByText(/本地进度约每 30 秒/)).toHaveCount(0)
+  await selector(page).click()
+  await page.getByRole('option', { name: '酷狗音乐', exact: false }).click()
+  await page.evaluate(() => {
+    const app = window as any
+    app.__status = { state: 'connecting', message: '正在连接', sourceName: null, processId: null, editing: false, desktopAttached: false }
+    app.__kugouSync = { phase: 'restarting', message: '正在重启酷狗以启用实时歌词同步…' }
+  })
+  await expect(selector(page)).toHaveText('酷狗音乐')
+  await expect(status).toHaveText('酷狗音乐 · 正在重启以启用同步')
+  await expect(status).toHaveAttribute('title', '正在重启酷狗以启用实时歌词同步…')
+  await page.setViewportSize({ width: 390, height: 844 })
+  await selector(page).scrollIntoViewIfNeeded()
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
+  await page.screenshot({ path: 'artifacts/kugou-sync-compact.png' })
 })

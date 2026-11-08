@@ -17,6 +17,7 @@ use windows::{
 };
 mod accessibility;
 mod kugou;
+mod kugou_bridge;
 mod netease;
 
 #[link(name = "runtimeobject")]
@@ -275,6 +276,7 @@ pub fn start(state: Arc<AppState>) {
         let initialized = unsafe { RoInitialize(1) } >= 0;
         let mut manager = None;
         let mut kugou_clock = kugou::Clock::default();
+        let mut kugou_bridge = kugou_bridge::Reader::default();
         let mut netease_clock = netease::Clock::default();
         let mut accessibility = accessibility::Reader::default();
         while !state.shutdown.load(Ordering::Relaxed) {
@@ -313,9 +315,11 @@ pub fn start(state: Arc<AppState>) {
                 value.source = target.name.clone();
                 accessibility.update(Some(&target), &mut value, now());
                 netease_clock.update(&target, &mut value, now());
+                kugou_bridge.update(Some(&target), &mut value, now());
                 kugou_clock.update(&target, &mut value, now());
             } else {
                 accessibility.update(None, &mut value, now());
+                kugou_bridge.update(None, &mut value, now());
                 kugou_clock = kugou::Clock::default();
                 netease_clock = netease::Clock::default();
             }

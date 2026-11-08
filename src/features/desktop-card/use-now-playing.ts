@@ -7,7 +7,7 @@ export interface NowPlaying {
   position: number; duration: number; playing: boolean; source: string;
   processId: number | null; updated: number; issue: string | null;
   timelineAvailable?: boolean;
-  timelineSource?: 'kugou-checkpoint' | 'player-accessibility' | 'netease-events';
+  timelineSource?: 'kugou-checkpoint' | 'kugou-native' | 'player-accessibility' | 'netease-events';
   timelineValidUntil?: number;
   trackId?: string; playbackAvailable?: boolean;
   sessionId?: string;
