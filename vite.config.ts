@@ -6,6 +6,9 @@ import { fileURLToPath, URL } from 'node:url'
 export default defineConfig({
   plugins: [react(), tailwindcss()],
   resolve: { alias: { '@': fileURLToPath(new URL('./src', import.meta.url)) } },
+  // Historical checkouts under artifacts may contain their own React install.
+  // Scan only this application's entry points when resolving shared dependencies.
+  optimizeDeps: { entries: ['index.html', 'tests/fixtures/*.html', 'tools/*.html', 'experiments/*.html'] },
   clearScreen: false,
   server: {
     port: 1420, strictPort: true,
