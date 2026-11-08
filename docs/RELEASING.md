@@ -38,7 +38,7 @@ Mac 构建目前使用临时代码签名，不包含 Apple 公证；初次安装
 
 ## 客户端更新
 
-正式安装版默认启动后 5 秒检查一次，运行中每 6 小时再检查。更新地址为：
+正式安装版默认启动并加载更新配置后检查一次，运行中每 6 小时再检查。更新地址为：
 
 ```text
 https://github.com/SexyAhri/SoundSpectra/releases/latest/download/latest.json
@@ -78,8 +78,10 @@ npm run desktop:build -- --config src-tauri/tauri.release.conf.json -- --locked
 
 ## 版本与验收
 
+版本号按 `主版本.次版本.补丁版本` 比较，每段是独立整数。补丁递增为 `1.0.10 → 1.0.11`；向后兼容的新功能通常升到 `1.1.0`，该系列后续修复为 `1.1.1`。补丁数字到 10 不会向次版本进位。自动更新只要求新版本高于已安装版本，并且签名更新包与清单已正式发布。
+
 ```powershell
-npm run version:set -- 1.0.2
+npm run version:set -- 1.0.11
 npm run version:check
 npm run test:release
 npm run build
