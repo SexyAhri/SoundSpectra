@@ -71,18 +71,10 @@ RMS 使用已有六频段物理输入；三频段输入也能直接使用。只�
 
 `scripts/capture-performance.mjs` 记录原创 36 秒编排、跳转恢复及映射对照，输出到忽略的 `artifacts/performance/`。这是无声合成音乐特征录像，不能代表真实采集或原生帧率。
 
-### 2026-11-08 Windows 原生联调
-
-使用当前源码编译的 debug 原生程序、现有 `127.0.0.1:1420` 开发服务及 QQ 音乐真实播放。原生 CDP 检查工作台与桌面两个 WebView；没有使用模拟音乐数据代替实际采集。
-
-- 真实 PCM、六频段 band RMS 与桌面音乐映射均有非零变化；粒子散聚、镜头穿越及新增 `caustic_light` 的原生保存往返已核对。
-- 关闭音乐卡片和歌词后仍能读取歌曲、绑定并开启演出。修复了原生媒体轮询原先依赖这两个显示开关的问题。
-- 真实歌曲暂停后进度保持；连续场景标记在桌面按歌曲时间切换。通过 QQ 音乐进度条完成向后点击和向前拖动，桌面重建对应场景且不重演历史转场。
-- QQ 音乐单曲循环从结尾回到开头时保持演出会话，并从尾场景切回不同的开场景；自然切到下一首时关闭演出。测试后恢复随机播放。
-- 关闭演出清除跨窗口会话并恢复基础外观。Windows 原生端在准备阶段编译并读取真实链接结果，避免 WebView2 / ANGLE 的 KHR 完成标记一直等待；同时提交 GPU 工作。原先复现过约 12.4 秒的恢复延迟和超过 60 秒的准备等待；修复后的完整联调恢复为 98 毫秒，不同场景间定向恢复为 119 毫秒。这些是本机实测值，不是所有设备的延迟保证；冷编译仍需等待驱动实际完成链接。
+### Windows 原生验证
 
 `scripts/native-performance-smoke.mjs` 是需主动运行的原生联调入口，要求已播放真实歌曲且桌面输出已开启。它临时加入区域与演出，退出时清理自身数据并恢复原有显示开关和转场设置。默认检查真实输入、手动转场、暂停、连续标记及关闭恢复；`PERFORMANCE_REVIEW_EXIT=1` 配合 `PERFORMANCE_REVIEW_TRANSPORT=1` 专门检查不同场景间的关闭恢复。`PERFORMANCE_REVIEW_HOLD=1` 在连续标记后保留临时演出，供人工或 Computer Use 操作播放器；把 `artifacts/performance-native/active.json` 的 `regionId` 写入同目录 `release.txt` 后继续清理，最多等待 10 分钟。
 
-`tests/native-scene-preparation.spec.ts` 用真实 WebGL 模拟 KHR 完成标记始终不返回，检查 Windows 原生路径仍能切换和恢复场景；与快速重选、目标编译失败恢复、线性交叠及资源释放检查共 4 项回归通过，TypeScript 构建及 3 项 `now_playing` Rust 测试通过。
+`tests/native-scene-preparation.spec.ts` 检查 Windows 原生路径在 KHR 完成标记未返回时仍能完成场景切换与恢复。实机检查还应覆盖关闭卡片和歌词后的歌曲绑定、暂停、前后跳转、单曲循环、自然切歌，以及退出演出后的基础外观恢复。
 
-本次原始记录位于忽略的 `artifacts/performance-native/`：`acceptance.json`（验收汇总及设置/编排还原校验）、`full-run.json`（完整自动联调）、`exit-restoration.json`（定向恢复）、`report.json`（最近一次运行）、`transport.json`（真实播放器操作，包含诊断及失败尝试）。这些记录只代表本次 Windows / QQ 音乐环境；其他播放器与 macOS 尚未做相同验收，也未作长时间帧率基准。QQ 的 SMTC 未开放 seek / repeat 能力，因此本次拖动及循环通过 QQ 原界面完成。演出开启状态不持久化，重启后需主动开启。
+原生脚本运行后生成 `artifacts/performance-native/` 报告；历史联调产物已清理，不保留旧耗时及通过数量作为当前验收结论。播放器未提供 seek / repeat 时需在其原界面验证。演出开启状态不持久化，重启后需主动开启；其他播放器、macOS 和长时间运行需分别验收。
