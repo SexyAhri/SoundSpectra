@@ -1,7 +1,10 @@
 import { useLayoutEffect, useRef, type RefObject } from 'react'
 import { invoke } from '@tauri-apps/api/core'
-import type { RailGroup } from './model'
+import { railSkin, type RailGroup } from './model'
 import type { railWheel } from './rail-wheel'
+import { botanicalSprigs } from './rail-botanical-layout'
+import { getRailSkinTheme } from './skin-theme'
+import { railAudioTravel } from './audio-motion'
 
 interface Rect { x: number; y: number; width: number; height: number }
 type Geometry = ReturnType<typeof railWheel>
@@ -31,6 +34,7 @@ export function useRailHitRegions(
     if (!enabled || !host) return
     let disposed = false
     const dpi = window.devicePixelRatio
+    const theme = getRailSkinTheme(group.skin)
     const publish = (regions: Rect[]) => {
       // Serialize updates so a slow native call cannot restore an older region.
       pending.current = pending.current.catch(() => {}).then(async () => {
@@ -62,11 +66,13 @@ export function useRailHitRegions(
         const slot = geometry.slot(index, active)
         // Include the clip, rotation, shadows and hover affordances. The target
         // uses layout coordinates, which are not delayed by CSS interpolation.
+        const musicPad = group.audioSync?.enabled ? railAudioTravel * unit : 0
+        const swayPad = Math.sin(theme.physics.maxAngle) * (element.offsetHeight + Math.abs(theme.clipStyle.offsetY) * unit)
         const target: Rect = {
-          x: slot.x - element.offsetWidth / 2 - 24 * unit,
-          y: 28 + slot.y - 26 * unit,
-          width: element.offsetWidth + 48 * unit,
-          height: element.offsetHeight + 50 * unit,
+          x: slot.x - element.offsetWidth / 2 - 24 * unit - swayPad,
+          y: 28 + slot.y - 26 * unit - musicPad,
+          width: element.offsetWidth + 48 * unit + swayPad * 2,
+          height: element.offsetHeight + 50 * unit + musicPad * 2,
         }
         if (slot.visible && bodyPresent) next.set(id!, target)
         const before = previous.current.get(id!)
@@ -77,9 +83,17 @@ export function useRailHitRegions(
         else if (slot.visible && bodyPresent) regions.push(moving ? envelope(bounds(element, 24 * unit), target) : target)
       }
       if (bodyPresent) {
+        // Include hanging flowers locally, leaving gaps available to the desktop.
+        for (const sprig of botanicalSprigs(railSkin(group.skin), unit, geometry,
+          group.items.map((_, index) => geometry.slot(index, active)).filter(slot => slot.visible).map(slot => slot.x))) {
+          const bounds = theme.decoration.bounds
+          const extra = group.audioSync?.enabled ? railAudioTravel : 0
+          regions.push({ x: sprig.x - bounds.left * unit, y: 28 + sprig.y - (bounds.top + extra) * unit,
+            width: (bounds.left + bounds.right) * unit, height: (bounds.top + bounds.bottom + extra * 2) * unit })
+        }
         // Each strip spans both neighboring points, so widening the window
         // cannot leave holes between samples. This also fits the native limit.
-        const segments = 96, pad = Math.max(10, 11 * unit)
+        const segments = 96, pad = Math.max(10, (theme.decoration.cordPadding + (group.audioSync?.enabled ? railAudioTravel : 0)) * unit)
         for (let i = 0; i < segments; i++) {
           const a = geometry.point(-geometry.half + i / segments * geometry.half * 2)
           const b = geometry.point(-geometry.half + (i + 1) / segments * geometry.half * 2)

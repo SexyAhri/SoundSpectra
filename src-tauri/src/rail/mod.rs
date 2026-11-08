@@ -21,7 +21,7 @@ mod webview_drop;
 #[cfg(windows)]
 mod windows;
 use base64::{engine::general_purpose::STANDARD, Engine};
-pub use model::{RailGroup, RailItem, RailSettings};
+pub use model::{RailAudioConfig, RailGroup, RailItem, RailSettings, RailSkin};
 use serde::{Deserialize, Serialize};
 use std::{
     path::{Path, PathBuf},
@@ -159,6 +159,8 @@ pub enum Change {
         y: Option<f64>,
         width: Option<f64>,
         collapsed: Option<bool>,
+        skin: Option<RailSkin>,
+        audio_sync: Option<RailAudioConfig>,
     },
     AddGroup,
     AddNote {
@@ -198,6 +200,8 @@ fn change(settings: &mut RailSettings, change: Change) -> Result<(), String> {
             y,
             width,
             collapsed,
+            skin,
+            audio_sync,
         } => {
             let g = settings.group_mut(&id)?;
             if let Some(name) = name {
@@ -216,6 +220,12 @@ fn change(settings: &mut RailSettings, change: Change) -> Result<(), String> {
             if let Some(collapsed) = collapsed {
                 g.collapsed = collapsed;
             }
+            if let Some(skin) = skin {
+                g.skin = skin;
+            }
+            if let Some(audio_sync) = audio_sync {
+                g.audio_sync = audio_sync;
+            }
         }
         Change::AddGroup => settings.groups.push(RailGroup {
             id: model::new_id(),
@@ -224,6 +234,8 @@ fn change(settings: &mut RailSettings, change: Change) -> Result<(), String> {
             y: 0.54,
             width: 0.38,
             collapsed: false,
+            skin: RailSkin::default(),
+            audio_sync: RailAudioConfig::default(),
             items: vec![],
         }),
         Change::RemoveGroup { id } => {
@@ -830,6 +842,67 @@ pub fn start(app: AppHandle) {
 #[cfg(test)]
 mod recovery_tests {
     use super::*;
+
+    #[test]
+    fn rail_audio_changes_preserve_items_and_other_groups() {
+        let mut settings = RailSettings::default();
+        change(
+            &mut settings,
+            Change::AddNote {
+                group_id: "apps".into(),
+                text: "保留文字".into(),
+            },
+        )
+        .unwrap();
+        change(&mut settings, Change::AddGroup).unwrap();
+        let mut expected = settings.clone();
+        let config: RailAudioConfig = serde_json::from_value(serde_json::json!({
+            "enabled": true, "profile": "bounce", "amount": 58
+        }))
+        .unwrap();
+        expected.groups[0].audio_sync = config;
+        let patch = serde_json::from_value(serde_json::json!({
+            "type": "group", "id": "apps", "audioSync": expected.groups[0].audio_sync
+        }))
+        .unwrap();
+        change(&mut settings, patch).unwrap();
+        settings.validate().unwrap();
+        assert_eq!(settings, expected);
+        assert_eq!(settings.groups[1].audio_sync, RailAudioConfig::default());
+    }
+
+    #[test]
+    fn rail_skin_changes_preserve_group_contents_and_other_groups() {
+        let mut settings = RailSettings::default();
+        change(
+            &mut settings,
+            Change::AddNote {
+                group_id: "apps".into(),
+                text: "保留这段文字".into(),
+            },
+        )
+        .unwrap();
+        change(&mut settings, Change::AddGroup).unwrap();
+        assert_eq!(settings.groups[1].skin, RailSkin::Floral);
+        let mut expected = settings.clone();
+        expected.groups[0].skin = RailSkin::Autumn;
+        let patch = serde_json::from_value(
+            serde_json::json!({ "type": "group", "id": "apps", "skin": "autumn" }),
+        )
+        .unwrap();
+        change(&mut settings, patch).unwrap();
+        assert_eq!(settings, expected);
+        settings.validate().unwrap();
+        let saved = serde_json::to_vec(&settings).unwrap();
+        assert_eq!(
+            serde_json::from_slice::<RailSettings>(&saved).unwrap(),
+            expected
+        );
+        assert!(serde_json::from_value::<Change>(
+            serde_json::json!({ "type": "group", "id": "apps", "skin": "invalid" })
+        )
+        .is_err());
+    }
 
     #[test]
     fn missing_targets_follow_move_delete_and_restore_without_losing_references() {

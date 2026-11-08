@@ -1,18 +1,11 @@
 import { Fragment, useEffect, useRef, useState, type FormEvent } from "react";
-import {
-  Check,
-  Link2,
-  Plus,
-  RefreshCw,
-  Trash2,
-  X,
-} from "lucide-react";
+import { Check, Link2, Plus, RefreshCw, Trash2, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
-import { Dialog } from 'radix-ui';
-import { ModalContent } from '@/components/ui/modal';
-import { ChoiceSelect } from '@/components/ui/choice-select';
-import { IconButton } from '@/components/ui/icon-button';
+import { Dialog } from "radix-ui";
+import { ModalContent } from "@/components/ui/modal";
+import { ChoiceSelect } from "@/components/ui/choice-select";
+import { IconButton } from "@/components/ui/icon-button";
 import { Parameter } from "@/components/ui/parameter";
 import { native } from "../spectrum/bridge";
 import {
@@ -26,6 +19,8 @@ import type { RailController } from "./use-rail";
 import { RailAddPanel, NoteEditor } from "./rail-add-panel";
 import { useRailMotion } from "./use-rail-motion";
 import { RailMotionSnapshot } from "./rail-motion-snapshot";
+import { RailSkinPicker } from "./rail-skin-picker";
+import { RailAudioSettings } from './rail-audio-settings';
 
 export function RailControls({
   controller,
@@ -122,117 +117,177 @@ export function RailControls({
       .catch(() => {});
   };
   return (
-    <RailMotionSnapshot beforeUpdate={() => captureMotion(group?.items.map(item => item.id) ?? [])}>
-    <div
-      ref={root}
-      className="rail-controls inspector-content"
+    <RailMotionSnapshot
+      beforeUpdate={() =>
+        captureMotion(group?.items.map((item) => item.id) ?? [])
+      }
     >
-      <div className="rail-settings-header">
-        <div className="rail-control-heading">
-          <label className="rail-enable">
-            <Switch
-              aria-label="显示桌面拾光绳"
-              checked={controller.settings.enabled}
-              onCheckedChange={(enabled) =>
-                void change({ type: "enable", enabled })
-              }
-              disabled={busy || !controller.supported}
-            />
-            <span>常驻桌面</span>
-          </label>
-          <span
-            className={`rail-save-state${controller.error ? " is-error" : ""}`}
-            role="status"
-          >
-            {controller.pending ? (
-              "正在保存…"
-            ) : controller.error ? (
-              "未保存"
-            ) : controller.loaded ? (
-              <>
-                <Check size={12} />
-                已保存
-              </>
-            ) : (
-              "读取中…"
-            )}
-          </span>
-        </div>
-        {!native && (
-          <p className="rail-browser-hint">
-            浏览器中可编辑；桌面客户端可常驻。
-          </p>
-        )}
-        {(controller.error || controller.desktopError) && (
-          <div className="rail-control-error" role="alert">
-            <span>{controller.error || controller.desktopError}</span>
-            <Button
-              size="sm"
-              variant="ghost"
-              onClick={() => void controller.refresh()}
+      <div ref={root} className="rail-controls inspector-content">
+        <div className="rail-settings-header">
+          <div className="rail-control-heading">
+            <label className="rail-enable">
+              <Switch
+                aria-label="显示桌面拾光绳"
+                checked={controller.settings.enabled}
+                onCheckedChange={(enabled) =>
+                  void change({ type: "enable", enabled })
+                }
+                disabled={busy || !controller.supported}
+              />
+              <span>常驻桌面</span>
+            </label>
+            <span
+              className={`rail-save-state${controller.error ? " is-error" : ""}`}
+              role="status"
             >
-              <RefreshCw size={12} />
-              重新读取
-            </Button>
-          </div>
-        )}
-        <div className="rail-group-label">
-          <span className="section-label">我的拾光绳</span>
-          <button
-            type="button"
-            aria-label="新建拾光绳"
-            title="最多四组"
-            disabled={busy || controller.settings.groups.length >= 4}
-            onClick={() => void createGroup()}
-          >
-            <Plus size={13} />
-            <span>新建</span>
-          </button>
-        </div>
-        {group && <ChoiceSelect label="当前拾光绳" value={group.id} disabled={busy} onChange={id => onSelect(id)} options={controller.settings.groups.map(value => ({ value: value.id, label: `${value.name} · ${value.items.length} 项` }))} />}
-      </div>
-      {group ? (
-        <>
-          <Dialog.Root open={tab === 'add'} onOpenChange={open => setTab(open ? 'add' : 'items')}>
-            <Dialog.Trigger asChild><Button className="rail-add-trigger" variant="outline" disabled={busy}><Plus size={14} />添加挂件</Button></Dialog.Trigger>
-            <ModalContent className="module-add-dialog" onEscapeKeyDown={event => {
-              const panel = document.querySelector('.module-add-dialog .rail-add-panel');
-              if (panel && !panel.classList.contains('rail-add-mode-choices')) {
-                event.preventDefault();
-              }
-            }}>
-              <header><div><Dialog.Title>添加挂件</Dialog.Title><Dialog.Description>添加到「{group.name}」。</Dialog.Description></div><Dialog.Close asChild><IconButton aria-label="关闭添加挂件"><X size={18} /></IconButton></Dialog.Close></header>
-              <div className="module-add-body">
-              <section aria-label="添加挂件">
-                <RailAddPanel key={group.id} group={group} controller={controller} onDone={closeAdd} />
-              </section>
-              {!native && (
-              <details className="rail-path-entry">
-                <summary>
-                  输入本地路径预览布局
-                </summary>
-                <form onSubmit={addPath}>
-                  <input
-                    aria-label="挂件目标路径"
-                    placeholder="C:\\Users\\…\\项目文件夹\\"
-                    value={targetPath}
-                    onChange={(event) => setTargetPath(event.target.value)}
-                  />
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    type="submit"
-                    disabled={busy || !targetPath.trim()}
-                  >
-                    挂上去
-                  </Button>
-                </form>
-              </details>
+              {controller.pending ? (
+                "正在保存…"
+              ) : controller.error ? (
+                "未保存"
+              ) : controller.loaded ? (
+                <>
+                  <Check size={12} />
+                  已保存
+                </>
+              ) : (
+                "读取中…"
               )}
-              </div>
-            </ModalContent>
-          </Dialog.Root>
-            <section className="module-section rail-items-section" aria-label="挂件管理">
+            </span>
+          </div>
+          {!native && (
+            <p className="rail-browser-hint">
+              浏览器中可编辑；桌面客户端可常驻。
+            </p>
+          )}
+          {(controller.error || controller.desktopError) && (
+            <div className="rail-control-error" role="alert">
+              <span>{controller.error || controller.desktopError}</span>
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={() => void controller.refresh()}
+              >
+                <RefreshCw size={12} />
+                重新读取
+              </Button>
+            </div>
+          )}
+          <div className="rail-group-label">
+            <span className="section-label">我的拾光绳</span>
+            <button
+              type="button"
+              aria-label="新建拾光绳"
+              title="最多四组"
+              disabled={busy || controller.settings.groups.length >= 4}
+              onClick={() => void createGroup()}
+            >
+              <Plus size={13} />
+              <span>新建</span>
+            </button>
+          </div>
+          {group && (
+            <ChoiceSelect
+              label="当前拾光绳"
+              value={group.id}
+              disabled={busy}
+              onChange={(id) => onSelect(id)}
+              options={controller.settings.groups.map((value) => ({
+                value: value.id,
+                label: `${value.name} · ${value.items.length} 项`,
+              }))}
+            />
+          )}
+        </div>
+        {group ? (
+          <>
+            <RailSkinPicker
+              key={group.id}
+              value={group.skin}
+              disabled={busy}
+              onChange={(skin) =>
+                void change({ type: "group", id: group.id, skin })
+              }
+            />
+            <Dialog.Root
+              open={tab === "add"}
+              onOpenChange={(open) => setTab(open ? "add" : "items")}
+            >
+              <Dialog.Trigger asChild>
+                <Button
+                  className="rail-add-trigger"
+                  variant="outline"
+                  disabled={busy}
+                >
+                  <Plus size={14} />
+                  添加挂件
+                </Button>
+              </Dialog.Trigger>
+              <ModalContent
+                className="module-add-dialog"
+                onEscapeKeyDown={(event) => {
+                  const panel = document.querySelector(
+                    ".module-add-dialog .rail-add-panel",
+                  );
+                  if (
+                    panel &&
+                    !panel.classList.contains("rail-add-mode-choices")
+                  ) {
+                    event.preventDefault();
+                  }
+                }}
+              >
+                <header>
+                  <div>
+                    <Dialog.Title>添加挂件</Dialog.Title>
+                    <Dialog.Description>
+                      添加到「{group.name}」。
+                    </Dialog.Description>
+                  </div>
+                  <Dialog.Close asChild>
+                    <IconButton aria-label="关闭添加挂件">
+                      <X size={18} />
+                    </IconButton>
+                  </Dialog.Close>
+                </header>
+                <div className="module-add-body">
+                  <section aria-label="添加挂件">
+                    <RailAddPanel
+                      key={group.id}
+                      group={group}
+                      controller={controller}
+                      onDone={closeAdd}
+                    />
+                  </section>
+                  {!native && (
+                    <details className="rail-path-entry">
+                      <summary>输入本地路径预览布局</summary>
+                      <form onSubmit={addPath}>
+                        <input
+                          aria-label="挂件目标路径"
+                          placeholder="C:\\Users\\…\\项目文件夹\\"
+                          value={targetPath}
+                          onChange={(event) =>
+                            setTargetPath(event.target.value)
+                          }
+                        />
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          type="submit"
+                          disabled={busy || !targetPath.trim()}
+                        >
+                          挂上去
+                        </Button>
+                      </form>
+                    </details>
+                  )}
+                </div>
+              </ModalContent>
+            </Dialog.Root>
+            <section
+              className="module-section rail-items-section"
+              aria-label="挂件管理"
+            >
               <div className="rail-list-heading">
                 <span className="section-label">挂件列表</span>
                 <span>{group.items.length} / 48</span>
@@ -279,7 +334,12 @@ export function RailControls({
                           }
                         >
                           <span className="rail-control-icon">
-                            <RailMedia item={value} unavailable={controller.missing.includes(value.id)} />
+                            <RailMedia
+                              item={value}
+                              unavailable={controller.missing.includes(
+                                value.id,
+                              )}
+                            />
                           </span>
                           <span>
                             <strong>{value.name}</strong>
@@ -330,7 +390,10 @@ export function RailControls({
                 )}
               </div>
             </section>
-            <details className="module-advanced rail-layout-advanced"><summary>布局与分组设置</summary>
+            <RailAudioSettings key={`audio-${group.id}`} value={group.audioSync} disabled={busy}
+              onChange={audioSync => change({ type: 'group', id: group.id, audioSync })} />
+            <details className="module-advanced rail-layout-advanced">
+              <summary>布局与分组设置</summary>
               <section
                 className="rail-layout-settings"
                 aria-label="拾光绳位置与尺寸"
@@ -423,11 +486,11 @@ export function RailControls({
                 </Button>
               </section>
             </details>
-        </>
-      ) : (
-        <p className="rail-list-empty">新建一组拾光绳，开始布置桌面。</p>
-      )}
-    </div>
+          </>
+        ) : (
+          <p className="rail-list-empty">新建一组拾光绳，开始布置桌面。</p>
+        )}
+      </div>
     </RailMotionSnapshot>
   );
 }

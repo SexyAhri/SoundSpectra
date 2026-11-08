@@ -1,0 +1,56 @@
+.rail-surface[data-rail-clip-accent="ribbon"] .rail-clip::before {
+  content: ''; position: absolute; width: calc(13 * var(--rail-unit)); height: calc(5 * var(--rail-unit));
+  top: calc(9 * var(--rail-unit)); left: calc(-3 * var(--rail-unit));
+  background: var(--rail-clip-accent); transform: rotate(-25deg); border-radius: 50% 50% 45% 45%; box-shadow: inset 0 0 0 .5px var(--rail-clip-accent-edge);
+}
+
+.rail-cord .rail-themed-shadow { stroke: var(--rail-rope-shadow); stroke-width: calc(var(--rail-rope-shadow-width) * var(--rail-unit)); opacity: .17; }
+.rail-cord .rail-themed-thread { stroke: var(--rail-thread); stroke-width: calc(var(--rail-rope-width) * var(--rail-unit)); stroke-linecap: round; }
+.rail-cord .rail-thread-fiber { stroke: var(--rail-thread-fiber); stroke-width: calc(var(--rail-rope-highlight-width) * var(--rail-unit)); stroke-dasharray: calc(3 * var(--rail-unit)) calc(4 * var(--rail-unit)); }
+.rail-cord .rail-botanical-cord path { stroke-linecap: round; stroke-linejoin: round; stroke-width: .8; }
+.rail-cord .rail-botanical-cord > .rail-branch-shadow { stroke: var(--rail-rope-shadow); stroke-width: calc(var(--rail-rope-shadow-width) * var(--rail-unit)); opacity: .18; }
+.rail-cord .rail-botanical-cord > .rail-branch-main { stroke: var(--rail-thread); stroke-width: calc(var(--rail-rope-width) * var(--rail-unit)); }
+.rail-cord .rail-botanical-cord > .rail-branch-grain { stroke: var(--rail-thread-fiber); stroke-width: calc(var(--rail-rope-highlight-width) * var(--rail-unit)); stroke-dasharray: calc(12 * var(--rail-unit)) calc(8 * var(--rail-unit)); }
+.rail-cord .rail-botanical-stem { stroke: var(--rail-stem); stroke-width: 1.1; }
+.rail-cord .rail-botanical-vein { stroke: var(--rail-vein); stroke-width: .5; }
+.rail-cord .rail-wisteria-leaf { fill: var(--rail-leaf); stroke: var(--rail-leaf-edge); }
+.rail-wisteria-petal { stroke: var(--rail-petal-edge); stroke-width: .3; }
+.rail-wisteria-petal-0 { fill: var(--rail-petal-0); }
+.rail-wisteria-petal-1 { fill: var(--rail-petal-1); }
+.rail-wisteria-petal-2 { fill: var(--rail-petal-2); }
+.rail-wisteria-tip { fill: var(--rail-flower-tip); stroke: var(--rail-flower-tip-edge); stroke-width: .3; }
+.rail-cord .rail-ginkgo-leaf { fill: var(--rail-ginkgo); stroke: var(--rail-ginkgo-edge); stroke-width: .6; }
+.rail-cord .rail-ginkgo-vein { stroke: var(--rail-ginkgo-vein); stroke-width: .5; }
+.rail-cord .rail-autumn-leaf { fill: var(--rail-leaf); stroke: var(--rail-leaf-edge); stroke-width: .6; }
+.rail-autumn-berry { fill: var(--rail-berry); stroke: var(--rail-berry-edge); stroke-width: .6; }
+.rail-autumn-berry-light { fill: var(--rail-berry-light); }
+
+.rail-skin-preview {
+  --rail-unit: 1px; --rail-ink: #465047;
+  width: 100%; height: 100%; overflow: hidden;
+  background: var(--rail-preview-background);
+}
+.rail-skin-preview > .rail-cord { position: static; display: block; width: 100%; height: 100%; }
+.rail-cord .rail-skin-card { fill: var(--rail-photo-frame, #fffdf0); stroke: #fff8; stroke-width: .8; }
+.rail-cord .rail-skin-icon { fill: none; stroke: var(--rail-media-ink, #7f9883); stroke-width: 1.8; }
+.rail-skin-line { fill: var(--rail-ink); opacity: .45; }
+.rail-skin-pin { fill: var(--rail-pin-color); }
+.rail-skin-entry .module-style-row { margin-top: 16px; margin-bottom: 0; }
+.rail-skin-entry .module-style-thumbnail { width: 62px; height: 42px; }
+.module-style-dialog:has(.rail-skin-preview) { width: min(620px, calc(100vw - 24px)); }
+.module-style-dialog:has(.rail-skin-preview) .module-style-options { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+
+/* Local botanical response keeps the approved palette and attachment positions. */
+.rail-surface .rail-vine-leaves,
+.rail-surface .rail-botanical-cord .rail-wisteria-leaf,
+.rail-surface .rail-botanical-cord .rail-ginkgo-leaf,
+.rail-surface .rail-botanical-cord .rail-autumn-leaf {
+  transform-box: fill-box;
+  transform-origin: center;
+  rotate: var(--rail-music-leaf-angle, 0deg);
+}
+.rail-surface[data-rail-skin="wisteria"] .rail-botanical-cord > g > g {
+  transform-box: fill-box;
+  transform-origin: center top;
+  rotate: var(--rail-music-leaf-angle, 0deg);
+}

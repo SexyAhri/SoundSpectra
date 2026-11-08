@@ -21,7 +21,7 @@ import { native } from "../spectrum/bridge";
 import { dragRailItem, openRailItem } from "./client";
 import { RailMedia } from "./rail-media";
 import { RailItemPicker } from "./rail-item-picker";
-import { kindLabels, type RailGroup, type RailItem } from "./model";
+import { kindLabels, railSkin, type RailGroup, type RailItem } from "./model";
 import type { RailController } from "./use-rail";
 import { NoteEditor, RailAddPanel } from "./rail-add-panel";
 import { placeRailPopup } from "./popup-position";
@@ -33,8 +33,16 @@ import { FolderBrowser } from "./folder-browser";
 import { railWheel } from "./rail-wheel";
 import { useRailWheel } from "./use-rail-wheel";
 import { useRailPresence } from "./use-rail-presence";
-import { useRailPopupWindow, type RailPopup as Popup } from "./use-rail-popup-window";
+import {
+  useRailPopupWindow,
+  type RailPopup as Popup,
+} from "./use-rail-popup-window";
 import { useRailHitRegions } from "./use-rail-hit-regions";
+import { RailCord } from "./rail-cord";
+import { RailItemFrame } from './rail-item-frame';
+import { getRailSkinTheme, railSkinStyle } from './skin-theme';
+import { useRailSway } from './use-rail-sway';
+import './rail-skins.css';
 
 interface Props {
   group: RailGroup;
@@ -64,13 +72,14 @@ export function RailSurface({
   const holder = useRef<HTMLDivElement>(null),
     [measuredWidth, setWidth] = useState(780);
   const width = layoutWidth ?? measuredWidth;
+  const theme = getRailSkinTheme(group.skin);
   const [requestedPopup, setPopup] = useState<Popup | null>(null),
     [notice, setNotice] = useState<string | null>(null);
   const popup = useRailPresence(requestedPopup);
   // A slow Shell/save reply belongs to the panel that started it. Closing or
   // replacing that panel must not let its completion dismiss a newer one.
   const completePopup = (expected = requestedPopup) => {
-    setPopup(current => current === expected ? null : current);
+    setPopup((current) => (current === expected ? null : current));
   };
   const bodyPresent = useRailPresence(group.collapsed ? null : true, 180);
   const animateBodyEntry = useRef(group.collapsed);
@@ -96,7 +105,10 @@ export function RailSurface({
     };
   }, [desktop]);
   useEffect(() => {
-    if (requestedPopup?.token) { setRename(null); setNotice(null) }
+    if (requestedPopup?.token) {
+      setRename(null);
+      setNotice(null);
+    }
   }, [requestedPopup?.token]);
   const [popupAnchor, setPopupAnchor] = useState({ x: 120, bottom: 80 });
   const popupElement = useRef<HTMLElement>(null);
@@ -104,13 +116,21 @@ export function RailSurface({
   const cordClickTimer = useRef(0);
   const doubleClickInterval = useRef(500);
   useEffect(() => {
-    if (native) void invoke<number>("rail_double_click_interval").then(value => {
-      if (value > 0) doubleClickInterval.current = value;
-    }).catch(() => {});
+    if (native)
+      void invoke<number>("rail_double_click_interval")
+        .then((value) => {
+          if (value > 0) doubleClickInterval.current = value;
+        })
+        .catch(() => {});
     const cancel = (event: Event) => {
-      if (!(event.target as Element)?.closest?.(".rail-cord-add")) window.clearTimeout(cordClickTimer.current);
+      if (!(event.target as Element)?.closest?.(".rail-cord-add"))
+        window.clearTimeout(cordClickTimer.current);
       // A blur event targets Window, which cannot be passed to Node.contains().
-      if (!(event.target instanceof Node) || !holder.current?.contains(event.target)) recentActivation.current = null;
+      if (
+        !(event.target instanceof Node) ||
+        !holder.current?.contains(event.target)
+      )
+        recentActivation.current = null;
     };
     document.addEventListener("pointerdown", cancel, true);
     window.addEventListener("blur", cancel);
@@ -125,7 +145,11 @@ export function RailSurface({
   const itemWidth = (item: RailItem) =>
     item.kind === "app"
       ? Math.min(88, 72 * unit)
-      : (item.kind === "image" ? 167 : item.kind === "file" || item.kind === "folder" ? 104 : 126) * unit;
+      : (item.kind === "image"
+          ? 167
+          : item.kind === "file" || item.kind === "folder"
+            ? 104
+            : 126) * unit;
   const wheel = useRailWheel(group, selected, popupWindow !== "host");
   const captureMotion = useRailMotion(
     holder,
@@ -138,7 +162,10 @@ export function RailSurface({
     Math.max(88 * unit, ...group.items.map(itemWidth)),
     unit,
     group.items.length,
+    theme.physics.gravitySagFactor,
   );
+  useRailSway(holder, theme, group.id, `${wheel.active}:${group.items.map(item => item.id).join(',')}`,
+    !!bodyPresent && !group.collapsed && !editing && popupWindow !== 'host', geometry, unit, group.audioSync);
   const visible = group.items;
   const rotate = (direction: number) => {
     const index =
@@ -238,8 +265,17 @@ export function RailSurface({
     observer.observe(holder.current!);
     return () => observer.disconnect();
   }, []);
-  useRailHitRegions(holder, desktop && native && popupWindow !== "host", group,
-    geometry, wheel.active, unit, !!bodyPresent, popup?.mode, setNotice);
+  useRailHitRegions(
+    holder,
+    desktop && native && popupWindow !== "host",
+    group,
+    geometry,
+    wheel.active,
+    unit,
+    !!bodyPresent,
+    popup?.mode,
+    setNotice,
+  );
   useEffect(() => {
     if (popupWindow === "source") return;
     const focus = railFocusRequest();
@@ -248,10 +284,15 @@ export function RailSurface({
     const ready =
       popupWindow === "host"
         ? requestedPopup?.token && popupElement.current
-          ? invoke("rail_popup_resize", { token: requestedPopup.token, width: popupElement.current.offsetWidth, height: popupElement.current.offsetHeight })
+          ? invoke("rail_popup_resize", {
+              token: requestedPopup.token,
+              width: popupElement.current.offsetWidth,
+              height: popupElement.current.offsetHeight,
+            })
           : Promise.resolve()
-        : desktop && native ? invoke("rail_popup", { open: !!popup })
-        : Promise.resolve();
+        : desktop && native
+          ? invoke("rail_popup", { open: !!popup })
+          : Promise.resolve();
     void ready
       .then(() => {
         if (disposed || !requestedPopup) {
@@ -280,14 +321,25 @@ export function RailSurface({
       cancelAnimationFrame(frame);
       focus.dispose();
     };
-  }, [desktop, popupWindow, !!popup, requestedPopup?.token, requestedPopup?.mode, requestedPopup?.item?.id]);
+  }, [
+    desktop,
+    popupWindow,
+    !!popup,
+    requestedPopup?.token,
+    requestedPopup?.mode,
+    requestedPopup?.item?.id,
+  ]);
   useEffect(() => {
     if (!requestedPopup) return;
     let disposed = false,
       stop: (() => void) | undefined;
     if (desktop && native)
-      void listen<string | null>("rail-dismiss-popup", event => {
-        setPopup(value => typeof event.payload === "string" && value?.token !== event.payload ? value : null);
+      void listen<string | null>("rail-dismiss-popup", (event) => {
+        setPopup((value) =>
+          typeof event.payload === "string" && value?.token !== event.payload
+            ? value
+            : null,
+        );
         setRename(null);
       })
         .then((value) => {
@@ -358,9 +410,13 @@ export function RailSurface({
           : bounds.bottom - host.y,
       });
     setRename(null);
-    setPopup({ mode, item: item ?? (mode === "more" ? group.items[wheel.active] : undefined),
-      token: popupWindow === "host" ? requestedPopup?.token : crypto.randomUUID(),
-      nativeWidth: popupWindow === "host" ? mode === "menu" ? 280 : 440 : undefined,
+    setPopup({
+      mode,
+      item: item ?? (mode === "more" ? group.items[wheel.active] : undefined),
+      token:
+        popupWindow === "host" ? requestedPopup?.token : crypto.randomUUID(),
+      nativeWidth:
+        popupWindow === "host" ? (mode === "menu" ? 280 : 440) : undefined,
     });
     setNotice(null);
   };
@@ -389,7 +445,10 @@ export function RailSurface({
   const openFromCord = (mode: "add" | "more") => {
     window.clearTimeout(cordClickTimer.current);
     show(mode);
-    setPopupAnchor({ x: width / 2, bottom: 28 + geometry.point(0).y + 100 * unit });
+    setPopupAnchor({
+      x: width / 2,
+      bottom: 28 + geometry.point(0).y + 100 * unit,
+    });
   };
   const add = () => {
     onSelect?.(group.id);
@@ -397,16 +456,15 @@ export function RailSurface({
   };
   const card = (item: RailItem, index: number) => {
     const slot = geometry.slot(index, wheel.active);
-    const windSeed = Array.from(item.id).reduce((seed, char) => (seed * 31 + char.charCodeAt(0)) >>> 0, 7);
     return (
       <div
         key={item.id}
         data-rail-item={item.id}
-        data-reorder-side={reorder.target === item.id ? reorder.side : undefined}
-        data-dragging={reorder.dragging === item.id || undefined}
-        data-wheel-active={
-          wheel.activeId === item.id ? "true" : undefined
+        data-reorder-side={
+          reorder.target === item.id ? reorder.side : undefined
         }
+        data-dragging={reorder.dragging === item.id || undefined}
+        data-wheel-active={wheel.activeId === item.id ? "true" : undefined}
         inert={!slot.visible}
         aria-hidden={!slot.visible || undefined}
         className={`rail-hanging rail-${item.kind}${reorder.target === item.id ? " rail-reorder-target" : ""}`}
@@ -414,8 +472,6 @@ export function RailSurface({
           {
             "--hang-drop": "0px",
             "--hang-tilt": "0deg",
-            "--wind-duration": `${8 + windSeed % 41 / 10}s`,
-            "--wind-delay": `${-(windSeed % 100) / 10}s`,
             "--wheel-x": `${slot.x}px`,
             "--wheel-y": `${slot.y}px`,
             width: itemWidth(item),
@@ -425,111 +481,133 @@ export function RailSurface({
           } as CSSProperties
         }
       >
-        <div className="rail-sway">
-        <span className="rail-clip" aria-hidden="true" />
-        <button
-          className="rail-item"
-          type="button"
-          aria-label={`${item.name}，${kindLabels[item.kind]}`}
-          title={
-            item.kind === "note"
-              ? item.text
-              : `${item.name}\n${item.path}\n单击或 Enter 打开，拖出拾光绳可发送到其他软件`
-          }
-          aria-pressed={(desktop ? desktopSelection : selected) === item.id}
-          draggable={false}
-          onClick={(event) => {
-            if (event.detail > 0) {
-              recentActivation.current = {
-                x: event.clientX,
-                y: event.clientY,
-                until: performance.now() + doubleClickInterval.current,
-              };
-            }
-            setNotice(null);
-            wheel.choose(item.id);
-            setDesktopSelection(item.id);
-            onSelect?.(group.id, item.id);
-            open(item);
-          }}
-          onContextMenu={(event) => {
-            event.preventDefault();
-            setDesktopSelection(item.id);
-            wheel.choose(item.id);
-            onSelect?.(group.id, item.id);
-          }}
-          onKeyDown={(event) => {
-            if (event.key === "Enter") {
-              event.preventDefault();
-              open(item);
-            }
-            if (
-              (event.shiftKey && event.key === "F10") ||
-              event.key === "ContextMenu"
-            ) {
-              event.preventDefault();
-            }
-          }}
-        >
-          {item.kind === "note" ? (
-            <>
-              <span className="rail-note-kicker">随手记</span>
-              <span className="rail-note-content">{item.text}</span>
-            </>
-          ) : (
-            <>
-              <span className="rail-item-media">
-                <RailMedia item={item} unavailable={controller.missing.includes(item.id)} revision={mediaRevision} />
-              </span>
-              {item.kind !== "image" && (
-                <span className="rail-item-name">{item.name}</span>
-              )}
-            </>
-          )}
-          {controller.missing.includes(item.id) && (
-            <span className="rail-item-missing">
-              <Link2 size={12} />
-              需重新关联
-            </span>
-          )}
-        </button>
-        {item.kind === "folder" && (
+        <RailItemFrame>
           <button
+            className="rail-item"
             type="button"
-            className="rail-folder-expand"
-            aria-label={`展开${item.name}`}
-            title="就地展开文件夹"
-            onClick={() => show(controller.missing.includes(item.id) ? "menu" : "folder", item)}
+            aria-label={`${item.name}，${kindLabels[item.kind]}`}
+            title={
+              item.kind === "note"
+                ? item.text
+                : `${item.name}\n${item.path}\n单击或 Enter 打开，拖出拾光绳可发送到其他软件`
+            }
+            aria-pressed={(desktop ? desktopSelection : selected) === item.id}
+            draggable={false}
+            onClick={(event) => {
+              if (event.detail > 0) {
+                recentActivation.current = {
+                  x: event.clientX,
+                  y: event.clientY,
+                  until: performance.now() + doubleClickInterval.current,
+                };
+              }
+              setNotice(null);
+              wheel.choose(item.id);
+              setDesktopSelection(item.id);
+              onSelect?.(group.id, item.id);
+              open(item);
+            }}
+            onContextMenu={(event) => {
+              event.preventDefault();
+              setDesktopSelection(item.id);
+              wheel.choose(item.id);
+              onSelect?.(group.id, item.id);
+            }}
+            onKeyDown={(event) => {
+              if (event.key === "Enter") {
+                event.preventDefault();
+                open(item);
+              }
+              if (
+                (event.shiftKey && event.key === "F10") ||
+                event.key === "ContextMenu"
+              ) {
+                event.preventDefault();
+              }
+            }}
           >
-            <ChevronDown size={13} />
+            {item.kind === "note" ? (
+              <>
+                <span className="rail-note-kicker">随手记</span>
+                <span className="rail-note-content">{item.text}</span>
+              </>
+            ) : (
+              <>
+                <span className="rail-item-media">
+                  <RailMedia
+                    item={item}
+                    unavailable={controller.missing.includes(item.id)}
+                    revision={mediaRevision}
+                  />
+                </span>
+                {item.kind !== "image" && (
+                  <span className="rail-item-name">{item.name}</span>
+                )}
+              </>
+            )}
+            {controller.missing.includes(item.id) && (
+              <span className="rail-item-missing">
+                <Link2 size={12} />
+                需重新关联
+              </span>
+            )}
           </button>
-        )}
-        <button
-          className="rail-item-menu"
-          type="button"
-          aria-label={`${item.name}的操作`}
-          onClick={() => void show("menu", item)}
-        >
-          <Ellipsis size={13} />
-        </button>
-        </div>
+          {item.kind === "folder" && (
+            <button
+              type="button"
+              className="rail-folder-expand"
+              aria-label={`展开${item.name}`}
+              title="就地展开文件夹"
+              onClick={() =>
+                show(
+                  controller.missing.includes(item.id) ? "menu" : "folder",
+                  item,
+                )
+              }
+            >
+              <ChevronDown size={13} />
+            </button>
+          )}
+          <button
+            className="rail-item-menu"
+            type="button"
+            aria-label={`${item.name}的操作`}
+            onClick={() => void show("menu", item)}
+          >
+            <Ellipsis size={13} />
+          </button>
+        </RailItemFrame>
       </div>
     );
   };
   const popupItem =
     popup?.item && group.items.find((item) => item.id === popup.item!.id);
   const popupMissing = !!popupItem && controller.missing.includes(popupItem.id);
-  const popupLayout = popupWindow === "host" ? { width: popup?.nativeWidth ?? 280, left: 12, top: 12 } : placeRailPopup(
-    width,
-    popupAnchor,
-    popup?.mode === "menu" ? 280 : 440,
+  const popupLayout =
+    popupWindow === "host"
+      ? { width: popup?.nativeWidth ?? 280, left: 12, top: 12 }
+      : placeRailPopup(width, popupAnchor, popup?.mode === "menu" ? 280 : 440);
+  useRailPopupWindow(
+    popupWindow,
+    group,
+    requestedPopup,
+    popup,
+    setPopup,
+    popupLayout,
+    popupElement,
+    (id) => {
+      wheel.choose(id);
+      setDesktopSelection(id);
+      onSelect?.(group.id, id);
+    },
+    setNotice,
   );
-  useRailPopupWindow(popupWindow, group, requestedPopup, popup, setPopup, popupLayout, popupElement,
-    id => { wheel.choose(id); setDesktopSelection(id); onSelect?.(group.id, id) }, setNotice);
   return (
     <div
       ref={holder}
       className={`rail-surface rail-wheel${popupWindow === "host" ? " rail-popup-host" : ""}${popup ? " rail-popup-open" : ""}${editing ? " rail-is-editing" : ""}${group.collapsed ? " rail-is-collapsed" : ""}`}
+      data-rail-skin={railSkin(group.skin)}
+      data-rail-clip-accent={theme.clipStyle.accent}
       data-rail-group={group.id}
       {...reorder.events}
       onClickCapture={(event) => {
@@ -584,56 +662,68 @@ export function RailSurface({
       }}
       style={
         {
+          ...railSkinStyle(theme),
           "--rail-unit": `${unit}px`,
           "--rail-cord-center": `${geometry.point(0).y}px`,
-          minHeight: popupWindow === "host" ? 0 : group.collapsed ? 36 : geometry.height + 28,
+          minHeight:
+            popupWindow === "host"
+              ? 0
+              : group.collapsed
+                ? 36
+                : geometry.height + 28,
         } as CSSProperties
       }
     >
       <div className="rail-design">
-        {popupWindow !== "host" && <header className="rail-header">
-          <button
-            className="rail-drag"
-            aria-label={`选择并移动${group.name}`}
-            onClick={() => onSelect?.(group.id)}
-            onPointerDown={(event) => onDragGroup?.(event, group)}
-          >
-            <GripHorizontal size={16} />
-            <strong>{group.name}</strong>
-            <span>{group.items.length.toString().padStart(2, "0")}</span>
-          </button>
-          <div className="rail-header-actions">
+        {popupWindow !== "host" && (
+          <header className="rail-header">
             <button
-              aria-label={`向${group.name}添加项目`}
-              title="添加项目"
-              onClick={add}
+              className="rail-drag"
+              aria-label={`选择并移动${group.name}`}
+              onClick={() => onSelect?.(group.id)}
+              onPointerDown={(event) => onDragGroup?.(event, group)}
             >
-              <Plus size={15} />
+              <GripHorizontal size={16} />
+              <strong>{group.name}</strong>
+              <span>{group.items.length.toString().padStart(2, "0")}</span>
             </button>
-            <button
-              aria-label={`${group.collapsed ? "展开" : "收起"}${group.name}`}
-              title={group.collapsed ? "展开" : "收起"}
-              onClick={() => {
-                setPopup(null);
-                void perform(() =>
-                  controller.change({
-                    type: "group",
-                    id: group.id,
-                    collapsed: !group.collapsed,
-                  }),
-                );
-              }}
-            >
-              {group.collapsed ? (
-                <ChevronDown size={15} />
-              ) : (
-                <ChevronUp size={15} />
-              )}
-            </button>
-          </div>
-        </header>}
+            <div className="rail-header-actions">
+              <button
+                aria-label={`向${group.name}添加项目`}
+                title="添加项目"
+                onClick={add}
+              >
+                <Plus size={15} />
+              </button>
+              <button
+                aria-label={`${group.collapsed ? "展开" : "收起"}${group.name}`}
+                title={group.collapsed ? "展开" : "收起"}
+                onClick={() => {
+                  setPopup(null);
+                  void perform(() =>
+                    controller.change({
+                      type: "group",
+                      id: group.id,
+                      collapsed: !group.collapsed,
+                    }),
+                  );
+                }}
+              >
+                {group.collapsed ? (
+                  <ChevronDown size={15} />
+                ) : (
+                  <ChevronUp size={15} />
+                )}
+              </button>
+            </div>
+          </header>
+        )}
         {popupWindow !== "host" && bodyPresent && (
-          <div className="rail-body" data-entry={animateBodyEntry.current || undefined} inert={group.collapsed}>
+          <div
+            className="rail-body"
+            data-entry={animateBodyEntry.current || undefined}
+            inert={group.collapsed}
+          >
             <button
               className="rail-cord-add"
               type="button"
@@ -642,7 +732,11 @@ export function RailSurface({
               onClick={(event) => {
                 window.clearTimeout(cordClickTimer.current);
                 if (event.detail === 0) openFromCord("add");
-                else if (event.detail === 1) cordClickTimer.current = window.setTimeout(() => openFromCord("add"), doubleClickInterval.current + 20);
+                else if (event.detail === 1)
+                  cordClickTimer.current = window.setTimeout(
+                    () => openFromCord("add"),
+                    doubleClickInterval.current + 20,
+                  );
               }}
               onDoubleClick={() => openFromCord("more")}
               onKeyDown={(event) => {
@@ -658,30 +752,36 @@ export function RailSurface({
                 preserveAspectRatio="none"
                 aria-hidden="true"
               >
-                <path
-                  className="rail-cord-shadow"
-                  d={geometry.path}
-                  transform="translate(0 2)"
+                <RailCord skin={railSkin(group.skin)}
+                  unit={unit}
+                  geometry={geometry}
+                  attachments={group.items
+                    .map((_, index) => geometry.slot(index, wheel.active))
+                    .filter((slot) => slot.visible)
+                    .map((slot) => slot.x)}
                 />
-                <path d={geometry.path} />
-                <path className="rail-cord-hit" d={geometry.path} />
+                <path className="rail-cord-hit" data-rail-rope-path={geometry.path} d={geometry.path} />
               </svg>
             </button>
-            <RailMotionSnapshot beforeUpdate={() => captureMotion(group.items.map(item => item.id))}>
-            <div className="rail-items">
-              {visible.map(card)}
-              {!group.items.length && (
-                <button className="rail-empty" onClick={add}>
-                  <Plus size={22} />
-                  <span>挂上常用的软件、文件或照片</span>
-                  <small>
-                    {desktop
-                      ? "点击选择，或把文件拖到这里"
-                      : "从右侧添加，也可以直接拖入文件"}
-                  </small>
-                </button>
-              )}
-            </div>
+            <RailMotionSnapshot
+              beforeUpdate={() =>
+                captureMotion(group.items.map((item) => item.id))
+              }
+            >
+              <div className="rail-items">
+                {visible.map(card)}
+                {!group.items.length && (
+                  <button className="rail-empty" onClick={add}>
+                    <Plus size={22} />
+                    <span>挂上常用的软件、文件或照片</span>
+                    <small>
+                      {desktop
+                        ? "点击选择，或把文件拖到这里"
+                        : "从右侧添加，也可以直接拖入文件"}
+                    </small>
+                  </button>
+                )}
+              </div>
             </RailMotionSnapshot>
           </div>
         )}
@@ -700,7 +800,9 @@ export function RailSurface({
             inert={!requestedPopup}
             popover={desktop ? undefined : "manual"}
             className={`rail-popup rail-popup-${popup.mode}`}
-            data-detaching={popup.mode === "more" && !!reorder.detaching || undefined}
+            data-detaching={
+              (popup.mode === "more" && !!reorder.detaching) || undefined
+            }
             style={
               {
                 ...popupLayout,
@@ -769,24 +871,39 @@ export function RailSurface({
             )}
             {popup.mode === "more" && (
               <>
-              <RailItemPicker key={popup.token} items={group.items} activeId={wheel.activeId}
-                missing={controller.missing} dragging={reorder.dragging} target={reorder.target} side={reorder.side}
-                onChoose={item => {
-                      wheel.choose(item.id);
-                      setDesktopSelection(item.id);
-                      onSelect?.(group.id, item.id);
-                      setPopup(null);
-                    }} />
-              <p className="rail-overflow-hint" role="status">
-                {reorder.detaching ? "松开恢复到桌面" : reorder.dragging ? "松开放到标记位置" : group.items.length ? "拖动排序 · 拖入挂载 · 拖出恢复桌面" : "把桌面图标拖到这里"}
-              </p>
+                <RailItemPicker
+                  key={popup.token}
+                  items={group.items}
+                  activeId={wheel.activeId}
+                  missing={controller.missing}
+                  dragging={reorder.dragging}
+                  target={reorder.target}
+                  side={reorder.side}
+                  onChoose={(item) => {
+                    wheel.choose(item.id);
+                    setDesktopSelection(item.id);
+                    onSelect?.(group.id, item.id);
+                    setPopup(null);
+                  }}
+                />
+                <p className="rail-overflow-hint" role="status">
+                  {reorder.detaching
+                    ? "松开恢复到桌面"
+                    : reorder.dragging
+                      ? "松开放到标记位置"
+                      : group.items.length
+                        ? "拖动排序 · 拖入挂载 · 拖出恢复桌面"
+                        : "把桌面图标拖到这里"}
+                </p>
               </>
             )}
             {popup.mode === "menu" && popupItem && (
               <div className="rail-context-actions">
-                {!popupMissing && <button onClick={() => open(popupItem)}>
-                  {popupItem.kind === "note" ? "编辑便签" : "打开"}
-                </button>}
+                {!popupMissing && (
+                  <button onClick={() => open(popupItem)}>
+                    {popupItem.kind === "note" ? "编辑便签" : "打开"}
+                  </button>
+                )}
                 {!popupMissing && popupItem.kind === "folder" && (
                   <button onClick={() => show("folder", popupItem)}>
                     就地展开
@@ -794,13 +911,15 @@ export function RailSurface({
                 )}
                 {popupItem.kind !== "note" && (
                   <>
-                    {!popupMissing && <button
-                      onClick={() =>
-                        void perform(() => openRailItem(popupItem.id, true))
-                      }
-                    >
-                      打开所在位置
-                    </button>}
+                    {!popupMissing && (
+                      <button
+                        onClick={() =>
+                          void perform(() => openRailItem(popupItem.id, true))
+                        }
+                      >
+                        打开所在位置
+                      </button>
+                    )}
                     <button
                       onClick={() =>
                         void perform(() =>

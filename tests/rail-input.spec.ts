@@ -5,7 +5,7 @@ import { clickCord } from './rail-helpers'
 
 // Exercise real components with delayed IPC, without launching a desktop window
 // or touching the user's persisted configuration.
-async function fixture(page: Page, surface = false, popupWindow?: 'source' | 'host', surfaceWidth = 860) {
+async function fixture(page: Page, surface = false, popupWindow?: 'source' | 'host', surfaceWidth = 860, skin = 'floral') {
   await page.route('**/src/main.tsx*', route => fulfillFixtureEntry(route, `
     import React from '/node_modules/.vite/deps/react.js';
     import ReactDOM from '/node_modules/.vite/deps/react-dom_client.js';
@@ -35,7 +35,7 @@ async function fixture(page: Page, surface = false, popupWindow?: 'source' | 'ho
       return null;
     }, transformCallback: callback => { const id = window.callbacks.size + 1; window.callbacks.set(id, callback); return id; } };
     function Fixture() {
-      const [settings, setSettings] = React.useState({ version: 1, enabled: true, groups: [{ id: 'apps', name: 'input test', x: .07, y: .12, width: .86, collapsed: false, items: [
+      const [settings, setSettings] = React.useState({ version: 1, enabled: true, groups: [{ id: 'apps', name: 'input test', x: .07, y: .12, width: .86, collapsed: false, skin: ${JSON.stringify(skin)}, items: [
         { id: 'one', name: 'one', kind: 'app', path: 'C:/one.exe', crop: 'cover' },
         { id: 'two', name: 'two', kind: 'app', path: 'C:/two.exe', crop: 'cover' },
         { id: 'note', name: 'note', kind: 'note', path: '', text: 'original', crop: 'cover' },
@@ -61,6 +61,32 @@ async function fixture(page: Page, surface = false, popupWindow?: 'source' | 'ho
   await page.addInitScript(() => { Object.assign(window, { isTauri: true }) })
   await page.goto('/?rail-input-fixture')
 }
+
+for (const skin of ['floral', 'wisteria', 'autumn']) test(`${skin} ornaments fit native clipping while empty desktop areas pass through`, async ({ page }) => {
+  await fixture(page, true, undefined, 1000, skin)
+  await expect(page.locator('.rail-floral-sprig, .rail-botanical-cord > g').first()).toBeVisible()
+  await expect.poll(() => page.evaluate(() => {
+    const host = document.querySelector('.rail-surface')!, box = host.getBoundingClientRect(), dpi = devicePixelRatio
+    const regions = (window as any).hitRegions.at(-1) ?? []
+    const covered = (x: number, y: number) => regions.some((r: { x: number; y: number; width: number; height: number }) => x >= r.x && x <= r.x + r.width && y >= r.y && y <= r.y + r.height)
+    const missed = [...host.querySelectorAll('.rail-floral-sprig :is(path, ellipse, circle), .rail-botanical-cord > g')].flatMap(sprig => {
+      const b = sprig.getBoundingClientRect()
+      // Disconnected leaf veins have empty corners in their bounding box.
+      // Check the actual SVG outline against the native region instead.
+      let points = [[b.left, b.top], [b.right, b.top], [b.left, b.bottom], [b.right, b.bottom]]
+      if (sprig instanceof SVGGeometryElement) {
+        const length = sprig.getTotalLength(), matrix = sprig.getScreenCTM()!
+        const samples = Math.max(1, Math.ceil(length * 2))
+        points = Array.from({ length: samples + 1 }, (_, index) => {
+          const point = sprig.getPointAtLength(length * index / samples).matrixTransform(matrix)
+          return [point.x, point.y]
+        })
+      }
+      return points.filter(([x, y]) => !covered((x - box.x) * dpi, (y - box.y) * dpi)).map(([x, y]) => ({ shape: sprig.getAttribute('class'), x: Math.round((x - box.x) * dpi), y: Math.round((y - box.y) * dpi) }))
+    })
+    return { missed: missed.slice(0, 5), validCount: regions.length > 0 && regions.length <= 256, gapClear: !covered(box.width / 2 * dpi, (box.height - 2) * dpi) }
+  })).toEqual({ missed: [], validCount: true, gapClear: true })
+})
 
 test('desktop discovery finishing or refreshing cannot steal an edited field', async ({ page }) => {
   await fixture(page)
@@ -275,22 +301,24 @@ test('wind sways hangings independently and pauses for interaction and reduced m
   await fixture(page, true, 'source')
   await page.mouse.move(5, 5)
   const sway = page.locator('[data-rail-item="one"] .rail-sway')
-  await expect.poll(() => sway.evaluate(node => node.getAnimations().some(a => a.playState === 'running'))).toBe(true)
+  const angle = () => sway.evaluate(node => Math.abs(parseFloat((node as HTMLElement).style.getPropertyValue('--rail-sway-angle')) || 0))
+  await expect.poll(angle).toBeGreaterThan(.0002)
   const first = await sway.evaluate(node => getComputedStyle(node).transform)
   await expect.poll(() => sway.evaluate(node => getComputedStyle(node).transform)).not.toBe(first)
-  const timings = await page.locator('.rail-sway').evaluateAll(nodes => nodes.map(node => getComputedStyle(node).animationDelay))
-  expect(new Set(timings).size).toBeGreaterThan(1)
+  const angles = await page.locator('.rail-sway').evaluateAll(nodes => nodes.map(node => (node as HTMLElement).style.getPropertyValue('--rail-sway-angle')))
+  expect(new Set(angles).size).toBeGreaterThan(1)
   await page.getByRole('button', { name: 'one，软件', exact: true }).hover()
-  await expect.poll(() => sway.evaluate(node => getComputedStyle(node).animationPlayState)).toBe('paused')
+  await expect.poll(angle).toBeLessThan(.0001)
   await page.getByRole('button', { name: 'one的操作', exact: true }).focus()
   await page.mouse.move(5, 5)
-  await expect.poll(() => sway.evaluate(node => getComputedStyle(node).animationPlayState)).toBe('paused')
+  await expect.poll(angle).toBeLessThan(.0001)
   await page.getByRole('button', { name: 'one，软件', exact: true }).click({ button: 'right' })
   expect(await page.evaluate(() => (window as any).popupRequests.filter(Boolean))).toEqual([])
   await page.getByRole('button', { name: 'one的操作', exact: true }).press('Enter')
   await expect.poll(() => page.evaluate(() => (window as any).popupRequests.filter(Boolean).at(-1)?.mode)).toBe('menu')
   await page.emulateMedia({ reducedMotion: 'reduce' })
-  await expect.poll(() => sway.evaluate(node => node.getAnimations().length)).toBe(0)
+  await expect(sway).toHaveCSS('transform', 'none')
+  expect(await angle()).toBe(0)
 })
 
 test('native animation keeps moving cards inside the region without updates on every frame', async ({ page }) => {

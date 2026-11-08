@@ -21,6 +21,44 @@ fn default_crop() -> String {
     "cover".into()
 }
 
+#[derive(Clone, Copy, Debug, Default, Serialize, Deserialize, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub enum RailSkin {
+    Woodland,
+    #[default]
+    Floral,
+    #[serde(alias = "galaxy")]
+    Wisteria,
+    #[serde(alias = "vinyl")]
+    Autumn,
+}
+
+#[derive(Clone, Copy, Debug, Default, Serialize, Deserialize, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub enum RailAudioProfile {
+    #[default]
+    Gentle,
+    Bounce,
+    String,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct RailAudioConfig {
+    pub enabled: bool,
+    pub profile: RailAudioProfile,
+    pub amount: f64,
+}
+impl Default for RailAudioConfig {
+    fn default() -> Self {
+        Self {
+            enabled: false,
+            profile: RailAudioProfile::Gentle,
+            amount: 35.0,
+        }
+    }
+}
+
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
 #[serde(rename_all = "camelCase")]
 pub struct RailGroup {
@@ -30,6 +68,10 @@ pub struct RailGroup {
     pub y: f64,
     pub width: f64,
     pub collapsed: bool,
+    #[serde(default)]
+    pub skin: RailSkin,
+    #[serde(default)]
+    pub audio_sync: RailAudioConfig,
     pub items: Vec<RailItem>,
 }
 
@@ -52,6 +94,8 @@ impl Default for RailSettings {
                 y: 0.18,
                 width: 0.98,
                 collapsed: false,
+                skin: RailSkin::default(),
+                audio_sync: RailAudioConfig::default(),
                 items: vec![],
             }],
         }
@@ -79,6 +123,11 @@ impl RailSettings {
         }
         let mut ids = HashSet::new();
         for group in &self.groups {
+            if !group.audio_sync.amount.is_finite()
+                || !(0.0..=100.0).contains(&group.audio_sync.amount)
+            {
+                return Err("音乐联动幅度需为 0～100".into());
+            }
             if !valid_id(&group.id) || !ids.insert(group.id.clone()) {
                 return Err("拾光绳编号重复或无效".into());
             }
@@ -178,6 +227,74 @@ pub fn new_id() -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn rail_audio_defaults_migrate_and_invalid_amplitudes_are_rejected() {
+        let mut legacy = serde_json::to_value(RailSettings::default()).unwrap();
+        legacy["groups"][0]
+            .as_object_mut()
+            .unwrap()
+            .remove("audioSync");
+        let mut settings: RailSettings = serde_json::from_value(legacy).unwrap();
+        assert_eq!(settings.groups[0].audio_sync, RailAudioConfig::default());
+        assert!(!settings.groups[0].audio_sync.enabled);
+        for profile in [
+            RailAudioProfile::Gentle,
+            RailAudioProfile::Bounce,
+            RailAudioProfile::String,
+        ] {
+            settings.groups[0].audio_sync = RailAudioConfig {
+                enabled: true,
+                profile,
+                amount: 100.0,
+            };
+            settings.validate().unwrap();
+            assert_eq!(
+                serde_json::from_slice::<RailSettings>(&serde_json::to_vec(&settings).unwrap())
+                    .unwrap(),
+                settings
+            );
+        }
+        for amount in [-1.0, 100.01, f64::NAN, f64::INFINITY] {
+            settings.groups[0].audio_sync.amount = amount;
+            assert!(settings.validate().is_err());
+        }
+        assert!(
+            serde_json::from_value::<RailAudioConfig>(serde_json::json!({
+                "enabled": true, "profile": "unknown", "amount": 35
+            }))
+            .is_err()
+        );
+    }
+
+    #[test]
+    fn rail_skins_load_legacy_groups_and_roundtrip_all_materials() {
+        let mut legacy = serde_json::to_value(RailSettings::default()).unwrap();
+        legacy["groups"][0].as_object_mut().unwrap().remove("skin");
+        let settings: RailSettings = serde_json::from_value(legacy).unwrap();
+        assert_eq!(settings.groups[0].skin, RailSkin::Floral);
+        for (skin, name) in [
+            (RailSkin::Woodland, "woodland"),
+            (RailSkin::Floral, "floral"),
+            (RailSkin::Wisteria, "wisteria"),
+            (RailSkin::Autumn, "autumn"),
+        ] {
+            assert_eq!(serde_json::to_value(skin).unwrap(), name);
+            assert_eq!(
+                serde_json::from_value::<RailSkin>(serde_json::json!(name)).unwrap(),
+                skin
+            );
+        }
+        assert!(serde_json::from_value::<RailSkin>(serde_json::json!("unknown")).is_err());
+        assert_eq!(
+            serde_json::from_value::<RailSkin>(serde_json::json!("galaxy")).unwrap(),
+            RailSkin::Wisteria
+        );
+        assert_eq!(
+            serde_json::from_value::<RailSkin>(serde_json::json!("vinyl")).unwrap(),
+            RailSkin::Autumn
+        );
+    }
     #[test]
     fn only_the_legacy_default_group_name_is_migrated() {
         let mut settings = RailSettings::default();

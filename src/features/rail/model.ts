@@ -1,4 +1,10 @@
+import { validateRailAudio, type RailAudioConfig } from './audio-config';
 export type RailKind = "app" | "file" | "folder" | "image" | "note";
+export const railSkins = ["woodland", "floral", "wisteria", "autumn"] as const;
+export type RailSkin = (typeof railSkins)[number];
+export const railSkin = (value: unknown): RailSkin =>
+  value === 'galaxy' ? 'wisteria' : value === 'vinyl' ? 'autumn' :
+  railSkins.includes(value as RailSkin) ? (value as RailSkin) : "floral";
 export interface RailItem {
   id: string;
   name: string;
@@ -15,6 +21,8 @@ export interface RailGroup {
   y: number;
   width: number;
   collapsed: boolean;
+  skin?: RailSkin;
+  audioSync?: RailAudioConfig;
   items: RailItem[];
 }
 export interface RailSettings {
@@ -38,6 +46,8 @@ export type RailChange =
       y?: number;
       width?: number;
       collapsed?: boolean;
+      skin?: RailSkin;
+      audioSync?: RailAudioConfig;
     }
   | { type: "addGroup" }
   | { type: "removeGroup"; id: string }
@@ -62,6 +72,7 @@ export const railDefaults: RailSettings = {
       y: 0.18,
       width: 0.98,
       collapsed: false,
+      skin: "floral",
       items: [],
     },
   ],
@@ -86,6 +97,9 @@ export function changeRail(
   const next = structuredClone(settings);
   if (change.type === "enable") next.enabled = change.enabled;
   if (change.type === "group") {
+    if (change.audioSync !== undefined) validateRailAudio(change.audioSync);
+    if (change.skin !== undefined && !railSkins.includes(change.skin))
+      throw Error("拾光绳皮肤无效");
     const group = next.groups.find((g) => g.id === change.id);
     if (!group) throw Error("找不到这组拾光绳");
     const { type: _, id: __, ...patch } = change;
@@ -103,6 +117,7 @@ export function changeRail(
       y: 0.54,
       width: 0.38,
       collapsed: false,
+      skin: "floral",
       items: [],
     });
   }
