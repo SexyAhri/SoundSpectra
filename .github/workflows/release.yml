@@ -49,10 +49,10 @@ jobs:
       publish: ${{ steps.release.outputs.publish }}
       release_id: ${{ steps.release.outputs.release_id }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           persist-credentials: false
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version-file: .nvmrc
       - run: npm run version:check
@@ -63,7 +63,7 @@ jobs:
         run: node -e "if (!process.env.TAURI_SIGNING_PRIVATE_KEY || !process.env.TAURI_SIGNING_PRIVATE_KEY_PASSWORD) throw Error('Configure the two TAURI signing secrets before publishing. See docs/RELEASING.md.')"
       - name: Prepare versioned draft
         id: release
-        uses: actions/github-script@v7
+        uses: actions/github-script@v9
         with:
           script: |
             const { prepareRelease } = await import(`${process.env.GITHUB_WORKSPACE}/scripts/prepare-release.mjs`);
@@ -93,10 +93,10 @@ jobs:
       TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
       APPLE_SIGNING_IDENTITY: '-'
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           persist-credentials: false
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version-file: .nvmrc
           cache: npm
@@ -113,7 +113,7 @@ jobs:
       # live in the manually triggered Checks workflow, outside packaging.
       - name: Build signed installers
         run: npm run desktop:build -- --target ${{ matrix.target }} --config src-tauri/tauri.release.conf.json -- --locked
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: ${{ matrix.name }}
           if-no-files-found: error
@@ -132,13 +132,13 @@ jobs:
     permissions:
       contents: write
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           persist-credentials: false
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version-file: .nvmrc
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         with:
           path: artifacts/release
           merge-multiple: true
