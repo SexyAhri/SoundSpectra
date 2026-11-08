@@ -23,6 +23,7 @@ import { useRailPaste } from "../rail/use-rail-paste";
 import { WorkspaceTools } from "./workspace-tools";
 import { PerformanceProvider } from "../performance/runtime";
 import { PerformancePanel } from "../performance/panel";
+import { Wordmark } from "./wordmark";
 
 export function SettingsWorkspace() {
   const {
@@ -151,8 +152,8 @@ export function SettingsWorkspace() {
         </aside>
         <div className="workspace-shell">
           <header className="topbar" data-tauri-drag-region>
-            <h1 className="workspace-title" data-tauri-drag-region>
-              SoundSpectra
+            <h1 className="workspace-title" aria-label="SoundSpectra" data-tauri-drag-region>
+              <Wordmark />
             </h1>
             <div className="topbar-actions">
               <div
