@@ -1,9 +1,12 @@
-import { audioShader } from './audio'
+import { audioShader } from "./audio";
 
-export const particleVertex = /* glsl */`
+export const particleVertex = /* glsl */ `
 ${audioShader}
 uniform float uTime,uKind,uLayer,uBass,uMiddle,uShape,uPixelHeight;
 uniform float uMapBend,uMapUnfold,uScatter;
+uniform float uSeaFill;
+uniform mat4 uSeaProjection;
+uniform vec3 uSeaEye;
 attribute float aSeed;
 varying vec2 vUv;
 varying float vSeed,vLight,vFade,vMusic;
@@ -31,14 +34,21 @@ void main(){
     vFade=(.42+.58*pow(.5+.5*sin(a*11.+b*4.),2.))*(1.-uLayer*.28);
     vMusic=front*.8+uAccents.x*max(0.,lobe)*.35;
   }else{
-    float x=(uv.x-.5)*32.,z=(uv.y-.5)*25.,flow=z-t*1.8;
+    // Project a fixed particle grid onto the sea, keeping useful sampling in
+    // the foreground as the surface opens beyond all four viewport edges.
+    vec4 projected=uSeaProjection*vec4((uv.x-.5)*2.7,(.5-uv.y)*2.7,.5,1.);
+    vec3 ray=normalize(projected.xyz/projected.w-uSeaEye);
+    float travel=clamp(-uSeaEye.y/min(-.08,ray.y),0.,180.);
+    vec3 covered=uSeaEye+ray*travel;
+    float x=mix((uv.x-.5)*32.,covered.x,uSeaFill);
+    float z=mix((uv.y-.5)*25.,covered.z+3.,uSeaFill),flow=z-t*1.8;
     float radius=length(vec2(x*.74,z));
     float front=onsetWave(length(vec2(x*.65,z+6.))+uLayer,9.,1.1);
     float y=sin(x*.22+flow*.25)*(1.15+uBass*2.1)*uShape;
     y+=cos(flow*.28-x*.12)*1.0;
     y+=sin(x*.38+flow*.54)*exp(-radius*.065)*(.65+uMiddle*.9);
     y+=front*2.2*uShape;
-    y+=pow(abs(x)/16.,3.)*1.7*sin(flow*.19);
+    y+=pow(min(abs(x)/16.,1.3),3.)*1.7*sin(flow*.19);
     y-=uLayer*1.65;
     p=vec3(x,y,z-3.);
     vLight=.48+.52*pow(.5+.5*sin(x*.22+flow*.25),2.);
@@ -57,8 +67,8 @@ void main(){
   gl_Position=projectionMatrix*view;
   gl_PointSize=clamp(uPixelHeight*.043/max(1.,-view.z)*(.62+seed*.65),.7,3.8);
 }
-`
-export const particleFragment = /* glsl */`
+`;
+export const particleFragment = /* glsl */ `
 ${audioShader}
 uniform float uTime,uKind,uLayer,uTreble,uDaily;
 uniform vec3 uMain,uAccent,uHigh;
@@ -77,4 +87,4 @@ void main(){
   if(alpha<.015)discard;
   gl_FragColor=vec4(color*light,alpha);
 }
-`
+`;
