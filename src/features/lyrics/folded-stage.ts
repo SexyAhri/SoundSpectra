@@ -1,7 +1,8 @@
 import { AdditiveBlending, Color, InstancedBufferAttribute, InstancedMesh, Object3D, PlaneGeometry, ShaderMaterial } from 'three'
 import type { LyricPalette } from './lyric-palette'
+import { quietLyricAudio, type LyricAudio } from './lyric-audio'
 
-/** A fixed pool of prismatic sails and angular slivers, driven by the lyric transport. */
+/** A fixed pool of prismatic sails and angular slivers sharing the captured music accents. */
 export function createFoldedStage(palette: LyricPalette) {
   const count = 36, geometry = new PlaneGeometry(1, 1)
   const fades = new Float32Array(count)
@@ -26,7 +27,7 @@ export function createFoldedStage(palette: LyricPalette) {
   }
   setPalette(palette)
   const pose = new Object3D()
-  return { mesh, setPalette, update(time: number, width: number, height: number, energy: number, visible: boolean, reduced: boolean, variant: number) {
+  return { mesh, setPalette, update(time: number, width: number, height: number, energy: number, visible: boolean, reduced: boolean, variant: number, audio: Readonly<LyricAudio> = quietLyricAudio) {
     mesh.visible = visible && !reduced
     if (!mesh.visible) return
     const t = time / 1000, short = height < width * .2
@@ -37,13 +38,13 @@ export function createFoldedStage(palette: LyricPalette) {
       const side = i % 2 ? 1 : -1
       if (sail) {
         pose.position.set(side * width * (.12 + seed * .3) + Math.sin(t * .6 + i) * width * .018,
-          Math.sin(i * 2.4 + t * .42) * height * (short ? .22 : .35), -100 - i * 12)
-        pose.scale.set(width * (.22 + seed * .18), height * (.08 + seed * .10), 1)
+          Math.sin(i * 2.4 + t * .42) * height * (short ? .22 : .35) + side * audio.bass * height * .025, -100 - i * 12)
+        pose.scale.set(width * (.22 + seed * .18) * (1 + audio.body * .08), height * (.08 + seed * .10), 1)
         pose.rotation.set(Math.sin(t * .35 + i) * .3, side * (.35 + Math.sin(t * .3 + i) * .18), side * (.24 + seed * .34) * (short ? .24 : 1) + variant * .04)
         fades[i] = (.32 + energy * .65) * (.6 + .4 * Math.sin(t + i) ** 2)
       } else {
         pose.position.set(spread * width * .49, Math.sin(i * 7.1) * height * .42 + side * energy * height * .12, -25 - seed * 70)
-        pose.scale.set((3 + seed * 25) * (1 + energy * .8), 1 + seed * 2.8, 1)
+        pose.scale.set((3 + seed * 25) * (1 + energy * .8), (1 + seed * 2.8) * (1 + audio.treble * .45), 1)
         pose.rotation.set(0, 0, side * (.4 + seed * 1.1) + t * .22)
         fades[i] = Math.sin(cycle * Math.PI) ** 2 * (.18 + energy * .75)
       }

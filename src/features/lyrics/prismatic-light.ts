@@ -1,8 +1,10 @@
 import type { LyricPalette } from './lyric-palette'
+import type { LyricAudio } from './lyric-audio'
 
 interface LightField {
   width: number; height: number; time: number; palette: LyricPalette;
   energy: number; progress: number; mode: 'depth' | 'stage';
+  audio?: Readonly<LyricAudio>;
 }
 
 /** Thin luminous creases, with the same material colors as the scene and card. */
@@ -16,8 +18,8 @@ export function drawPrismaticLight(ctx: CanvasRenderingContext2D, field: LightFi
     const color = palette.prism[i % 3]
     const drift = Math.sin(t * .30 + i * 1.7)
     const x = w * (.06 + seed * .88) + drift * w * .018
-    const y = h * (.5 + side * (.15 + seed * .26))
-    const length = w * (.12 + seed * .19)
+    const y = h * (.5 + side * (.15 + seed * .26 + (field.audio?.bass ?? 0) * .025))
+    const length = w * (.12 + seed * .19) * (1 + (field.audio?.body ?? 0) * .12)
     const tilt = mode === 'depth' ? h * (.09 + seed * .12) : h * .035
     const start = { x: x - length * .52, y: y + side * tilt }
     const bend = { x, y: y - side * h * .015 * Math.sin(progress * Math.PI) }
@@ -33,7 +35,7 @@ export function drawPrismaticLight(ctx: CanvasRenderingContext2D, field: LightFi
       ctx.globalAlpha = alpha * (1 + energy); ctx.lineWidth = width
       trace(); ctx.stroke()
     }
-    ctx.globalAlpha = .66 + energy * .25; ctx.lineWidth = .9
+    ctx.globalAlpha = Math.min(1, .66 + energy * .25); ctx.lineWidth = .9 + (field.audio?.treble ?? 0) * .65
     trace(); ctx.stroke()
     // A faint triangular face puts the lit crease in a plane instead of a wire cage.
     const face = ctx.createLinearGradient(bend.x, bend.y, bend.x, bend.y + side * h * .08)

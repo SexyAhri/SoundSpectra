@@ -9,11 +9,12 @@ import { foldedLayout, type FoldedLayout } from './folded-layout'
 import { createFoldedStage } from './folded-stage'
 import { lyricFont, lyricWeight, measureLyricGlyphs, type LyricFontStyle } from './lyric-typography'
 import { useLyricFont } from './use-lyric-font'
+import { quietLyricAudio, type LyricAudio } from './lyric-audio'
 
 export interface FoldedLyricsProps {
   lines: LyricLine[]; time: number; readTime?: () => number; playing: boolean; desktop: boolean;
   fontSize: number; fontStyle?: LyricFontStyle; regionWidth?: number; reduced: boolean; backgroundOpacity: number;
-  palette: LyricPalette; readability: 'soft' | 'contrast';
+  palette: LyricPalette; readability: 'soft' | 'contrast'; readAudio?: () => Readonly<LyricAudio>;
 }
 const maxPanelGlyphs = 32
 const rasterScale = 2
@@ -99,13 +100,13 @@ function panel(glyphs: TimedGlyph[], palette: LyricPalette, contrast: boolean, s
   const foilGeometry = new PlaneGeometry(width / 96 + .18, 1.38)
   foilGeometry.translate(width / 192, 0, 0)
   const foilMaterial = new ShaderMaterial({ transparent: true, depthWrite: false, side: DoubleSide, blending: AdditiveBlending,
-    uniforms: { opacity: { value: 0 }, clock: { value: 0 }, tint: { value: new Color(palette.accent) } },
+    uniforms: { opacity: { value: 0 }, clock: { value: 0 }, music: { value: new Vector3() }, tint: { value: new Color(palette.accent) } },
     vertexShader: 'varying vec2 vUv;void main(){vUv=uv;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.);}',
-    fragmentShader: `varying vec2 vUv;uniform float opacity;uniform float clock;uniform vec3 tint;
+    fragmentShader: `varying vec2 vUv;uniform float opacity;uniform float clock;uniform vec3 tint;uniform vec3 music;
       void main(){vec2 p=vUv;float cut=step(.07,p.x+p.y)*step(p.x+p.y,1.93);
         float edge=exp(-min(p.x,1.-p.x)*180.)*.4+exp(-min(p.y,1.-p.y)*100.)*.18;
-        float fold=exp(-abs(p.x-.02)*90.);float scan=exp(-abs(p.x-fract(clock*.24))*45.);
-        float a=(.018+edge*.6+fold*.25+scan*.07)*cut*opacity;
+        float fold=exp(-abs(p.x-.02)*90.);float scan=exp(-abs(p.x-fract(clock*.24))*(45.-music.y*12.));
+        float a=(.018+edge*(.6+music.z*.9)+fold*(.25+music.x*.4)+scan*(.07+music.y*.32))*cut*opacity;
         gl_FragColor=vec4(mix(tint,vec3(.55,1.,.91),p.y),a);
         #include <colorspace_fragment>
       }` })
@@ -117,14 +118,20 @@ function panel(glyphs: TimedGlyph[], palette: LyricPalette, contrast: boolean, s
     dispose() { texture.dispose(); geometry.dispose(); material.dispose(); foilGeometry.dispose(); foilMaterial.dispose() } }
 }
 
-function makeLine(line: LyricLine, next: LyricLine | undefined, previous: LyricLine | undefined, palette: LyricPalette, contrast: boolean, style: LyricFontStyle, weight: number) {
+function makeLine(line: LyricLine, next: LyricLine | undefined, previous: LyricLine | undefined, palette: LyricPalette, contrast: boolean, style: LyricFontStyle, weight: number, deferred = false) {
   const glyphs = timedGlyphs(line), panels: ReturnType<typeof panel>[] = []
   // Keep whole English words on one hinge; timing remains at source-word granularity.
-  foldGroups(glyphs).forEach(group => panels.push(panel(group, palette, contrast, style, weight)))
-  const group = new Group()
-  panels.forEach(p => group.add(p.mesh))
+  const groups = foldGroups(glyphs), group = new Group()
+  const prepare = () => {
+    if (panels.length < groups.length) {
+      const item = panel(groups[panels.length], palette, contrast, style, weight)
+      panels.push(item); group.add(item.mesh)
+    }
+    return panels.length === groups.length
+  }
+  if (!deferred) while (!prepare()) { /* Current/seek target must be complete before display. */ }
   const choreography = foldedChoreography(line.start, Math.min(line.end, next?.start ?? Infinity), next?.start, previous?.start, previous?.end)
-  return { group, panels, choreography, line, layout: undefined as FoldedLayout | undefined, layoutKey: '',
+  return { group, panels, choreography, line, prepare, get complete() { return panels.length === groups.length }, layout: undefined as FoldedLayout | undefined, layoutKey: '',
     dispose() { group.removeFromParent(); panels.forEach(p => p.dispose()); choreography.dispose() } }
 }
 
@@ -134,6 +141,27 @@ function Scene(props: FoldedLyricsProps) {
   const style = props.fontStyle ?? 'modern'
   const weight = lyricWeight(style, Math.min(props.fontSize * size.width / (1920 * (props.regionWidth ?? .88)) * 2.35, size.height * .26), 'folded')
   const cache = useRef(new Map<number, ReturnType<typeof makeLine>>())
+  const prewarm = useRef<{ index: number; object: ReturnType<typeof makeLine>; timer: number } | undefined>(undefined)
+  const cancelPrewarm = () => {
+    const job = prewarm.current
+    if (job) { clearTimeout(job.timer); job.object.dispose(); prewarm.current = undefined }
+  }
+  const prepareNext = (index: number) => {
+    if (prewarm.current?.index === index) return
+    cancelPrewarm()
+    const p = latest.current
+    const object = makeLine(p.lines[index], p.lines[index + 1], p.lines[index - 1], p.palette, p.readability === 'contrast', style, weight, true)
+    const job = { index, object, timer: 0 }; prewarm.current = job
+    const step = () => {
+      if (prewarm.current !== job) return
+      if (document.hidden && !latest.current.desktop) { cancelPrewarm(); return }
+      // One small phrase texture per task, away from the visible frame's handoff.
+      if (!object.prepare()) { job.timer = window.setTimeout(step, 12); return }
+      cache.current.set(index, object); object.group.visible = false; scene.add(object.group)
+      prewarm.current = undefined
+    }
+    job.timer = window.setTimeout(step, 12)
+  }
   const stage = useRef<ReturnType<typeof createFoldedStage> | undefined>(undefined)
   useLayoutEffect(() => {
     const decoration = createFoldedStage(props.palette); scene.add(decoration.mesh); stage.current = decoration; invalidate()
@@ -142,9 +170,10 @@ function Scene(props: FoldedLyricsProps) {
   useLayoutEffect(() => {
     const objects = cache.current
     invalidate()
-    return () => { objects.forEach(o => o.dispose()); objects.clear() }
+    return () => { cancelPrewarm(); objects.forEach(o => o.dispose()); objects.clear() }
   }, [props.lines, props.readability, style, weight, scene, invalidate])
   useLayoutEffect(() => {
+    cancelPrewarm()
     stage.current?.setPalette(props.palette)
     cache.current.forEach(object => object.panels.forEach(item => {
       item.material.uniforms.sung.value.set(props.palette.sung)
@@ -173,11 +202,20 @@ function Scene(props: FoldedLyricsProps) {
     const p = latest.current
     if (document.hidden && !p.desktop) return
     const time = p.readTime?.() ?? p.time, index = activeLine(p.lines, time)
+    const audio = p.playing && !p.reduced ? p.readAudio?.() ?? quietLyricAudio : quietLyricAudio
     const wanted = new Set([index - 1, index, index + 1].filter(i => i >= 0 && i < p.lines.length))
+    if (prewarm.current && !wanted.has(prewarm.current.index)) cancelPrewarm()
     cache.current.forEach((o, i) => { if (!wanted.has(i)) { o.dispose(); cache.current.delete(i) } })
     wanted.forEach(i => {
       if (!cache.current.has(i)) {
-        const o = makeLine(p.lines[i], p.lines[i + 1], p.lines[i - 1], p.palette, p.readability === 'contrast', style, weight)
+        // Read ahead during playback; pauses and seeks still reconstruct immediately.
+        if (p.playing && i === index + 1 && p.lines[i].start - time > 900) { prepareNext(i); return }
+        const job = prewarm.current?.index === i ? prewarm.current : undefined
+        let o: ReturnType<typeof makeLine>
+        if (job) {
+          clearTimeout(job.timer); while (!job.object.prepare()) { /* Finish a demanded target. */ }
+          o = job.object; prewarm.current = undefined
+        } else o = makeLine(p.lines[i], p.lines[i + 1], p.lines[i - 1], p.palette, p.readability === 'contrast', style, weight)
         cache.current.set(i, o); scene.add(o.group)
       }
     })
@@ -197,7 +235,7 @@ function Scene(props: FoldedLyricsProps) {
         object.layoutKey = layoutKey
       }
       const { scale, panels: positions, rows } = object.layout!
-      group.scale.setScalar(scale)
+      group.scale.setScalar(scale * (1 + audio.bass * .008))
       const t = clamp((time - choreography.settleStart) / Math.max(1, line.start - choreography.settleStart))
       const settle = t * t * (3 - 2 * t)
       const distance = (camera as PerspectiveCamera).position.z
@@ -250,8 +288,9 @@ function Scene(props: FoldedLyricsProps) {
             clamp((time - active.start) / (active.timed ? Math.max(1, active.end - active.start) : 650)))
         }
         item.foil.visible = !p.reduced
-        item.foil.material.uniforms.opacity.value = item.material.uniforms.opacity.value * (.07 + activity * 1.8 + pulse * .25)
+        item.foil.material.uniforms.opacity.value = item.material.uniforms.opacity.value * (.07 + activity * 1.8 + pulse * .18 + audio.impact * .72 + audio.energy * .10)
         item.foil.material.uniforms.clock.value = time / 1000 + n * .17
+        item.foil.material.uniforms.music.value.set(audio.bass, audio.body, audio.treble)
       })
       // Adjacent panels share a hinge. Folding shortens the whole row like a concertina;
       // it never spreads individual words along a decorative path.
@@ -273,7 +312,7 @@ function Scene(props: FoldedLyricsProps) {
         }
       }
     })
-    stage.current?.update(time, size.width, size.height, energy, visible.length > 0, p.reduced, Math.max(0, index) % 3)
+    stage.current?.update(time, size.width, size.height, energy * .45 + audio.impact * .85 + audio.energy * .15, visible.length > 0, p.reduced, Math.max(0, index) % 3, audio)
     const data = gl.domElement.dataset
     data.composition = 'folded'; data.time = String(Math.round(time)); data.line = String(index)
     data.resources = String(cache.current.size); data.visible = visible.join(',')
@@ -282,6 +321,9 @@ function Scene(props: FoldedLyricsProps) {
     data.fontStyle = style; data.fontsReady = 'true'; data.fontWeight = String(weight)
     if (import.meta.env.DEV) {
       data.fontSize = String(p.fontSize); data.backgroundOpacity = String(p.backgroundOpacity); data.readability = p.readability
+      data.audioImpact = audio.impact.toFixed(3)
+      data.audioBands = [audio.bass, audio.body, audio.treble].map(v => v.toFixed(3)).join(',')
+      data.preparing = prewarm.current ? String(prewarm.current.index) : ''
     }
     if (import.meta.env.DEV) data.poses = JSON.stringify(poses)
     data.frames = String(Number(data.frames ?? 0) + 1)

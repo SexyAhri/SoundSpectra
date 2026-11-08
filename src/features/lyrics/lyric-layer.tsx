@@ -1,4 +1,4 @@
-import { lazy, Suspense, useEffect, useMemo, useState, type CSSProperties } from 'react'
+import { lazy, Suspense, useEffect, useMemo, useState, type CSSProperties, type RefObject } from 'react'
 import type { LyricSettings, SceneBounds, SpectrumSettings } from '../spectrum/model'
 import { relativeBounds } from '../spectrum/regions'
 import type { NowPlaying } from '../desktop-card/use-now-playing'
@@ -9,16 +9,19 @@ import { useLyricPlacement } from './use-lyric-placement'
 import { avoidRail } from './avoid-rail'
 import { lyricPalette } from './lyric-palette'
 import { LyricSceneFocus } from '../spectrum/scene-focus'
+import type { AnalysisSnapshot } from '../spectrum/spectrum-canvas'
+import { readLyricAudio } from './lyric-audio'
 
 const FoldedLyrics = lazy(() => import('./folded-lyrics').then(module => ({ default: module.FoldedLyrics })))
 
-export function LyricLayer({ settings, document, info, demo = false, active = true, desktop = false, host, onBoundsChange, draggable = false, onSelect, obstacles = [], zIndex, selected, appearance, cardAccent, onSnap }: {
+export function LyricLayer({ settings, document, info, demo = false, active = true, desktop = false, host, onBoundsChange, draggable = false, onSelect, obstacles = [], zIndex, selected, appearance, cardAccent, analysis, onSnap }: {
   settings: LyricSettings; document: LyricDocument; info: NowPlaying; demo?: boolean; active?: boolean; desktop?: boolean; host?: SceneBounds;
   onBoundsChange?: (bounds: SceneBounds, resized?: boolean) => void; draggable?: boolean;
   onSelect?: () => void;
   obstacles?: SceneBounds[]; zIndex?: number; selected?: boolean;
   appearance?:Pick<SpectrumSettings,'effect'|'music'|'color'>;
   cardAccent?: string;
+  analysis?: RefObject<AnalysisSnapshot>;
   onSnap?: (guides: { x: number | null; y: number | null }) => void;
 }) {
   const movable = draggable && !desktop && !!onBoundsChange
@@ -40,6 +43,7 @@ export function LyricLayer({ settings, document, info, demo = false, active = tr
   }, [active, settings.enabled])
   if (!settings.enabled || !active) return null
   const simulated = demo && !desktop
+  const readAudio = () => readLyricAudio(analysis?.current, performance.now(), appearance?.music, !reduced && (simulated || info.playing), simulated)
   const synced = playbackPosition(info, clock)
   const valid = document.key === trackKey(info) && document.status === 'ready'
   const lines = simulated ? demoLyrics : valid ? document.lines : []
@@ -55,10 +59,13 @@ export function LyricLayer({ settings, document, info, demo = false, active = tr
     onFocus={movable ? onSelect : undefined} onPointerDown={event => placement.begin(event)} onPointerMove={placement.moving} onPointerUp={event => placement.end(event)} onPointerCancel={event => placement.end(event, true)} onLostPointerCapture={event => placement.end(event, true)} onKeyDown={placement.keyboard}>
     {canShow && !safe.crowded ? <>
       {line && lyricDisplayText(line.text).trim() && <LyricSceneFocus bounds={placement.bounds} lineKey={`${simulated?'demo':document.key}:${index}:${line.start}`} backgroundOpacity={settings.backgroundOpacity} />}
-      {settings.motion === 'folded' ? <Suspense fallback={null}><FoldedLyrics lines={lines} time={time} readTime={()=>((simulated?(Date.now()-demoStart)%demoDuration:playbackPosition(info,Date.now())??0)+settings.offsetMs)} playing={simulated||info.playing} desktop={desktop} fontStyle={settings.fontStyle} fontSize={displayFontSize} regionWidth={placement.bounds.width} reduced={reduced} backgroundOpacity={settings.backgroundOpacity} palette={palette} readability={settings.readability} /></Suspense> : <KineticLyrics lines={lines} index={index} time={time} readTime={()=>((simulated?(Date.now()-demoStart)%demoDuration:playbackPosition(info,Date.now())??0)+settings.offsetMs)} playing={simulated||info.playing} desktop={desktop} fontStyle={settings.fontStyle} fontSize={displayFontSize} regionWidth={placement.bounds.width} mode={settings.motion} reduced={reduced} backgroundOpacity={settings.backgroundOpacity} palette={palette} readability={settings.readability} />}
+      {settings.motion === 'folded' ? <Suspense fallback={null}><FoldedLyrics lines={lines} time={time} readAudio={readAudio} readTime={()=>((simulated?(Date.now()-demoStart)%demoDuration:playbackPosition(info,Date.now())??0)+settings.offsetMs)} playing={simulated||info.playing} desktop={desktop} fontStyle={settings.fontStyle} fontSize={displayFontSize} regionWidth={placement.bounds.width} reduced={reduced} backgroundOpacity={settings.backgroundOpacity} palette={palette} readability={settings.readability} /></Suspense> : <KineticLyrics lines={lines} index={index} time={time} readAudio={readAudio} readTime={()=>((simulated?(Date.now()-demoStart)%demoDuration:playbackPosition(info,Date.now())??0)+settings.offsetMs)} playing={simulated||info.playing} desktop={desktop} fontStyle={settings.fontStyle} fontSize={displayFontSize} regionWidth={placement.bounds.width} mode={settings.motion} reduced={reduced} backgroundOpacity={settings.backgroundOpacity} palette={palette} readability={settings.readability} />}
       <span className="sr-only" aria-label="当前歌词">{line ? lyricDisplayText(line.text) : '前奏'}</span>
       {simulated && <span className="lyric-demo-label">模拟歌词</span>}
-    </> : !safe.crowded && <p className="lyric-empty">{valid && synced === null ? '播放器未提供有效播放进度，暂不能同步歌词' : document.message}</p>}
+      {!simulated && !desktop && info.timelineSource === 'kugou-checkpoint' && <span className="lyric-demo-label">备用进度 · 切歌或拖动后需等待本地更新</span>}
+      {!simulated && !desktop && info.timelineSource === 'player-accessibility' && <span className="lyric-demo-label">播放器界面进度 · 精度约 1 秒</span>}
+      {!simulated && !desktop && info.timelineSource === 'netease-events' && <span className="lyric-demo-label">网易云本地播放事件同步</span>}
+    </> : !safe.crowded && <p className="lyric-empty">{valid && synced === null ? info.sessionId?.toLowerCase().includes('kugou') ? '等待酷狗更新本地播放进度，切歌后也需重新校准' : '歌词已匹配，等待播放器提供有效播放进度' : document.message}</p>}
     {movable && <><span className="lyric-drag-hint" aria-hidden="true">拖动歌词</span><button className="lyric-resize" aria-label="缩放歌词" title="拖动缩放歌词区域" onPointerDown={event => placement.begin(event, true)} /></>}
     {!desktop && safe.crowded && <span className="lyric-space-hint" role="status">拾光绳占用过多空间，请移动或收起部分拾光绳。</span>}
   </div>

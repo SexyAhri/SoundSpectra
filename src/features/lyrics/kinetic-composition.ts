@@ -3,6 +3,7 @@ import { lyricDisplayText, type LyricLine } from './model'
 import { timedGlyphs, type TimedGlyph } from './lyric-glyphs'
 import { ExpressiveComposition } from './expressive-composition'
 import { lyricFont, lyricInk, lyricWeight, measureLyricGlyphs, type LyricFontStyle } from './lyric-typography'
+import type { LyricAudio } from './lyric-audio'
 export { hasTimedWords, timedGlyphs, type TimedGlyph } from './lyric-glyphs'
 
 export type CompositionMode = 'depth' | 'stardust' | 'stage'
@@ -12,6 +13,7 @@ export interface CompositionFrame {
   lines: LyricLine[]; index: number; time: number; width: number; height: number;
   fontSize: number; regionWidth: number; mode: CompositionMode; reduced: boolean;
   backgroundOpacity: number; fontStyle?: LyricFontStyle; palette?:LyricPalette;readability?:'soft'|'contrast';
+  audio?: Readonly<LyricAudio>;
 }
 
 const clamp = (n: number) => Math.max(0, Math.min(1, n))
@@ -135,7 +137,8 @@ export class KineticComposition {
     }
     this.drawLine(context, composition, line, frame, progress, 1)
     if(mode==='stardust'){
-      context.save();context.strokeStyle=palette.accent;context.globalAlpha=.18;context.lineWidth=.7;context.beginPath()
+      const audio = reduced ? undefined : frame.audio
+      context.save();context.strokeStyle=palette.accent;context.globalAlpha=.18+(audio?.impact??0)*.38;context.lineWidth=.7+(audio?.treble??0)*.7;context.beginPath()
       for(let i=0;i<=70;i++){const a=(i/70-.5)*1.8,x=w*(.5+Math.sin(a)/Math.sin(.95)*.43),y=h*(.63+(1-Math.cos(a))/(1-Math.cos(.95))*.16);if(i)context.lineTo(x,y);else context.moveTo(x,y)}context.stroke()
       if(!reduced){
         const a=(progress-.5)*1.8;context.globalAlpha=.65;context.fillStyle=palette.accent;context.beginPath();context.arc(w*(.5+Math.sin(a)/Math.sin(.95)*.43),h*(.63+(1-Math.cos(a))/(1-Math.cos(.95))*.16),1.6,0,Math.PI*2);context.fill()

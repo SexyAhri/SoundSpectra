@@ -95,7 +95,7 @@ export class ExpressiveComposition {
     if (!visible.length) return false
     if (!reduced) {
       const current = visible.find(v => v.cue.index === index) ?? visible[0]
-      drawPrismaticLight(ctx, { ...frame, palette, energy: Math.max(...visible.map(v => v.cue.pulse)), progress: current.cue.progress })
+      drawPrismaticLight(ctx, { ...frame, palette, energy: Math.max(...visible.map(v => v.cue.pulse)) * .38 + (frame.audio?.impact ?? 0) * .9, progress: current.cue.progress })
     }
     // Neighboring cues animate the scenery; only the current sentence paints letters.
     for (const item of visible) if (item.cue.index === index) this.line(ctx, item.layout, frame, item.cue, palette)
@@ -168,12 +168,12 @@ export class ExpressiveComposition {
       const center = { ...row.glyphs[0], x: row.x + row.width / 2, y: row.y }
       const pose = this.pose(center, row, composition, frame, cue), width = row.width, size = row.size
       ctx.save(); ctx.translate(pose.x, pose.y); ctx.rotate(pose.angle); ctx.scale(pose.scale, pose.scale)
-      ctx.globalAlpha = cue.opacity * (.07 + cue.pulse * .07); ctx.fillStyle = tint
+      ctx.globalAlpha = cue.opacity * (.07 + cue.pulse * .07 + (frame.audio?.body ?? 0) * .08); ctx.fillStyle = tint
       if (frame.mode === 'stage' && (composition.compact || (row.glyphs[0].row + cue.index) % 2)) {
         ctx.beginPath(); ctx.moveTo(-width / 2 - size * .12, size * .13); ctx.lineTo(width / 2 + size * .18, size * .13)
         ctx.lineTo(width / 2 + size * .07, size * .48); ctx.lineTo(-width / 2 - size * .20, size * .48); ctx.closePath(); ctx.fill()
       }
-      ctx.globalAlpha = cue.opacity * (.26 + cue.pulse * .38)
+      ctx.globalAlpha = cue.opacity * (.26 + cue.pulse * .24 + (frame.audio?.impact ?? 0) * .42)
       if (frame.mode === 'stage') ctx.fillRect(-width / 2 - size * .22, -size * .35, Math.max(1, size * .028), size * .72)
       const gradient = ctx.createLinearGradient(-width / 2, 0, width / 2 + size, 0)
       gradient.addColorStop(0, palette.prism[0] + '00'); gradient.addColorStop(.25, palette.prism[0]); gradient.addColorStop(.65, palette.prism[1]); gradient.addColorStop(1, tint + '00')

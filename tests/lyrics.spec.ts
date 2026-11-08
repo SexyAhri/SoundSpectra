@@ -13,6 +13,16 @@ test('lyric clock respects pause, seek, stale sessions and word timing', () => {
   expect(playbackPosition({ ...info, position: 35, updated: 1500 }, 1500)).toBe(35000)
   expect(playbackPosition(info, 6000)).toBeNull()
   expect(playbackPosition({ ...info, timelineAvailable: false }, 1500)).toBeNull()
+  const checkpoint = { ...info, duration: 0, timelineSource: 'kugou-checkpoint' as const, timelineValidUntil: 2000 }
+  expect(playbackPosition(checkpoint, 1500)).toBe(10500)
+  expect(playbackPosition(checkpoint, 2100)).toBeNull()
+  expect(playbackPosition({ ...checkpoint, timelineValidUntil: undefined }, 1500)).toBeNull()
+  const accessibility = { ...info, timelineSource: 'player-accessibility' as const, timelineValidUntil: 2000 }
+  expect(playbackPosition(accessibility, 1500)).toBe(10500)
+  expect(playbackPosition(accessibility, 2100)).toBeNull()
+  expect(playbackPosition({ ...accessibility, timelineValidUntil: undefined }, 1500)).toBeNull()
+  expect(playbackPosition({ ...info, position: NaN }, 1500)).toBeNull()
+  expect(playbackPosition({ ...info, updated: 5000 }, 1500)).toBeNull()
   expect(activeLine(demoLyrics, -1)).toBe(-1)
   expect(activeLine(demoLyrics, 5000)).toBe(1)
   expect(wordProgress({ text: '原创', start: 1000, end: 2000 }, 1500)).toBe(.5)
@@ -22,6 +32,42 @@ test('lyric clock respects pause, seek, stale sessions and word timing', () => {
   const host = displayBounds({ ...defaults, regionVisible: false, lyrics: { ...defaults.lyrics, enabled: true } })
   // Lyrics may move around desktop rails without resizing the native host.
   expect(host).toEqual({ x: 0, y: 0, width: 1, height: 1 })
+})
+
+test('checkpoint lyrics render without total duration and disappear when their anchor expires', async ({ page }) => {
+  await page.goto('/tests/fixtures/folded-lyrics.html')
+  await page.evaluate(() => {
+    const probe = (window as any).foldedProbe
+    probe.timing({ duration: 0, timelineSource: 'kugou-checkpoint', timelineValidUntil: Date.now() + 10000 })
+    probe.set({ layer: true, playing: false, available: true, time: 2600 })
+  })
+  const layer = page.getByTestId('lyric-layer')
+  await expect(layer).toBeVisible()
+  await expect(layer.getByLabel('当前歌词')).toHaveText('风把晚霞 折成一页信')
+  await expect(layer.locator('canvas')).toBeVisible()
+  await page.evaluate(() => (window as any).foldedProbe.timing({ timelineValidUntil: Date.now() - 1 }))
+  await expect(layer).toHaveCount(0)
+})
+
+test('NetEase native event clock drives lyrics and stops when observations expire', async ({ page }) => {
+  const info = { ...emptyNowPlaying, position: 2.6, duration: 260.48, updated: 1000, playing: true, timelineAvailable: true, timelineSource: 'netease-events' as const, timelineValidUntil: 3500 }
+  expect(playbackPosition(info, 1500)).toBe(3100)
+  expect(playbackPosition({ ...info, playing: false }, 1500)).toBe(2600)
+  expect(playbackPosition({ ...info, position: 20, updated: 1500 }, 1500)).toBe(20000)
+  expect(playbackPosition(info, 3501)).toBeNull()
+  expect(playbackPosition({ ...info, timelineValidUntil: undefined }, 1500)).toBeNull()
+  await page.goto('/tests/fixtures/folded-lyrics.html')
+  await page.evaluate(() => {
+    const probe = (window as any).foldedProbe
+    probe.timing({ duration: 260.48, timelineSource: 'netease-events', timelineValidUntil: Date.now() + 10000 })
+    probe.set({ layer: true, playing: false, available: true, time: 2600 })
+  })
+  const layer = page.getByTestId('lyric-layer')
+  await expect(layer.getByLabel('当前歌词')).toHaveText('风把晚霞 折成一页信')
+  await page.evaluate(() => (window as any).foldedProbe.set({ time: 5400 }))
+  await expect(layer.getByLabel('当前歌词')).toHaveText(demoLyrics[1].text)
+  await page.evaluate(() => (window as any).foldedProbe.timing({ timelineValidUntil: Date.now() - 1 }))
+  await expect(layer).toHaveCount(0)
 })
 
 test('lyrics preview animates independently, persists controls and never fabricates live lyrics', async ({ page }) => {
