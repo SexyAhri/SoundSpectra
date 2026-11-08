@@ -30,6 +30,7 @@ struct Entry {
 #[derive(Default)]
 pub struct PopupWindows(Mutex<HashMap<String, Entry>>);
 impl PopupWindows {
+    #[cfg(windows)]
     pub fn token(&self, id: &str) -> Option<String> {
         self.0
             .try_lock()
@@ -37,6 +38,7 @@ impl PopupWindows {
             .get(id)
             .map(|entry| entry.request.token.clone())
     }
+    #[cfg(windows)]
     pub fn is_open(&self, id: &str) -> bool {
         self.0
             .try_lock()

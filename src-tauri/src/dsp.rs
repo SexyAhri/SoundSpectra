@@ -80,6 +80,7 @@ pub struct Analyzer {
 }
 
 impl Analyzer {
+    #[cfg(test)]
     pub fn new() -> Self {
         Self::with_source_revision(0)
     }
@@ -233,6 +234,7 @@ impl Analyzer {
         result
     }
 
+    #[cfg(any(test, target_os = "macos"))]
     pub fn music_analysis(&self) -> &MusicAnalysis {
         &self.music
     }

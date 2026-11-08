@@ -1,4 +1,13 @@
 fn main() {
+    if std::env::var("CARGO_CFG_TARGET_OS").as_deref() == Ok("windows")
+        && std::env::var("CARGO_CFG_TARGET_ENV").as_deref() == Ok("msvc")
+    {
+        // Native dependencies export symbols even from our executable. No consumer
+        // links to it, so omit the unused .lib/.exp sidecars and their linker chatter.
+        // This preserves the PE exports and all actual linker warnings.
+        println!("cargo:rustc-link-arg=/NOIMPLIB");
+        println!("cargo:rustc-link-arg=/NOEXP");
+    }
     if std::env::var("CARGO_CFG_TARGET_OS").as_deref() == Ok("macos") {
         use std::{path::PathBuf, process::Command};
         println!("cargo:rerun-if-changed=macos/AudioHelper.swift");

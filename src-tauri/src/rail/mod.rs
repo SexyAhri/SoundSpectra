@@ -560,6 +560,8 @@ fn sync_desktop(app: &AppHandle, settings: &RailSettings) -> Result<(), String> 
     result
 }
 pub fn restore_desktop(app: &AppHandle) -> Result<(), String> {
+    #[cfg(not(windows))]
+    let _ = app;
     #[cfg(windows)]
     {
         let state = app.state::<RailState>();

@@ -42,6 +42,7 @@ pub const PLAYERS: &[Player] = &[
     },
 ];
 
+#[cfg(any(windows, test))]
 pub fn player_for(executable: &str) -> Option<&'static Player> {
     PLAYERS.iter().find(|player| {
         player
@@ -51,6 +52,7 @@ pub fn player_for(executable: &str) -> Option<&'static Player> {
     })
 }
 
+#[cfg(windows)]
 pub fn valid_executable(name: &str) -> bool {
     let lower = name.to_lowercase();
     (5..=128).contains(&name.len())
@@ -88,6 +90,7 @@ impl Source {
             _ => Err("音源无效，请重新选择音乐客户端或已检测到的音频应用。".into()),
         }
     }
+    #[cfg(windows)]
     pub fn name(&self) -> String {
         match self {
             Self::Auto => "音乐客户端".into(),

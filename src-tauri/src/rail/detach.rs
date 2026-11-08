@@ -1,4 +1,7 @@
-use super::{allowed, RailItem, RailState, Snapshot};
+#[cfg(windows)]
+use super::RailItem;
+use super::{allowed, RailState, Snapshot};
+#[cfg(windows)]
 use std::{
     io::Write,
     path::{Path, PathBuf},
@@ -49,6 +52,7 @@ pub async fn rail_detach(
     }
 }
 
+#[cfg(windows)]
 fn safe_name(name: &str) -> String {
     let name: String = name
         .chars()

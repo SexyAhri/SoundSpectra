@@ -1,6 +1,8 @@
 use crate::settings::Settings;
 use serde::Deserialize;
-use tauri::{AppHandle, Manager, WebviewWindow};
+#[cfg(windows)]
+use tauri::Manager;
+use tauri::{AppHandle, WebviewWindow};
 
 #[derive(Deserialize)]
 pub struct HitRect {
