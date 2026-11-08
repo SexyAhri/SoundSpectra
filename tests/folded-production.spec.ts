@@ -174,7 +174,7 @@ test('compact font range changes actual pixels and wallpaper controls work while
   await set({ readability: 'contrast' }); await expect(canvas).toHaveAttribute('data-readability', 'contrast')
   expect((await pixels()).dark).toBeGreaterThan(soft.dark + 100)
   await renderer.screenshot({ path: 'artifacts/folded-curtain/production-wallpaper-contrast.png' })
-  await set({ lines: [], readability: 'soft', backgroundOpacity: 0, time: 0 }); await expect(canvas).toHaveAttribute('data-time', '0')
+  await set({ lines: [], readability: 'contrast', backgroundOpacity: 0, time: 0 }); await expect(canvas).toHaveAttribute('data-time', '0')
   expect((await pixels()).center.slice(0, 3)).toEqual([255, 255, 255])
   await set({ backgroundOpacity: 100 }); await expect(canvas).toHaveAttribute('data-background-opacity', '100')
   const shaded = await pixels()

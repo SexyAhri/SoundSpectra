@@ -292,8 +292,8 @@ function Scene(props: FoldedLyricsProps) {
 
 export function FoldedLyrics(props: FoldedLyricsProps) {
   const fontsReady = useLyricFont(props.lines, props.fontStyle)
-  const opacity = Math.max(props.backgroundOpacity / 100, props.readability === 'contrast' ? .18 : 0)
-  return <div className="folded-lyrics" aria-hidden="true" style={{ background: `radial-gradient(ellipse closest-side, ${props.palette.shadow}${Math.round(clamp(opacity) * 255).toString(16).padStart(2, '0')} 0%, transparent 100%)` }}>
+  const opacity = clamp(props.backgroundOpacity / 100)
+  return <div className="folded-lyrics" aria-hidden="true" style={{ background: opacity ? `radial-gradient(ellipse closest-side, ${props.palette.shadow}${Math.round(opacity * 255).toString(16).padStart(2, '0')} 0%, transparent 100%)` : 'transparent' }}>
     <Canvas frameloop="demand" dpr={[1, 2]} camera={{ position: [0, 0, 1000], fov: 36, near: .1, far: 10000 }} gl={{ alpha: true, antialias: true }}>{fontsReady && <Scene {...props} />}</Canvas>
   </div>
 }

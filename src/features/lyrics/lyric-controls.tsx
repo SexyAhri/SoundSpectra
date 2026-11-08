@@ -46,7 +46,7 @@ export function LyricControls({ settings, document, update, disabled }: { settin
             <span>{label}</span>
           </Button>)}
       </div>
-      <SettingToggle label="浅色壁纸增强" description="增加文字描边和轻底衬。" checked={lyrics.readability==='contrast'} disabled={disabled} onChange={value=>change({readability:value?'contrast':'soft'})} />
+      <SettingToggle label="浅色壁纸增强" description="增强文字描边，底衬由歌词背景控制。" checked={lyrics.readability==='contrast'} disabled={disabled} onChange={value=>change({readability:value?'contrast':'soft'})} />
       <Parameter label="歌词背景" value={lyrics.backgroundOpacity} min={0} max={100} disabled={disabled} onChange={backgroundOpacity => change({ backgroundOpacity })} />
       </section>
       <section className="module-section" aria-label="歌词同步"><h3>同步</h3>

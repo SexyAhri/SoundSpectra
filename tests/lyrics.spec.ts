@@ -84,20 +84,26 @@ test('line-only timing stays phrase-level while word timing keeps its declared g
   ])
 })
 
-test('zero lyric background is actually transparent and the background fades smoothly at its edges', async ({ page }) => {
+for (const mode of ['depth', 'stage', 'stardust']) test(`${mode} lyric background obeys zero and low opacity with wallpaper contrast enabled`, async ({ page }) => {
   await page.goto('/tests/fixtures/kinetic-lyrics.html')
   const canvas = page.locator('canvas')
-  await page.evaluate(() => (window as any).lyricProbe.set({ lines: [], time: 0, backgroundOpacity: 0 }))
-  await expect(canvas).toHaveAttribute('data-background-opacity', '0')
   const alpha = () => canvas.evaluate((node: HTMLCanvasElement) => {
     const c = node.getContext('2d')!
     return { inside: c.getImageData(Math.floor(node.width / 2), Math.floor(node.height / 4), 1, 1).data[3], corner: c.getImageData(0, 0, 1, 1).data[3] }
   })
-  expect((await alpha()).inside).toBe(0)
-  await page.evaluate(() => (window as any).lyricProbe.set({ backgroundOpacity: 100 }))
-  await expect(canvas).toHaveAttribute('data-background-opacity', '100')
-  expect((await alpha()).inside).toBeGreaterThan(70)
-  expect((await alpha()).corner).toBe(0)
+  for (const backgroundOpacity of [100, 15, 0]) {
+    const samples = []
+    for (const readability of ['soft', 'contrast']) {
+      await page.evaluate(patch => (window as any).lyricProbe.set(patch), { mode, readability, lines: [], time: 0, backgroundOpacity })
+      await expect(canvas).toHaveAttribute('data-background-opacity', String(backgroundOpacity))
+      await expect(canvas).toHaveAttribute('data-readability', readability)
+      samples.push(await alpha())
+    }
+    expect(samples[1], 'wallpaper contrast must not override the chosen background opacity').toEqual(samples[0])
+    expect(samples[1].corner).toBe(0)
+    if (backgroundOpacity === 0) expect(samples[1].inside).toBe(0)
+    else expect(samples[1].inside).toBeGreaterThan(backgroundOpacity * .7)
+  }
 })
 
 test('three lyric designs have distinct composition and respect reduced motion', async ({ page }) => {

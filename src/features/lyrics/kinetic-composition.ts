@@ -159,12 +159,11 @@ export class KineticComposition {
     }ctx.restore()
   }
   private background(ctx:CanvasRenderingContext2D,frame:CompositionFrame,palette:LyricPalette){
-    const alpha=clamp(frame.backgroundOpacity/100),{width:w,height:h}=frame
-    if(!alpha&&frame.readability!=='contrast')return
+    const opacity=clamp(frame.backgroundOpacity/100),{width:w,height:h}=frame
+    if(!opacity)return
     ctx.save();ctx.translate(w/2,h/2);ctx.scale(w/2,h/2)
     const shade=ctx.createRadialGradient(0,0,0,0,0,1)
     const rgb=[1,3,5].map(i=>parseInt(palette.shadow.slice(i,i+2),16)).join(',')
-    const opacity=Math.max(alpha,frame.readability==='contrast'?.16:0)
     shade.addColorStop(0,`rgba(${rgb},${opacity})`);shade.addColorStop(.65,`rgba(${rgb},${opacity*.38})`);shade.addColorStop(1,`rgba(${rgb},0)`)
     ctx.fillStyle=shade;ctx.fillRect(-1,-1,2,2);ctx.restore()
   }
