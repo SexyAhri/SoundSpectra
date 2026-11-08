@@ -12,7 +12,10 @@ export function MappingControls({ settings, region, disabled }: {
   const config = usePerformanceConfig()
   const [error, setError] = useState('')
   const capabilities = mappingCapabilities[settings.effect]
-  if (!capabilities) return null
+  if (!capabilities) return <section className="mapping-controls" aria-label="音乐响应映射">
+    <p className="creative-rule">当前灯效使用自身的音乐响应，暂不支持自定映射。</p>
+    <p className="creative-rule">可在“动效”中选择潮汐之结、层海或回声廊道，再设置路径弯曲与局部展开。</p>
+  </section>
   const mapping = config.mappings[`${region}--${settings.effect}`] ?? originalMapping
   const change = (next: Mapping) => {
     try {
