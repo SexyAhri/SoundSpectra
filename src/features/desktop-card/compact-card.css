@@ -1,25 +1,30 @@
-/* A listening strip: readable track identity, with only play/pause at small sizes. */
-.mc-compact { --mc-cover-size: clamp(40px, 12cqw, 56px); --mc-control-space: 100px; }
-.mc-compact .mc-shell { height: min(100%, 88px); max-height: 88px; top: 50%; translate: 0 -50%; padding: 12px; gap: 14px; border: 1px solid color-mix(in srgb, var(--mc-accent) 22%, #ffffff08); border-radius: 10px; background: color-mix(in srgb, var(--mc-accent) 9%, #132126f5); box-shadow: 0 5px 16px #0002; }
-.mc-compact .mc-square { width: var(--mc-cover-size); flex: none; height: auto; aspect-ratio: 1; display: grid; place-items: center; overflow: hidden; border-radius: 5px; background: color-mix(in srgb, var(--mc-accent) 24%, #20363b); color: var(--mc-accent); box-shadow: 0 2px 5px #0003; }
-.mc-compact .mc-copy { padding-right: var(--mc-control-space); }
-.mc-compact .mc-title { margin-top: 0; font-size: clamp(15px, 3.9cqw, 22px); line-height: 1.3; font-weight: 520; letter-spacing: .015em; }
-.mc-compact .mc-artist { padding-right: 0; margin-top: 3px; font-size: clamp(11px, 2.4cqw, 13px); line-height: 1.4; }
+/* A frosted pill, with a circular sleeve and a quiet waveform timeline. */
+.mc-compact { --mc-cover-size: clamp(30px, 26cqh, 44px); --mc-control-space: 91px; }
+.mc-compact .mc-shell { height: clamp(48px, 42cqh, 64px); max-height: 100%; top: 50%; translate: 0 -50%; padding: 6px 10px 6px 8px; gap: 12px; border: 1px solid #e0eee13b; border-radius: 999px; background: linear-gradient(110deg, color-mix(in srgb, var(--mc-accent) 13%, #18282de8), #1c2b31e3); box-shadow: 0 5px 14px #0003, inset 0 1px #fff2; backdrop-filter: blur(12px); }
+.mc-compact .mc-square { width: var(--mc-cover-size); flex: none; height: auto; aspect-ratio: 1; display: grid; place-items: center; overflow: hidden; border: 1px solid #fff5; border-radius: 50%; background: color-mix(in srgb, var(--mc-accent) 24%, #20363b); color: var(--mc-accent); box-shadow: 0 0 0 3px color-mix(in srgb, var(--mc-accent) 12%, transparent), 0 0 12px color-mix(in srgb, var(--mc-accent) 20%, transparent); }
+.mc-compact .mc-square > svg { width: 45%; height: 45%; }
+.mc-compact .mc-copy { padding-right: var(--mc-control-space); padding-bottom: 5px; }
+.mc-compact .mc-title { margin-top: 0; font-size: clamp(15px, 3.6cqw, 20px); line-height: 1.2; font-weight: 540; letter-spacing: .015em; }
+.mc-compact .mc-artist { margin-top: 3px; font-size: 10px; line-height: 1.3; color: #c0ceca; }
 .mc-compact .mc-kicker, .mc-compact .mc-meter, .mc-compact .mc-time { display: none; }
-.mc-compact .mc-footer { position: absolute; right: 12px; top: 50%; bottom: auto; height: 30px; margin: 0; translate: 0 -50%; gap: 0; }
-.mc-compact .mc-transport { gap: 3px; }
-.mc-compact .mc-control { width: 26px; height: 26px; }
-.mc-compact .mc-control-primary { width: 30px; height: 30px; color: var(--mc-button-ink); background: var(--mc-button-fill); box-shadow: none; }
-.mc-compact .mc-progress { left: calc(12px + var(--mc-cover-size) + 14px); right: calc(12px + var(--mc-control-space)); bottom: 8px; height: 1px; background: #ffffff20; }
+.mc-compact .mc-footer { position: absolute; right: 10px; top: 50%; height: 30px; margin: 0; translate: 0 -50%; gap: 0; }
+.mc-compact .mc-transport { gap: 2px; }
+.mc-compact .mc-control { width: 24px; height: 24px; }
+.mc-compact .mc-control-primary { width: 29px; height: 29px; color: var(--mc-button-ink); background: var(--mc-button-fill); box-shadow: none; }
+.mc-compact .mc-progress { left: calc(8px + var(--mc-cover-size) + 12px); right: calc(10px + var(--mc-control-space)); bottom: 5px; height: 5px; background: #d2e9e23b; border-radius: 0; mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='6' viewBox='0 0 120 6' preserveAspectRatio='none'%3E%3Cpath d='M0 3H12L15 1L18 5L21 2L24 4L27 3H45L48 0L51 6L54 1L57 5L60 3H80L83 1L86 5L89 2L92 4L95 3H120' fill='none' stroke='white' stroke-width='1'/%3E%3C/svg%3E") center / 100% 100% no-repeat; }
 .mc-compact .mc-progress-fill { background: var(--mc-accent); }
 @container (max-width: 360px) {
-  .mc-compact .mc-shell { gap: 10px; padding: 10px; }
-  .mc-compact .mc-footer { right: 10px; }
-  .mc-compact .mc-progress { left: calc(10px + var(--mc-cover-size) + 10px); right: calc(10px + var(--mc-control-space)); bottom: 7px; }
+  .mc-compact .mc-shell { gap: 9px; padding-right: 8px; }
+  .mc-compact .mc-footer { right: 8px; }
+  .mc-compact .mc-progress { left: calc(8px + var(--mc-cover-size) + 9px); right: calc(8px + var(--mc-control-space)); }
 }
 @container (max-width: 300px) {
-  .mc-compact .mc-copy { padding-right: 36px; }
+  .mc-compact .mc-copy { padding-right: 34px; }
   .mc-compact .mc-control:not(.mc-control-primary) { display: none; }
-  .mc-compact .mc-control-primary { width: 28px; height: 28px; }
-  .mc-compact .mc-progress { right: 46px; }
+  .mc-compact .mc-control-primary { width: 27px; height: 27px; }
+  .mc-compact .mc-progress { right: 42px; }
+}
+@container (max-height: 100px) {
+  .mc-compact .mc-title { font-size: 15px; }
+  .mc-compact .mc-artist { margin-top: 2px; }
 }

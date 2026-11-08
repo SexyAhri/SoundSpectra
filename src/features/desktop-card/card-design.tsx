@@ -44,22 +44,27 @@ export function MusicCard({ info, settings, color, bands, receivedAt, demo = fal
   const accent = settings.accentColor || color
   const buttonFill = mixColor(accent, '#f8f3e9', .23)
   const buttonInk = luminance([1, 3, 5].map(index => parseInt(buttonFill.slice(index, index + 2), 16) / 255) as [number, number, number]) > .19 ? '#14272c' : '#fffdf3'
-  const progress = <div className="mc-progress" role="progressbar" aria-label="歌曲播放进度" aria-valuemin={0}><span className="mc-progress-fill" /></div>
+  const progress = <div className={`mc-progress${settings.variant === 'record' ? ' mc-record-progress' : ''}`} role="progressbar" aria-label="歌曲播放进度" aria-valuemin={0}>
+    {settings.variant === 'record' && <svg viewBox="0 0 100 100" aria-hidden="true"><path className="mc-arc-track" d="M77 14 A45 45 0 0 1 77 86" /><path className="mc-arc-fill" d="M77 14 A45 45 0 0 1 77 86" pathLength="1" /></svg>}
+    <span className="mc-progress-fill" />
+  </div>
   const inlineProgress = settings.variant !== 'compact'
+  const duration = Number.isFinite(info.duration) && info.duration > 0 ? `${Math.floor(info.duration / 60)}:${String(Math.floor(info.duration % 60)).padStart(2, '0')}` : '—'
   return <article ref={root} className={`music-card music-card-${settings.variant} mc mc-${settings.variant}`} data-playing={reportedPlaying && !demo && active && !controlsOnly} data-active={active} data-track={key} data-color-mode={settings.accentColor ? 'fixed' : 'scene'} aria-label="桌面音乐信息卡" style={{ '--mc-accent': accent, '--mc-button-fill': buttonFill, '--mc-button-ink': buttonInk } as CSSProperties}>
     <div className="mc-shell">
-      {settings.variant === 'record' ? <div className="mc-record-art" aria-hidden="true"><span className="mc-record-plinth" /><div className="mc-disc-mount"><div className="vinyl-disc mc-disc"><div className="mc-label">{art}</div></div><span className="mc-sheen" /></div><div className="mc-sleeve">{art}<span className="mc-sleeve-edge" /></div></div>
-        : settings.variant === 'floating' ? <div className="mc-float-art" aria-hidden="true"><span className="mc-float-halo" /><span className="mc-float-backing" /><div className="mc-float-cover">{art}<span className="mc-float-glass" /></div></div>
+      {settings.variant === 'record' ? <div className="mc-record-art"><span className="mc-record-plinth" /><div className="mc-disc-mount"><div className="vinyl-disc mc-disc" aria-hidden="true"><div className="mc-label">{art}</div></div><span className="mc-sheen" />{progress}</div><div className="mc-sleeve" aria-hidden="true">{art}<span className="mc-sleeve-edge" /></div></div>
+        : settings.variant === 'floating' ? <><span className="mc-float-clip" aria-hidden="true" /><div className="mc-float-art" aria-hidden="true"><div className="mc-float-cover">{art}<span className="mc-float-glass" /></div></div></>
         : settings.variant === 'compact' ? <div className="mc-square" aria-hidden="true">{art}</div>
-        : <div className="mc-paper-art" aria-hidden="true"><div className="mc-paper-photo">{art}</div><span className="mc-paper-tape" /><span className="mc-paper-caption">音乐藏书票</span></div>}
+        : <div className="mc-paper-art" aria-hidden="true"><div className="mc-paper-photo">{art}</div><span className="mc-paper-caption">音乐藏书票</span></div>}
       <div className="mc-copy">
-        <div className="mc-kicker"><span className="mc-status-dot" /><span>{status}</span><span className="mc-source" title={inlineProgress ? info.album || undefined : undefined}>{inlineProgress ? info.album : info.title ? info.source : ''}</span></div>
+        <div className="mc-kicker"><span className="mc-status-dot" /><span>{status}</span><span className={`mc-source${settings.variant === 'floating' ? ' mc-source-badge' : ''}`} title={settings.variant === 'floating' ? info.source || undefined : inlineProgress ? info.album || undefined : undefined}>{settings.variant === 'floating' ? info.source : inlineProgress ? info.album : info.title ? info.source : ''}</span></div>
         <div className="mc-title" title={title}>{title}</div>
         <div className="mc-artist" title={artist || undefined} aria-hidden={!artist || undefined}>{artist}</div>
         <div className="mc-footer"><CardTransport info={info} disabled={controlsDisabled || !active || stale} demo={demo} />{meter}<span className="mc-time" /></div>
-        {inlineProgress && progress}
+        {inlineProgress && settings.variant !== 'record' && progress}
       </div>
       {!inlineProgress && progress}
+      {settings.variant === 'afternoon' && <aside className="mc-ticket-stub" aria-label="音乐票根"><span className="mc-ticket-mark" aria-hidden="true"><Music2 size={14} /></span><span className="mc-ticket-source" title={info.source || undefined}>{info.source || '音乐藏书票'}</span><span className="mc-ticket-duration" title="歌曲总时长">{duration}</span></aside>}
     </div>
   </article>
 }

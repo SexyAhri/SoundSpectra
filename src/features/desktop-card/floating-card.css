@@ -1,43 +1,46 @@
-/* A suspended sleeve and a quiet caption; the desktop supplies the scene. */
-.mc-floating { --mc-muted: #d0d8d9; }
-.mc-floating .mc-shell { isolation: isolate; padding: 12px 16px 16px 12px; gap: clamp(16px, 5cqw, 32px); }
-.mc-floating .mc-shell::before { content: ''; position: absolute; z-index: -1; inset: 0; background: radial-gradient(ellipse 49% 49% at 50% 50%, #071319c7 0%, #07131994 40%, #07131940 70%, transparent 100%); pointer-events: none; }
-.mc-float-art { position: relative; width: min(27cqw, 76cqh, 166px); aspect-ratio: 1; flex: none; }
-.mc-float-halo { position: absolute; inset: -15%; border-radius: 50%; background: radial-gradient(ellipse, color-mix(in srgb, var(--mc-accent) 26%, transparent), transparent 68%); opacity: .7; }
-.mc-float-backing { position: absolute; inset: 4% -4% -2% 4%; border: 1px solid color-mix(in srgb, var(--mc-accent) 38%, #ffffff30); border-radius: 7px; background: #a6ccd412; transform: rotate(4deg); }
-.mc-float-cover { position: absolute; inset: 0; overflow: hidden; display: grid; place-items: center; border-radius: 6px; border: 1px solid #ffffff59; background: linear-gradient(145deg, #344d56, #15292f); box-shadow: 2px 8px 19px #0006; transform: rotate(-4deg); color: var(--mc-accent); }
+/* Two acrylic planes and one stationary metal clip. */
+.mc-floating { --mc-muted: #c6d3d4; }
+.mc-floating .mc-shell { isolation: isolate; overflow: visible; padding: clamp(12px, 3cqw, 21px); gap: clamp(17px, 4cqw, 30px); border: 1px solid #e3f2ec70; border-radius: 10px; background: linear-gradient(125deg, color-mix(in srgb, var(--mc-accent) 13%, #1d3039d9), #182931d9 55%, #273e46d4); box-shadow: 0 8px 22px #0004, inset 0 1px #fff4, inset 1px 0 #fff2; backdrop-filter: blur(12px); }
+.mc-floating .mc-shell::before { content: ''; position: absolute; z-index: -1; inset: 6px -2px -6px 3px; border: 1px solid #d2eae85c; border-radius: 9px; background: linear-gradient(130deg, #87aeb638, #10253070); transform: rotate(-2deg); box-shadow: 0 5px 12px #0003; pointer-events: none; }
+.mc-floating .mc-shell::after { content: ''; position: absolute; z-index: -1; inset: 0; border-radius: inherit; background: linear-gradient(120deg, #ffffff15, transparent 26% 73%, #d8edec0a); pointer-events: none; }
+.mc-float-art { position: relative; width: min(25cqw, 74cqh, 158px); aspect-ratio: 1; flex: none; }
+.mc-float-cover { position: absolute; inset: 0; display: grid; place-items: center; overflow: hidden; border: 1px solid #ffffff45; border-radius: 5px; background: linear-gradient(145deg, #34505b, #15292f); box-shadow: 0 3px 7px #0004; color: var(--mc-accent); }
 .mc-float-cover > svg { width: 40%; height: 40%; stroke-width: 1; }
-.mc-float-glass { position: absolute; inset: 0; background: linear-gradient(125deg, #ffffff1f, transparent 44%, #06101c12); box-shadow: inset 0 0 0 1px #ffffff12; }
-.mc-floating .mc-copy { position: relative; padding-bottom: 9px; text-shadow: 0 1px 3px #000b; }
-.mc-floating .mc-kicker { gap: 7px; font-size: clamp(9px, 1.95cqw, 11px); letter-spacing: .12em; color: #d4dfdf; }
+.mc-float-glass { position: absolute; inset: 0; background: linear-gradient(125deg, #ffffff21, transparent 44%); box-shadow: inset 0 0 0 1px #ffffff12; }
+.mc-float-clip { position: absolute; z-index: 3; left: 26px; top: -6px; width: 12px; height: 35px; border: 2px solid #cdd6d4; border-radius: 9px; box-shadow: 1px 1px 0 #14242d, inset 1px 0 #fff8, 1px 2px 3px #0005; transform: rotate(-17deg); pointer-events: none; }
+.mc-float-clip::after { content: ''; position: absolute; inset: 4px 2px 3px; border: 1px solid #bac8c7; border-top: 0; border-radius: 0 0 5px 5px; }
+.mc-floating .mc-copy { position: relative; padding-bottom: 8px; text-shadow: 0 1px 2px #0005; }
+.mc-floating .mc-kicker { height: 17px; gap: 6px; font-size: 9px; letter-spacing: .08em; color: #d0deda; }
 .mc-floating .mc-status-dot { width: 4px; height: 4px; }
-.mc-floating .mc-source { max-width: 54%; font-size: 1em; opacity: .75; letter-spacing: .05em; }
-.mc-floating .mc-title { margin-top: 10px; font-size: clamp(16px, 4.7cqw, 31px); font-weight: 520; letter-spacing: .035em; line-height: 1.3; color: #fffdf5; }
-.mc-floating .mc-artist { margin-top: 5px; font-size: clamp(11px, 2.45cqw, 15px); letter-spacing: .04em; }
-.mc-floating .mc-footer { margin-top: 12px; height: 28px; gap: 10px; }
-.mc-floating .mc-control { width: 25px; height: 25px; color: #e1e8e7; }
+.mc-floating .mc-source-badge { display: block; max-width: 55%; font-size: 9px; padding: 2px 6px; border: 1px solid #d4ebe436; border-radius: 5px; background: #10232d45; opacity: 1; letter-spacing: .03em; line-height: 1.3; }
+.mc-floating .mc-source-badge:empty { visibility: hidden; }
+.mc-floating .mc-title { margin-top: 6px; font-size: clamp(16px, 4.3cqw, 29px); font-weight: 540; letter-spacing: .035em; line-height: 1.3; color: #fffdf5; }
+.mc-floating .mc-artist { margin-top: 4px; font-size: clamp(11px, 2.35cqw, 14px); letter-spacing: .025em; }
+.mc-floating .mc-footer { margin-top: 7px; height: 28px; gap: 7px; }
+.mc-floating .mc-control { width: 24px; height: 24px; color: #e1e8e7; }
 .mc-floating .mc-control-primary { width: 28px; height: 28px; background: color-mix(in srgb, var(--mc-accent) 27%, #16272d); border-color: color-mix(in srgb, var(--mc-accent) 65%, transparent); box-shadow: none; color: #fffdf5; }
 .mc-floating .mc-control-primary:hover:not(:disabled) { background: #e8f4f02e; }
 .mc-floating .mc-control:disabled { opacity: .55; }
-.mc-floating .mc-meter { width: clamp(38px, 11cqw, 65px); height: 18px; margin-left: auto; opacity: .8; }
+.mc-floating .mc-meter { width: clamp(30px, 9cqw, 54px); height: 17px; margin-left: auto; opacity: .8; }
 .mc-floating .mc-meter line { stroke-width: 1.7; }
-.mc-floating .mc-time { color: #d0dcde; font-size: 9px; letter-spacing: .025em; }
+.mc-floating .mc-time { color: #c4d5d4; font-size: 8px; }
 .mc-floating .mc-progress { left: 0; right: 0; bottom: 0; height: 1px; background: #ffffff30; }
 .mc-floating .mc-progress-fill { background: color-mix(in srgb, var(--mc-accent) 68%, white); }
 @container (max-width: 360px) {
-  .mc-floating .mc-shell { padding: 9px 10px 12px; gap: 16px; }
-  .mc-floating .mc-title { margin-top: 6px; font-size: clamp(15px, 4.7cqw, 20px); }
-  .mc-floating .mc-kicker { font-size: 9px; letter-spacing: .04em; }
-  .mc-floating .mc-source, .mc-floating .mc-time { display: none; }
-  .mc-floating .mc-footer { gap: 4px; margin-top: 6px; height: 24px; }
+  .mc-floating .mc-shell { padding: 10px; gap: 13px; }
+  .mc-floating .mc-title { margin-top: 4px; font-size: clamp(15px, 4.5cqw, 20px); }
+  .mc-floating .mc-source-badge, .mc-floating .mc-time { display: none; }
+  .mc-floating .mc-footer { gap: 3px; margin-top: 4px; height: 23px; }
   .mc-floating .mc-control, .mc-floating .mc-control-primary { width: 23px; height: 23px; }
-  .mc-floating .mc-meter { width: 35px; height: 16px; }
+  .mc-floating .mc-meter { width: 30px; height: 15px; }
+  .mc-float-clip { left: 20px; height: 27px; width: 10px; top: -4px; }
 }
 @container (max-height: 100px) {
-  .mc-floating .mc-kicker { display: none; }
-  .mc-floating .mc-copy { padding-bottom: 6px; }
+  .mc-floating .mc-shell { padding-block: 7px; }
+  .mc-floating .mc-kicker, .mc-floating .mc-time, .mc-floating .mc-meter { display: none; }
+  .mc-floating .mc-copy { padding-bottom: 5px; }
   .mc-floating .mc-title { margin-top: 0; font-size: clamp(15px, 4cqw, 23px); }
-  .mc-floating .mc-artist { margin-top: 2px; }
-  .mc-floating .mc-footer { margin-top: 4px; height: 23px; }
-  .mc-floating .mc-control, .mc-floating .mc-control-primary { width: 23px; height: 23px; }
+  .mc-floating .mc-artist { margin-top: 2px; font-size: 10px; }
+  .mc-floating .mc-footer { margin-top: 3px; height: 22px; }
+  .mc-floating .mc-control, .mc-floating .mc-control-primary { width: 22px; height: 22px; }
 }

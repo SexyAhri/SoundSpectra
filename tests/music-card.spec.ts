@@ -139,9 +139,10 @@ test('rapid tracks and late covers cannot mix artwork, text or revive an old req
 
 test('rotation survives polling and pause, progress advances continuously and seek applies directly', async ({ page }) => {
   await page.goto('/tests/fixtures/music-card.html')
-  const card = page.locator('.mc'), fill = card.locator('.mc-progress-fill')
+  const card = page.locator('.mc')
+  const arc = card.locator('.mc-arc-fill')
   await expect(card).toHaveAttribute('data-timeline', 'available')
-  const read = () => fill.evaluate(node => getComputedStyle(node).transform)
+  const read = () => arc.evaluate(node => parseFloat(getComputedStyle(node).strokeDashoffset))
   const before = await read()
   await expect.poll(read).not.toBe(before)
   await page.evaluate(() => { const disc = document.querySelector('.mc-disc')!; (window as any).__disc = disc; (window as any).__turn = disc.getAnimations()[0]; (window as any).cardProbe.set({ playing: false, position: 80 }) })
@@ -149,6 +150,8 @@ test('rotation survives polling and pause, progress advances continuously and se
   const frozen = await read()
   await page.waitForTimeout(250)
   expect(await read()).toBe(frozen)
+  await page.evaluate(() => (window as any).cardProbe.set({ position: 59, duration: 236, playing: false }))
+  await expect.poll(read).toBe(.75)
   await page.evaluate(() => (window as any).cardProbe.set({ position: 4, playing: true }))
   await expect(card.locator('.mc-progress')).toHaveAttribute('aria-valuenow', '4')
   expect(await page.evaluate(() => (window as any).__disc === document.querySelector('.mc-disc') && (window as any).__turn === document.querySelector('.mc-disc')!.getAnimations()[0])).toBe(true)

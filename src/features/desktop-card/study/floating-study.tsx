@@ -98,9 +98,9 @@ function FloatingStudy() {
   useEffect(() => {
     if (study.current) study.current.settings.color = colors.settings.color
   }, [colors.settings.color])
-  const introductions = { record: '唱片 · 封面、黑胶与一方安静的听歌位置。', compact: '简约 · 窄幅控制条，把空间留给歌名。', afternoon: '午后 · 奶油纸面，贴片封面，像收藏一页音乐。', floating: '浮签 · 悬置的封面，安静的排版，与空间共处的一点微光。' }
+  const introductions = { record: '唱片 · 半露黑胶，外圈进度，一枚安静的歌名标签。', compact: '简约 · 磨砂胶囊，圆形封面，把空间留给歌名。', afternoon: '午后 · 复古印刷、双联票根，把听歌变成收藏。', floating: '浮签 · 双层透光亚克力，用一枚金属夹留住旋律。' }
   return <main className="floating-study">
-    <header><div><p className="study-eyebrow">SOUNDSPECTRA / MUSIC OBJECTS</p><h1>{paper ? '把喜欢的歌，夹进午后的书页。' : '为音乐，留一个位置。'}</h1><p className="study-intro">{introductions[variant]}</p></div><span className="study-edition">MUSIC CARD<br /><b>{studyName}</b></span></header>
+    <header><div><p className="study-eyebrow">SOUNDSPECTRA / MUSIC OBJECTS</p><h1>{paper ? '把喜欢的歌，留在一张票根里。' : '为音乐，留一个位置。'}</h1><p className="study-intro">{introductions[variant]}</p></div><span className="study-edition">MUSIC CARD<br /><b>{studyName}</b></span></header>
     <div className="study-card-options" role="group" aria-label="预览卡片样式">{Object.entries(studyNames).map(([id, name]) => <button key={id} aria-pressed={variant === id} onClick={() => setVariant(id as typeof variant)}>{name}</button>)}</div>
     <nav aria-label="搭配三维场景">{Object.entries(compositions).map(([id, value]) => <button key={id} aria-pressed={scene === id} onClick={() => setScene(id as CompositionId)}>{value.title}<span>{value.family}</span></button>)}</nav>
     <section className={`floating-stage ${light ? 'is-light' : ''}`} aria-label={`${studyName}与三维场景连续预览`}>
@@ -111,7 +111,7 @@ function FloatingStudy() {
     </section>
     <div className="study-toolbar"><div><button onClick={() => setPlaying(!playing)}>{playing ? '暂停示例' : '继续示例'}</button><button onClick={() => selectTrack((index + 1) % tracks.length)}>切换示例曲目</button></div><div><label><input type="checkbox" checked={light} onChange={e => setLight(e.target.checked)} />浅色壁纸</label><label><input type="checkbox" checked={quiet} onChange={e => setQuiet(e.target.checked)} />静音输入</label><label><input type="checkbox" checked={reduced} onChange={e => setReduced(e.target.checked)} />减少动态</label><label><input type="checkbox" checked={size === 'small'} onChange={e => setSize(e.target.checked ? 'small' : 'normal')} />小尺寸</label></div></div>
     <section className="study-palette" aria-label="卡片配色验证"><CardColorControls settings={sceneSettings} disabled={false} update={patch => setDesignSettings(current => normalizeSettings({ ...current, ...patch }))} /><label>场景色板<select aria-label="预览场景色板" value={designSettings.music.fieldPalette} onChange={event => setDesignSettings(current => ({ ...current, music: { ...current.music, fieldPalette: event.target.value as typeof current.music.fieldPalette } }))}>{Object.entries(effectPalettes[compositions[scene].effect]).map(([id, value]) => <option key={id} value={id}>{value.name}</option>)}</select></label><label><input type="checkbox" checked={designSettings.followCover} onChange={event => setDesignSettings(current => ({ ...current, followCover: event.target.checked }))} />跟随封面配色</label></section>
-    <footer><p><b>{paper ? '一张音乐藏书票' : '与空间共处'}</b>{paper ? '小照片贴在奶油纸面上，宋体歌名、歌手与专辑构成阅读层次，细线与少量声能留在页脚。' : introductions[variant]}</p><p><b>沿用真实组件</b>此处与软件使用同一款卡片、配色控件和三维渲染器。歌曲、封面与音频特征为原创合成示例，不采集或控制本机播放器；卡片内的播放按钮在浏览器中不可用。</p></footer>
+    <footer><p><b>{paper ? '一张音乐票根' : '与空间共处'}</b>{introductions[variant]}</p><p><b>沿用真实组件</b>此处与软件使用同一款卡片、配色控件和三维渲染器。歌曲、封面与音频特征为原创合成示例，不采集或控制本机播放器；卡片内的播放按钮在浏览器中不可用。</p></footer>
     {error && <pre role="alert">{error}</pre>}
   </main>
 }

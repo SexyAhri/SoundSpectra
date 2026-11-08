@@ -19,10 +19,15 @@ export function useCardClock(info: NowPlaying, root: RefObject<HTMLElement | nul
       if (article.dataset.timeline !== timeline) article.dataset.timeline = timeline
       const progress = article.querySelector<HTMLElement>('.mc-progress')
       const fill = article.querySelector<HTMLElement>('.mc-progress-fill')
+      const arc = article.querySelector<SVGPathElement>('.mc-arc-fill')
       const clock = article.querySelector<HTMLElement>('.mc-time')
       if (position !== null && progress && fill) {
         const transform = `scaleX(${Number((position / 1000 / value.duration).toFixed(6))})`
         if (fill.style.transform !== transform) fill.style.transform = transform
+        if (arc) {
+          const offset = String(Number((1 - Math.max(0, Math.min(1, position / 1000 / value.duration))).toFixed(6)))
+          if (arc.style.strokeDashoffset !== offset) arc.style.strokeDashoffset = offset
+        }
         const seconds = Math.floor(position / 1000)
         const label = `${stamp(seconds)} / ${stamp(value.duration)}`
         if (clock && clock.textContent !== label) clock.textContent = label
