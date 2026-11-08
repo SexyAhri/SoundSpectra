@@ -1,97 +1,641 @@
-.studio-shell { background: var(--background); font-family: "Segoe UI Variable", "Segoe UI", "Microsoft YaHei UI", sans-serif; }
-.studio-shell .sidebar { width: 80px; background: var(--sidebar); border-color: var(--border); padding: 18px 10px; }
-.studio-shell .brand-mark { height: 47px; margin-bottom: 34px; position: relative; color: var(--primary); }
-.studio-shell .brand-mark > svg { width: 28px; height: 28px; }
-.brand-monogram { position: absolute; right: -2px; bottom: -1px; font: 600 8px Consolas,monospace; letter-spacing: .04em; color: var(--primary); }
-.studio-shell .sidebar nav { display: grid; gap: 14px; }
-.studio-shell .nav-active,.studio-shell .nav-item { width: 56px; min-height: 61px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; border-radius: 11px; font-size: 10px; text-decoration: none; }
-.studio-shell .nav-active { color: var(--primary); border: 1px solid var(--border-strong); background: var(--accent); box-shadow: inset 0 1px 0 color-mix(in srgb, var(--primary) 8%, transparent); }
-.studio-shell .nav-item { color: var(--muted-foreground); border: 1px solid transparent; background: transparent; }
-.studio-shell .nav-item:hover { color: var(--foreground); background: var(--secondary); }
-.studio-shell .nav-button { font: inherit; font-size: 10px; }
-.studio-shell .sidebar-version { font-family: Consolas,monospace; color: var(--muted-foreground); font-size: 9px; }
-.studio-shell .topbar { height: 54px; padding-left: 25px; border-bottom: 1px solid var(--border); background: var(--chrome); }
-.studio-shell .workspace-title { display: flex; align-items: center; gap: 12px; font-size: 14px; font-weight: 650; letter-spacing: -.015em; }
-.workspace-edition { border-left: 1px solid var(--border); padding-left: 12px; font: 9px Consolas,monospace; color: var(--muted-foreground); letter-spacing: .18em; }
-.studio-shell .save-status { color: var(--muted-foreground); font-size: 10px; }
-.studio-shell .save-status svg { color: var(--success); }
-.studio-shell .save-status.is-error, .studio-shell .save-status.is-error svg { color: var(--destructive); }
-.studio-shell .window-controls button { height: 54px; }
-.studio-shell .main-pane { padding: 25px 26px 22px; background: var(--background); }
-.studio-shell .section-toolbar { margin-bottom: 12px; }
-.studio-shell .section-toolbar h2 { color: var(--foreground); font-size: 11px; gap: 7px; }
-.studio-shell .section-toolbar h2 svg { width: 14px; color: var(--primary); }
-.studio-shell .demo-control { color: var(--muted-foreground); }
-.studio-shell .desktop-preview { border-radius: 13px; box-shadow: 0 0 0 1px var(--border-strong),0 14px 36px var(--shadow); background: var(--inset); }
-.studio-shell .preview-corner { background: var(--art-scrim); border-color: color-mix(in srgb, var(--on-art) 25%, transparent); color: var(--on-art); border-radius: 5px; letter-spacing: .03em; padding: 5px 9px; }
-.studio-shell .demo-dot { background: var(--primary); }
-.studio-shell .preview-footer { color: var(--muted-foreground); margin-top: 15px; }
-.studio-shell .preview-background-controls { padding: 3px; border: 1px solid var(--border); border-radius: 7px; background: var(--secondary); }
-.studio-shell .preview-background-controls button { border-radius: 4px; }
-.studio-shell .auto-scene-entry { margin-top: 16px; gap: 8px; }
-.studio-shell .auto-scene-entry > button { color: var(--foreground); border-color: var(--border); background: var(--secondary); height: 34px; padding: 0 12px; border-radius: 7px; }
-.studio-shell .auto-scene-entry > button:first-child { background: var(--accent); border-color: var(--border-strong); color: var(--primary); }
-.studio-shell .preview-message { color: var(--muted-foreground); line-height: 1.6; }
-.studio-shell .desktop-actions { padding: 13px 15px; border: 1px solid var(--border); border-radius: 11px; background: var(--card); margin-top: 23px; gap: 8px; }
-.studio-shell .desktop-toggle { font-size: 12px; }
-.studio-shell .desktop-toggle > svg { color: var(--muted-foreground); }
-.studio-shell .desktop-actions > button { border-color: var(--border-strong); color: var(--foreground); background: var(--secondary); height: 31px; font-size: 11px; border-radius: 6px; }
-.studio-shell .context-note { margin-top: 8px; color: var(--muted-foreground); font-size: 10px; }
-.studio-shell .audio-source-panel { margin-top: 16px; padding-top: 14px; border-top-color: var(--border); }
-.studio-shell .audio-source-choice { font-size: 11px; }
-.studio-shell .audio-source-choice .choice-trigger { background: var(--secondary); border-color: var(--border); width: 185px; }
-.studio-shell .source-status { color: var(--muted-foreground); font-size: 9px; }
-.studio-shell .source-status.connected { color: var(--success); }
-.studio-shell .inspector { background: var(--card); border-left-color: var(--border); }
-.studio-shell .inspector-heading { padding-top: 24px; color: var(--foreground); }
-.studio-shell .inspector-heading > svg { color: var(--primary); }
-.studio-shell .region-panel { padding-bottom: 18px; }
-.studio-shell .region-panel-heading { color: var(--muted-foreground); font-size: 11px; }
-.studio-shell .region-panel-heading small { color: var(--primary); }
-.studio-shell .region-selector-row .choice-trigger { background: var(--secondary); border-color: var(--border-strong); border-radius: 7px; }
-.studio-shell .inspector-tab-list { border: 1px solid var(--border); background: var(--inset); padding: 3px; height: 40px; border-radius: 8px; }
-.studio-shell .inspector-tab-list > button { font-size: 11px; gap: 5px; }
-.studio-shell .inspector-tab-list > button[data-state="active"] { background: var(--active-surface); border-color: var(--border-strong); box-shadow: 0 2px 3px var(--shadow); color: var(--foreground); }
-.studio-shell .inspector-tab-list > button[data-state="active"] svg { color: var(--primary); }
-.studio-shell .inspector-content { padding-top: 21px; }
-.studio-shell .section-label { font-size: 11px; font-weight: 600; color: var(--foreground); margin-bottom: 13px; letter-spacing: .025em; }
-.effect-art { display: block; width: 100%; height: 60px; flex: none; filter: drop-shadow(0 0 3px currentColor); }
-.effect-category + .effect-category { margin-top: 24px; }
-.immersive-presets { margin-bottom: 20px; }
-.immersive-presets > .immersive-current { width: 100%; flex-direction: row; align-items: center; justify-content: center; gap: 8px; height: 36px; font-size: 12px; background: var(--secondary); color: var(--foreground); }
-.effect-category > .section-label { display: flex; align-items: center; justify-content: space-between; }
-.effect-category > .section-label small { font: 9px Consolas,monospace; color: var(--muted-foreground); }
-.studio-shell .effect-options { gap: 10px; }
-.studio-shell .effect-options .effect-tile { position: relative; display: flex; flex-direction: column; justify-content: flex-start; align-items: stretch; height: 103px; padding: 0; gap: 0; overflow: hidden; border-radius: 8px; border: 1px solid var(--border); background: var(--card); text-align: left; transition: border-color .16s,transform .16s; }
-.effect-tile > .effect-art { height: 65px; background: var(--art-background); border-bottom: 1px solid var(--border); padding: 2px 2px 0; }
-.effect-tile > img.effect-art { object-fit: cover; filter: none; padding: 0; }
-.effect-tile-caption { display: flex; align-items: center; justify-content: space-between; gap: 6px; padding: 10px 10px; font-size: 11px; color: var(--foreground); }
-.effect-tile-caption small { font: 7px Consolas,monospace; letter-spacing: .06em; color: var(--muted-foreground); }
-.studio-shell .effect-tile:hover { border-color: var(--border-strong); transform: translateY(-1px); }
-.studio-shell .effect-options .effect-tile[aria-pressed="true"] { border-color: var(--primary); box-shadow: 0 0 0 1px color-mix(in srgb, var(--primary) 12%, transparent),inset 0 -2px 0 var(--primary); background: var(--accent); }
-.effect-tile[aria-pressed="true"] .effect-tile-caption { color: var(--primary); }
-.studio-shell .scene-choice { display: flex; padding: 0 13px 0 0; gap: 13px; min-height: 70px; height: 70px; margin-bottom: 12px; overflow: hidden; border-radius: 9px; border-color: var(--border); background: var(--card); }
-.scene-choice > .effect-art { width: 93px; height: 70px; background: var(--art-background); border-right: 1px solid var(--border); padding: 8px 0; }
-.scene-choice-copy { display: flex; flex: 1; min-width: 0; flex-direction: column; gap: 7px; align-items: flex-start; }
-.studio-shell .scene-choice-detail { margin-left: 0; color: var(--muted-foreground); font-size: 9px; }
-.scene-choice > svg:last-child { color: var(--muted-foreground); margin-left: auto; width: 15px; }
-.studio-shell .scene-choice[aria-pressed="true"] { border-color: var(--primary); background: var(--accent); }
-.studio-shell .scene-choice[aria-pressed="true"] .scene-choice-copy > span:first-child { color: var(--primary); }
-.studio-shell .scene-choice:last-of-type { margin-bottom: 22px; }
-.studio-shell .inspector-performance { background: var(--chrome); border-top-color: var(--border); font-size: 10px; }
-.studio-shell .inspector-performance .choice-trigger { background: var(--secondary); border-color: var(--border-strong); color: var(--foreground); }
-.card-enable { padding: 0; margin-bottom: 17px; }
-.card-enable p { font-size: 10px; }
-.card-controls .scene-mode-options { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-.card-controls .scene-mode-options button { padding-inline: 5px; font-size: 11px; }
-.card-position-label { margin-top: 25px; }
-.card-accent-control { display: flex; align-items: center; justify-content: space-between; gap: 9px; margin-top: 22px; font-size: 11px; color: var(--muted-foreground); }
-.card-accent-control > div { display: flex; align-items: center; gap: 7px; }
-.card-accent-control button { width: 16px; height: 16px; border-radius: 50%; border: 1px solid var(--border); }
-.card-accent-control button[aria-pressed="true"] { outline: 1px solid var(--primary); outline-offset: 3px; }
-.card-accent-control input { width: 23px; height: 23px; border: 0; padding: 0; background: transparent; cursor: pointer; }
-.card-position-options { display: flex; gap: 7px; margin-bottom: 25px; }
-.card-position-options button { flex: 1; font-size: 11px; }
-@media (min-width: 1500px) { .studio-shell .main-pane { padding: 28px 36px; } }
-@media (max-width: 1199px) { .effect-tile-caption { padding: 10px 8px; font-size: 10px; } .effect-tile-caption small { display: none; } .studio-shell .main-pane { padding: 23px 22px; } .studio-shell .scene-choice { gap: 9px; } .scene-choice > .effect-art { width: 76px; } }
-@media (max-width: 760px) { .studio-shell .sidebar { display: none; } .studio-shell .topbar { height: 52px; padding-left: 16px; } .workspace-edition { display: none; } .studio-shell .main-pane { padding: 24px 18px; } .studio-shell .inspector { border-left: 0; } .studio-shell .desktop-actions { gap: 12px; } .studio-shell .workspace-title { font-size: 13px; } .studio-shell .preview-tools { gap: 2px; } .studio-shell .preview-tools > button { padding-left: 7px; padding-right: 7px; } .effect-tile-caption small { display: inline; } .studio-shell .effect-options .effect-tile { height: 112px; } .effect-tile > .effect-art { height: 73px; } }
+.studio-shell {
+  background: var(--background);
+  font-family: "Segoe UI Variable", "Segoe UI", "Microsoft YaHei UI", sans-serif;
+}
+
+.studio-shell .sidebar {
+  width: 80px;
+  background: var(--sidebar);
+  border-color: var(--border);
+  padding: 18px 10px;
+}
+
+.studio-shell .brand-mark {
+  height: 47px;
+  margin-bottom: 34px;
+  position: relative;
+  color: var(--primary);
+}
+
+.studio-shell .brand-mark>svg {
+  width: 28px;
+  height: 28px;
+}
+
+.brand-monogram {
+  position: absolute;
+  right: -2px;
+  bottom: -1px;
+  font: 600 8px Consolas, monospace;
+  letter-spacing: .04em;
+  color: var(--primary);
+}
+
+.studio-shell .sidebar nav {
+  display: grid;
+  gap: 14px;
+}
+
+.studio-shell .nav-active,
+.studio-shell .nav-item {
+  width: 56px;
+  min-height: 61px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  border-radius: 11px;
+  font-size: 10px;
+  text-decoration: none;
+}
+
+.studio-shell .nav-active {
+  color: var(--primary);
+  border: 1px solid var(--border-strong);
+  background: var(--accent);
+  box-shadow: inset 0 1px 0 color-mix(in srgb, var(--primary) 8%, transparent);
+}
+
+.studio-shell .nav-item {
+  color: var(--muted-foreground);
+  border: 1px solid transparent;
+  background: transparent;
+}
+
+.studio-shell .nav-item:hover {
+  color: var(--foreground);
+  background: var(--secondary);
+}
+
+.studio-shell .nav-button {
+  font: inherit;
+  font-size: 10px;
+}
+
+.studio-shell .sidebar-version {
+  font-family: Consolas, monospace;
+  color: var(--muted-foreground);
+  font-size: 9px;
+}
+
+.studio-shell .topbar {
+  height: 54px;
+  padding-left: 25px;
+  border-bottom: 1px solid var(--border);
+  background: var(--chrome);
+}
+
+.studio-shell .workspace-title {
+  margin: 0;
+  min-width: 0;
+  font-size: 14px;
+  font-weight: 550;
+  letter-spacing: 0;
+}
+
+.studio-shell .save-status {
+  color: var(--muted-foreground);
+  font-size: 10px;
+}
+
+.studio-shell .save-status svg {
+  color: var(--success);
+}
+
+.studio-shell .save-status.is-error,
+.studio-shell .save-status.is-error svg {
+  color: var(--destructive);
+}
+
+.studio-shell .window-controls button {
+  height: 54px;
+}
+
+.studio-shell .main-pane {
+  padding: 25px 26px 22px;
+  background: var(--background);
+}
+
+.studio-shell .section-toolbar {
+  margin-bottom: 12px;
+}
+
+.studio-shell .section-toolbar h2 {
+  color: var(--foreground);
+  font-size: 11px;
+  gap: 7px;
+}
+
+.studio-shell .section-toolbar h2 svg {
+  width: 14px;
+  color: var(--primary);
+}
+
+.studio-shell .demo-control {
+  color: var(--muted-foreground);
+}
+
+.studio-shell .desktop-preview {
+  border-radius: 13px;
+  box-shadow: 0 0 0 1px var(--border-strong), 0 14px 36px var(--shadow);
+  background: var(--inset);
+}
+
+.studio-shell .preview-corner {
+  background: var(--art-scrim);
+  border-color: color-mix(in srgb, var(--on-art) 25%, transparent);
+  color: var(--on-art);
+  border-radius: 5px;
+  letter-spacing: .03em;
+  padding: 5px 9px;
+}
+
+.studio-shell .demo-dot {
+  background: var(--primary);
+}
+
+.studio-shell .preview-footer {
+  color: var(--muted-foreground);
+  margin-top: 15px;
+}
+
+.studio-shell .preview-background-controls {
+  padding: 3px;
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  background: var(--secondary);
+}
+
+.studio-shell .preview-background-controls button {
+  border-radius: 4px;
+}
+
+.studio-shell .auto-scene-entry {
+  margin-top: 16px;
+  gap: 8px;
+}
+
+.studio-shell .auto-scene-entry>button {
+  color: var(--foreground);
+  border-color: var(--border);
+  background: var(--secondary);
+  height: 34px;
+  padding: 0 12px;
+  border-radius: 7px;
+}
+
+.studio-shell .auto-scene-entry>button:first-child {
+  background: var(--accent);
+  border-color: var(--border-strong);
+  color: var(--primary);
+}
+
+.studio-shell .preview-message {
+  color: var(--muted-foreground);
+  line-height: 1.6;
+}
+
+.studio-shell .desktop-actions {
+  padding: 13px 15px;
+  border: 1px solid var(--border);
+  border-radius: 11px;
+  background: var(--card);
+  margin-top: 23px;
+  gap: 8px;
+}
+
+.studio-shell .desktop-toggle {
+  font-size: 12px;
+}
+
+.studio-shell .desktop-toggle>svg {
+  color: var(--muted-foreground);
+}
+
+.studio-shell .desktop-actions>button {
+  border-color: var(--border-strong);
+  color: var(--foreground);
+  background: var(--secondary);
+  height: 31px;
+  font-size: 11px;
+  border-radius: 6px;
+}
+
+.studio-shell .context-note {
+  margin-top: 8px;
+  color: var(--muted-foreground);
+  font-size: 10px;
+}
+
+.studio-shell .audio-source-panel {
+  margin-top: 16px;
+  padding-top: 14px;
+  border-top-color: var(--border);
+}
+
+.studio-shell .audio-source-choice {
+  font-size: 11px;
+}
+
+.studio-shell .audio-source-choice .choice-trigger {
+  background: var(--secondary);
+  border-color: var(--border);
+  width: 185px;
+}
+
+.studio-shell .source-status {
+  color: var(--muted-foreground);
+  font-size: 9px;
+}
+
+.studio-shell .source-status.connected {
+  color: var(--success);
+}
+
+.studio-shell .inspector {
+  background: var(--card);
+  border-left-color: var(--border);
+}
+
+.studio-shell .inspector-heading {
+  padding-top: 24px;
+  color: var(--foreground);
+}
+
+.studio-shell .inspector-heading>svg {
+  color: var(--primary);
+}
+
+.studio-shell .region-panel {
+  padding-bottom: 18px;
+}
+
+.studio-shell .region-panel-heading {
+  color: var(--muted-foreground);
+  font-size: 11px;
+}
+
+.studio-shell .region-panel-heading small {
+  color: var(--primary);
+}
+
+.studio-shell .region-selector-row .choice-trigger {
+  background: var(--secondary);
+  border-color: var(--border-strong);
+  border-radius: 7px;
+}
+
+.studio-shell .inspector-tab-list {
+  border: 1px solid var(--border);
+  background: var(--inset);
+  padding: 3px;
+  height: 40px;
+  border-radius: 8px;
+}
+
+.studio-shell .inspector-tab-list>button {
+  font-size: 11px;
+  gap: 5px;
+}
+
+.studio-shell .inspector-tab-list>button[data-state="active"] {
+  background: var(--active-surface);
+  border-color: var(--border-strong);
+  box-shadow: 0 2px 3px var(--shadow);
+  color: var(--foreground);
+}
+
+.studio-shell .inspector-tab-list>button[data-state="active"] svg {
+  color: var(--primary);
+}
+
+.studio-shell .inspector-content {
+  padding-top: 21px;
+}
+
+.studio-shell .section-label {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--foreground);
+  margin-bottom: 13px;
+  letter-spacing: .025em;
+}
+
+.effect-art {
+  display: block;
+  width: 100%;
+  height: 60px;
+  flex: none;
+  filter: drop-shadow(0 0 3px currentColor);
+}
+
+.effect-category+.effect-category {
+  margin-top: 24px;
+}
+
+.immersive-presets {
+  margin-bottom: 20px;
+}
+
+.immersive-presets>.immersive-current {
+  width: 100%;
+  flex-direction: row;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  height: 36px;
+  font-size: 12px;
+  background: var(--secondary);
+  color: var(--foreground);
+}
+
+.effect-category>.section-label {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.effect-category>.section-label small {
+  font: 9px Consolas, monospace;
+  color: var(--muted-foreground);
+}
+
+.studio-shell .effect-options {
+  gap: 10px;
+}
+
+.studio-shell .effect-options .effect-tile {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-start;
+  align-items: stretch;
+  height: 103px;
+  padding: 0;
+  gap: 0;
+  overflow: hidden;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--card);
+  text-align: left;
+  transition: border-color .16s, transform .16s;
+}
+
+.effect-tile>.effect-art {
+  height: 65px;
+  background: var(--art-background);
+  border-bottom: 1px solid var(--border);
+  padding: 2px 2px 0;
+}
+
+.effect-tile>img.effect-art {
+  object-fit: cover;
+  filter: none;
+  padding: 0;
+}
+
+.effect-tile-caption {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  padding: 10px 10px;
+  font-size: 11px;
+  color: var(--foreground);
+}
+
+.effect-tile-caption small {
+  font: 7px Consolas, monospace;
+  letter-spacing: .06em;
+  color: var(--muted-foreground);
+}
+
+.studio-shell .effect-tile:hover {
+  border-color: var(--border-strong);
+  transform: translateY(-1px);
+}
+
+.studio-shell .effect-options .effect-tile[aria-pressed="true"] {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--primary) 12%, transparent), inset 0 -2px 0 var(--primary);
+  background: var(--accent);
+}
+
+.effect-tile[aria-pressed="true"] .effect-tile-caption {
+  color: var(--primary);
+}
+
+.studio-shell .scene-choice {
+  display: flex;
+  padding: 0 13px 0 0;
+  gap: 13px;
+  min-height: 70px;
+  height: 70px;
+  margin-bottom: 12px;
+  overflow: hidden;
+  border-radius: 9px;
+  border-color: var(--border);
+  background: var(--card);
+}
+
+.scene-choice>.effect-art {
+  width: 93px;
+  height: 70px;
+  background: var(--art-background);
+  border-right: 1px solid var(--border);
+  padding: 8px 0;
+}
+
+.scene-choice-copy {
+  display: flex;
+  flex: 1;
+  min-width: 0;
+  flex-direction: column;
+  gap: 7px;
+  align-items: flex-start;
+}
+
+.studio-shell .scene-choice-detail {
+  margin-left: 0;
+  color: var(--muted-foreground);
+  font-size: 9px;
+}
+
+.scene-choice>svg:last-child {
+  color: var(--muted-foreground);
+  margin-left: auto;
+  width: 15px;
+}
+
+.studio-shell .scene-choice[aria-pressed="true"] {
+  border-color: var(--primary);
+  background: var(--accent);
+}
+
+.studio-shell .scene-choice[aria-pressed="true"] .scene-choice-copy>span:first-child {
+  color: var(--primary);
+}
+
+.studio-shell .scene-choice:last-of-type {
+  margin-bottom: 22px;
+}
+
+.studio-shell .inspector-performance {
+  background: var(--chrome);
+  border-top-color: var(--border);
+  font-size: 10px;
+}
+
+.studio-shell .inspector-performance .choice-trigger {
+  background: var(--secondary);
+  border-color: var(--border-strong);
+  color: var(--foreground);
+}
+
+.card-enable {
+  padding: 0;
+  margin-bottom: 17px;
+}
+
+.card-enable p {
+  font-size: 10px;
+}
+
+.card-controls .scene-mode-options {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.card-controls .scene-mode-options button {
+  padding-inline: 5px;
+  font-size: 11px;
+}
+
+.card-position-label {
+  margin-top: 25px;
+}
+
+.card-accent-control {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 9px;
+  margin-top: 22px;
+  font-size: 11px;
+  color: var(--muted-foreground);
+}
+
+.card-accent-control>div {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.card-accent-control button {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  border: 1px solid var(--border);
+}
+
+.card-accent-control button[aria-pressed="true"] {
+  outline: 1px solid var(--primary);
+  outline-offset: 3px;
+}
+
+.card-accent-control input {
+  width: 23px;
+  height: 23px;
+  border: 0;
+  padding: 0;
+  background: transparent;
+  cursor: pointer;
+}
+
+.card-position-options {
+  display: flex;
+  gap: 7px;
+  margin-bottom: 25px;
+}
+
+.card-position-options button {
+  flex: 1;
+  font-size: 11px;
+}
+
+@media (min-width: 1500px) {
+  .studio-shell .main-pane {
+    padding: 28px 36px;
+  }
+}
+
+@media (max-width: 1199px) {
+  .effect-tile-caption {
+    padding: 10px 8px;
+    font-size: 10px;
+  }
+
+  .effect-tile-caption small {
+    display: none;
+  }
+
+  .studio-shell .main-pane {
+    padding: 23px 22px;
+  }
+
+  .studio-shell .scene-choice {
+    gap: 9px;
+  }
+
+  .scene-choice>.effect-art {
+    width: 76px;
+  }
+}
+
+@media (max-width: 760px) {
+  .studio-shell .sidebar {
+    display: none;
+  }
+
+  .studio-shell .topbar {
+    height: 52px;
+    padding-left: 16px;
+  }
+
+  .studio-shell .main-pane {
+    padding: 24px 18px;
+  }
+
+  .studio-shell .inspector {
+    border-left: 0;
+  }
+
+  .studio-shell .desktop-actions {
+    gap: 12px;
+  }
+
+  .studio-shell .workspace-title {
+    font-size: 13px;
+  }
+
+  .studio-shell .preview-tools {
+    gap: 2px;
+  }
+
+  .studio-shell .preview-tools>button {
+    padding-left: 7px;
+    padding-right: 7px;
+  }
+
+  .effect-tile-caption small {
+    display: inline;
+  }
+
+  .studio-shell .effect-options .effect-tile {
+    height: 112px;
+  }
+
+  .effect-tile>.effect-art {
+    height: 73px;
+  }
+}
