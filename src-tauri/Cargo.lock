@@ -4176,7 +4176,7 @@ dependencies = [
 
 [[package]]
 name = "soundspectra"
-version = "1.0.9"
+version = "1.0.10"
 dependencies = [
  "arboard",
  "base64 0.22.1",
