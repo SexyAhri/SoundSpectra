@@ -30,6 +30,7 @@ struct Track {
     artist: String,
     album: String,
     duration: f64,
+    cover_url: Option<String>,
 }
 fn id(value: &str) -> bool {
     !value.is_empty() && value.len() <= 24 && value.bytes().all(|b| b.is_ascii_digit())
@@ -73,6 +74,10 @@ fn metadata(value: &Value) -> Option<Track> {
                 .to_owned(),
         ),
         duration,
+        cover_url: track
+            .pointer("/album/picUrl")
+            .and_then(Value::as_str)
+            .and_then(super::netease_cover::image_url),
     })
 }
 fn same(a: &str, b: &str) -> bool {
@@ -162,6 +167,7 @@ fn event(line: &str, source: Origin, tick: u64) -> Option<Event> {
         action,
         "playOneTrackInPlayingList"
             | "checkPlayPrivilege"
+            | "nativePlay"
             | "native播放资源load完成，开始播放"
             | "native播放state"
             | "setPlayingPosition"
@@ -244,7 +250,7 @@ impl Playback {
         self.last_event = event.tick;
         let first = event.args.first().unwrap_or(&Value::Null);
         match event.action.as_str() {
-            "playOneTrackInPlayingList" | "checkPlayPrivilege" => {
+            "playOneTrackInPlayingList" | "checkPlayPrivilege" | "nativePlay" => {
                 let Some(track) = metadata(first) else {
                     self.current = None;
                     return;
@@ -252,6 +258,9 @@ impl Playback {
                 if event.action == "playOneTrackInPlayingList" {
                     self.current = Some(Session::new(track.clone(), true));
                 }
+                // Cold startup restores the track through nativePlay instead
+                // of an explicit selection. Remember its metadata, but wait for
+                // the matching native load/state and an absolute seek position.
                 self.tracks.retain(|t| t.id != track.id);
                 self.tracks.push_back(track);
                 while self.tracks.len() > 4 {
@@ -474,6 +483,29 @@ pub(super) struct Clock {
     last_read: Option<u64>,
 }
 impl Clock {
+    pub(super) fn cover_url(&self, info: &NowPlaying) -> Option<String> {
+        let session = self.playback.current.as_ref()?;
+        (info.timeline_source == Some("netease-events")
+            && info.track_id.ends_with(&format!(
+                ":netease:{}:{}",
+                session.track.id,
+                session.token.as_deref()?
+            )))
+        .then(|| session.track.cover_url.clone())
+        .flatten()
+    }
+
+    pub(super) fn control_snapshot(&mut self, target: &Target) -> Option<NowPlaying> {
+        let mut value = NowPlaying::default();
+        self.update(target, &mut value, super::now());
+        // A toggle during buffering cannot be inferred from the displayed
+        // playing flag, which deliberately stops the lyric clock.
+        if self.playback.current.as_ref()?.buffering || !value.timeline_available {
+            return None;
+        }
+        Some(value)
+    }
+
     pub(super) fn update(&mut self, target: &Target, info: &mut NowPlaying, observed: u64) {
         if target.player_id.as_deref() != Some("netease") {
             *self = Self::default();
@@ -846,6 +878,113 @@ mod tests {
             vec![track("888")],
         );
         assert_eq!(playback.current.as_ref().unwrap().track.id, "316100");
+    }
+
+    #[test]
+    fn cold_restore_uses_native_metadata_and_absolute_position_without_smtc() {
+        let mut playback = Playback::default();
+        send(&mut playback, 1000, "nativePlay", vec![track("316100")]);
+        send(
+            &mut playback,
+            2000,
+            "native播放资源load完成，开始播放",
+            vec![json!({"songId":"316100"})],
+        );
+        let mut value = NowPlaying::default();
+        playback.apply(&mut value, 10000, 2100);
+        assert!(
+            !value.timeline_available,
+            "restored metadata is not a clock"
+        );
+        send(&mut playback, 2200, "setPlayingPosition", vec![json!(103)]);
+        playback.apply(&mut value, 10000, 2250);
+        assert!(
+            !value.timeline_available,
+            "the native state is still required"
+        );
+        send(
+            &mut playback,
+            2300,
+            "native播放state",
+            vec![json!(1), json!("316100_Restored")],
+        );
+        playback.apply(&mut value, 10000, 3300);
+        assert_eq!(value.title, "雨爱");
+        assert_eq!(value.artist, "杨丞琳");
+        assert_eq!(value.position, 104.0);
+        assert!(value.playing && value.timeline_available);
+        assert_eq!(value.timeline_source, Some("netease-events"));
+
+        let mut missing_seek = Playback::default();
+        send(&mut missing_seek, 1000, "nativePlay", vec![track("316100")]);
+        send(
+            &mut missing_seek,
+            2000,
+            "native播放资源load完成，开始播放",
+            vec![json!({"songId":"316100"})],
+        );
+        send(
+            &mut missing_seek,
+            2300,
+            "native播放state",
+            vec![json!(1), json!("316100_Restored")],
+        );
+        let mut value = NowPlaying::default();
+        missing_seek.apply(&mut value, 10000, 3300);
+        assert!(
+            !value.timeline_available,
+            "never assume a restored song starts at zero"
+        );
+    }
+
+    #[test]
+    #[ignore = "Replays this process's existing cold-start records with no SMTC or playback controls"]
+    fn installed_cold_restore_without_smtc_read_only() {
+        let pid: u32 = std::env::var("SOUNDSPECTRA_TEST_NETEASE_PID")
+            .expect("set the running NetEase main PID")
+            .parse()
+            .unwrap();
+        let observed = super::super::now();
+        let tick = unsafe { GetTickCount64() };
+        let source = origin(pid, observed, tick).expect("read the current process identity");
+        let path = PathBuf::from(std::env::var_os("LOCALAPPDATA").unwrap())
+            .join("NetEase/CloudMusic/cloudmusic.elog");
+        let mut file = File::open(path).unwrap();
+        let offset = file.metadata().unwrap().len().saturating_sub(TAIL_BYTES);
+        file.seek(SeekFrom::Start(offset)).unwrap();
+        let mut bytes = Vec::new();
+        file.take(TAIL_BYTES).read_to_end(&mut bytes).unwrap();
+        let decoded: Vec<_> = bytes.into_iter().map(decode).collect();
+        let text = String::from_utf8_lossy(&decoded);
+        let mut playback = Playback::default();
+        let mut restored_metadata = false;
+        for line in text.lines().skip(usize::from(offset > 0)) {
+            let Some(event) = event(line, source, tick) else {
+                continue;
+            };
+            // Only inspect startup before the user selects another track.
+            if event.action == "playOneTrackInPlayingList" {
+                break;
+            }
+            restored_metadata |= event.action == "nativePlay";
+            let at = event.tick;
+            playback.consume(event);
+            let mut without_smtc = NowPlaying::default();
+            playback.apply(&mut without_smtc, observed, at);
+            if restored_metadata && without_smtc.timeline_available {
+                assert!(
+                    without_smtc.position > 0.0 && without_smtc.duration > without_smtc.position
+                );
+                assert!(!without_smtc.title.is_empty() && !without_smtc.artist.is_empty());
+                assert_eq!(without_smtc.timeline_source, Some("netease-events"));
+                eprintln!(
+                    "Verified existing cold-start records without SMTC: {} / {}; restored {:.3}s / {:.3}s",
+                    without_smtc.title, without_smtc.artist, without_smtc.position, without_smtc.duration
+                );
+                return;
+            }
+        }
+        panic!("no complete cold-start metadata/load/absolute-position/state sequence in the current process's log tail");
     }
 
     #[test]

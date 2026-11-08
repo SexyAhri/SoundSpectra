@@ -120,6 +120,37 @@ fn control(
         .find(|target| Some(target.pid) == pid)
         .cloned()
         .ok_or("播放器已断开")?;
+    if crate::now_playing::netease_transport::matches_session(session_id, target.pid) {
+        let command =
+            crate::now_playing::netease_transport::Command::prepare(&target, &current, action)?;
+        let source = state
+            .audio_source
+            .lock()
+            .map_err(|error| error.to_string())?;
+        let latest = state
+            .now_playing
+            .lock()
+            .map_err(|error| error.to_string())?
+            .clone();
+        let latest_pid = state
+            .status
+            .lock()
+            .map_err(|error| error.to_string())?
+            .process_id;
+        let now = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap_or_default()
+            .as_millis() as u64;
+        if source.revision != revision
+            || !current_request(&latest, track_id, session_id, latest_pid, revision, now)
+            || latest_pid != pid
+        {
+            return Err("音源已切换，请稍后重试".into());
+        }
+        command.send()?;
+        drop(source);
+        return command.confirm();
+    }
     let manager = Manager::RequestAsync()
         .and_then(|operation| operation.join())
         .map_err(|error| error.to_string())?;

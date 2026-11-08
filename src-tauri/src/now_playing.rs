@@ -18,6 +18,8 @@ mod accessibility;
 mod kugou;
 mod kugou_bridge;
 mod netease;
+mod netease_cover;
+pub(crate) mod netease_transport;
 
 #[link(name = "runtimeobject")]
 extern "system" {
@@ -255,6 +257,8 @@ pub fn start(state: Arc<AppState>) {
         let mut kugou_clock = kugou::Clock::default();
         let mut kugou_bridge = kugou_bridge::Reader::default();
         let mut netease_clock = netease::Clock::default();
+        let mut netease_cover =
+            netease_cover::Reader::new(state.path.with_file_name("cover-cache"));
         let mut accessibility = accessibility::Reader::default();
         while !state.shutdown.load(Ordering::Relaxed) {
             let status = state.status.lock().unwrap().clone();
@@ -294,11 +298,14 @@ pub fn start(state: Arc<AppState>) {
                 netease_clock.update(&target, &mut value, now());
                 kugou_bridge.update(Some(&target), &mut value, now());
                 kugou_clock.update(&target, &mut value, now());
+                netease_transport::attach(&target, &mut value);
+                netease_cover.update(&target, netease_clock.cover_url(&value), &mut value);
             } else {
                 accessibility.update(None, &mut value, now());
                 kugou_bridge.update(None, &mut value, now());
                 kugou_clock = kugou::Clock::default();
                 netease_clock = netease::Clock::default();
+                netease_cover.clear();
             }
             if value.updated == 0 {
                 value.updated = now();
