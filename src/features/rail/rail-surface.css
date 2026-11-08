@@ -88,16 +88,18 @@
 
 .rail-wheel .rail-items>.rail-hanging {
   position: absolute;
+  left: 0;
+  top: 0;
   margin: 0;
   flex: none;
-  transform: translateX(-50%) rotate(calc(var(--wheel-angle) * .15));
+  transform: translate(var(--wheel-x), var(--wheel-y)) translateX(-50%) rotate(calc(var(--wheel-angle) * .15));
   transform-origin: 50% 0;
-  transition: left .38s cubic-bezier(.22, .72, .26, 1), top .38s cubic-bezier(.22, .72, .26, 1), opacity .22s, transform .38s, visibility .38s;
+  transition: transform .38s cubic-bezier(.22, .72, .26, 1), opacity .22s, visibility .38s;
 }
 
 .rail-wheel .rail-items>.rail-hanging:hover,
 .rail-wheel .rail-items>.rail-hanging:focus-within {
-  transform: translateX(-50%) rotate(0deg);
+  transform: translate(var(--wheel-x), var(--wheel-y)) translateX(-50%) rotate(0deg);
 }
 
 .rail-wheel .rail-items>.rail-hanging[data-wheel-active=true] {

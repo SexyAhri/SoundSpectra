@@ -186,6 +186,30 @@ mod transition_tests {
         }
     }
     #[test]
+    fn cold_worker_icons_contain_visible_pixels() {
+        std::thread::spawn(|| {
+            let path =
+                std::path::PathBuf::from(std::env::var_os("WINDIR").unwrap()).join("notepad.exe");
+            for _ in 0..8 {
+                let data = icon(&path).unwrap().expect("Shell icon must load");
+                let bytes = STANDARD.decode(data.split_once(',').unwrap().1).unwrap();
+                let mut reader = png::Decoder::new(std::io::Cursor::new(bytes))
+                    .read_info()
+                    .unwrap();
+                let mut pixels = vec![0; reader.output_buffer_size().unwrap()];
+                let info = reader.next_frame(&mut pixels).unwrap();
+                assert!(
+                    pixels[..info.buffer_size()]
+                        .chunks_exact(4)
+                        .any(|pixel| pixel[3] > 0),
+                    "Shell returned an empty icon"
+                );
+            }
+        })
+        .join()
+        .unwrap();
+    }
+    #[test]
     fn desktop_visibility_requires_one_repaint_after_restore() {
         unsafe {
             let parent = TestWindow::new(true);
@@ -590,8 +614,25 @@ pub fn pick(window: &WebviewWindow, folder: bool) -> Result<Vec<String>, String>
         }
     }
 }
+struct IconApartment(bool);
+impl Drop for IconApartment {
+    fn drop(&mut self) {
+        if self.0 {
+            unsafe { windows_sys::Win32::System::Com::CoUninitialize() }
+        }
+    }
+}
+
 pub fn icon(path: &Path) -> Result<Option<String>, String> {
     unsafe {
+        use windows_sys::Win32::System::Com::{CoInitializeEx, COINIT_APARTMENTTHREADED};
+        // Async/blocking workers have no guaranteed COM apartment. Shell icon
+        // handlers need one, including when resolving a shortcut's target.
+        let initialized = CoInitializeEx(null(), COINIT_APARTMENTTHREADED as u32);
+        if initialized < 0 && initialized != 0x80010106u32 as i32 {
+            return Err(format!("无法初始化图标读取：{initialized:#x}"));
+        }
+        let _apartment = IconApartment(initialized >= 0);
         let mut info: SHFILEINFOW = zeroed();
         if SHGetFileInfoW(
             wide(&path.to_string_lossy()).as_ptr(),
@@ -615,6 +656,9 @@ pub fn icon(path: &Path) -> Result<Option<String>, String> {
         let dib = CreateDIBSection(dc, &bitmap, DIB_RGB_COLORS, &mut pixels, null_mut(), 0);
         if dc.is_null() || dib.is_null() {
             DestroyIcon(info.hIcon);
+            if !dib.is_null() {
+                DeleteObject(dib);
+            }
             if !dc.is_null() {
                 DeleteDC(dc);
             }
@@ -622,18 +666,26 @@ pub fn icon(path: &Path) -> Result<Option<String>, String> {
         }
         let previous = SelectObject(dc, dib);
         std::ptr::write_bytes(pixels, 0, 4096);
-        DrawIconEx(dc, 0, 0, info.hIcon, 32, 32, 0, null_mut(), DI_NORMAL);
+        let drawn = DrawIconEx(dc, 0, 0, info.hIcon, 32, 32, 0, null_mut(), DI_NORMAL);
+        // GDI drawing may be batched; synchronize before reading DIB memory.
+        let flushed = GdiFlush();
         let mut rgba = std::slice::from_raw_parts(pixels as *const u8, 4096).to_vec();
         SelectObject(dc, previous);
         DeleteObject(dib);
         DeleteDC(dc);
         DestroyIcon(info.hIcon);
+        if drawn == 0 || flushed == 0 {
+            return Ok(None);
+        }
         let has_alpha = rgba.chunks_exact(4).any(|pixel| pixel[3] > 0);
         for pixel in rgba.chunks_exact_mut(4) {
             pixel.swap(0, 2);
             if !has_alpha && pixel[..3].iter().any(|v| *v > 0) {
                 pixel[3] = 255;
             }
+        }
+        if !rgba.chunks_exact(4).any(|pixel| pixel[3] > 0) {
+            return Ok(None);
         }
         let mut bytes = vec![];
         {

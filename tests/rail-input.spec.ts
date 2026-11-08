@@ -320,6 +320,38 @@ test('native animation keeps moving cards inside the region without updates on e
   expect(frames.calls).toBeLessThanOrEqual(5)
 })
 
+test('reversing a moving wheel keeps the current cards inside native regions', async ({ page }) => {
+  await fixture(page, true, 'source', 1000)
+  const surface = page.locator('.rail-surface')
+  await surface.evaluate(async node => {
+    await Promise.all(node.getAnimations({ subtree: true }).filter(a => a.effect?.getComputedTiming().iterations !== Infinity).map(a => a.finished.catch(() => {})))
+    node.dispatchEvent(new Event('rail-motion-end'))
+    await new Promise(requestAnimationFrame)
+  })
+  const result = await surface.evaluate(async node => {
+    const app = window as any
+    app.hitRegions = []
+    const clipped: { frame: number; id: string | undefined }[] = []
+    const turn = (key: string) => node.querySelector('[data-wheel-active=true] .rail-item')!.dispatchEvent(new KeyboardEvent('keydown', { key, bubbles: true }))
+    turn('ArrowRight')
+    for (let frame = 0; frame < 30; frame++) {
+      await new Promise(requestAnimationFrame)
+      const regions = app.hitRegions.at(-1) as { x: number; y: number; width: number; height: number }[] | undefined
+      const host = node.getBoundingClientRect()
+      for (const card of node.querySelectorAll<HTMLElement>('.rail-hanging:not([inert])')) {
+        const box = card.querySelector('.rail-sway')!.getBoundingClientRect()
+        if ([[box.left + 2, box.top + 2], [box.right - 2, box.bottom - 2]].some(([x, y]) => !regions?.some(r =>
+          (x - host.x) * devicePixelRatio >= r.x && (x - host.x) * devicePixelRatio <= r.x + r.width &&
+          (y - host.y) * devicePixelRatio >= r.y && (y - host.y) * devicePixelRatio <= r.y + r.height))) clipped.push({ frame, id: card.dataset.railItem })
+      }
+      if (frame === 5) turn('ArrowLeft')
+    }
+    return { clipped, calls: app.hitRegions.length }
+  })
+  expect(result.clipped).toEqual([])
+  expect(result.calls).toBeLessThanOrEqual(8)
+})
+
 test('companion panel restores initial state and hides only after its exit', async ({ page }) => {
   await fixture(page, true, 'host')
   const panel = page.getByRole('region', { name: '更多挂件', exact: true })

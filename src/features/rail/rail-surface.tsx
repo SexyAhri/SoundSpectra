@@ -26,6 +26,7 @@ import type { RailController } from "./use-rail";
 import { NoteEditor, RailAddPanel } from "./rail-add-panel";
 import { placeRailPopup } from "./popup-position";
 import { useRailMotion } from "./use-rail-motion";
+import { RailMotionSnapshot } from "./rail-motion-snapshot";
 import { railFocusRequest } from "./focus";
 import { useRailReorder } from "./use-rail-reorder";
 import { FolderBrowser } from "./folder-browser";
@@ -66,6 +67,11 @@ export function RailSurface({
   const [requestedPopup, setPopup] = useState<Popup | null>(null),
     [notice, setNotice] = useState<string | null>(null);
   const popup = useRailPresence(requestedPopup);
+  // A slow Shell/save reply belongs to the panel that started it. Closing or
+  // replacing that panel must not let its completion dismiss a newer one.
+  const completePopup = (expected = requestedPopup) => {
+    setPopup(current => current === expected ? null : current);
+  };
   const bodyPresent = useRailPresence(group.collapsed ? null : true, 180);
   const animateBodyEntry = useRef(group.collapsed);
   if (group.collapsed) animateBodyEntry.current = true;
@@ -121,7 +127,7 @@ export function RailSurface({
       ? Math.min(88, 72 * unit)
       : (item.kind === "image" ? 167 : item.kind === "file" || item.kind === "folder" ? 104 : 126) * unit;
   const wheel = useRailWheel(group, selected, popupWindow !== "host");
-  useRailMotion(
+  const captureMotion = useRailMotion(
     holder,
     ".rail-items > .rail-hanging",
     "railItem",
@@ -370,7 +376,7 @@ export function RailSurface({
       void perform(async () => {
         try {
           await openRailItem(item.id);
-          setPopup(null);
+          completePopup();
         } catch (error) {
           void controller.refresh();
           throw error;
@@ -410,8 +416,8 @@ export function RailSurface({
             "--hang-tilt": "0deg",
             "--wind-duration": `${8 + windSeed % 41 / 10}s`,
             "--wind-delay": `${-(windSeed % 100) / 10}s`,
-            left: slot.x,
-            top: slot.y,
+            "--wheel-x": `${slot.x}px`,
+            "--wheel-y": `${slot.y}px`,
             width: itemWidth(item),
             opacity: slot.visible ? 1 : 0,
             visibility: slot.visible ? "visible" : "hidden",
@@ -437,7 +443,7 @@ export function RailSurface({
               recentActivation.current = {
                 x: event.clientX,
                 y: event.clientY,
-                until: performance.now() + 500,
+                until: performance.now() + doubleClickInterval.current,
               };
             }
             setNotice(null);
@@ -534,7 +540,7 @@ export function RailSurface({
         // another item or open an unrelated menu after the first activation.
         if (
           pending &&
-          performance.now() < pending.until &&
+          (event.detail > 1 || performance.now() < pending.until) &&
           Math.hypot(event.clientX - pending.x, event.clientY - pending.y) <=
             5 &&
           !(event.target as Element).closest(".rail-popup")
@@ -661,6 +667,7 @@ export function RailSurface({
                 <path className="rail-cord-hit" d={geometry.path} />
               </svg>
             </button>
+            <RailMotionSnapshot beforeUpdate={() => captureMotion(group.items.map(item => item.id))}>
             <div className="rail-items">
               {visible.map(card)}
               {!group.items.length && (
@@ -675,6 +682,7 @@ export function RailSurface({
                 </button>
               )}
             </div>
+            </RailMotionSnapshot>
           </div>
         )}
         {notice && !popup && (
@@ -739,7 +747,7 @@ export function RailSurface({
               <RailAddPanel
                 group={group}
                 controller={controller}
-                onDone={() => setPopup(null)}
+                onDone={() => completePopup(popup)}
               />
             )}
             {popup.mode === "note" && popupItem && (
@@ -752,7 +760,7 @@ export function RailSurface({
                     id: popupItem.id,
                     text,
                   });
-                  setPopup(null);
+                  completePopup(popup);
                 }}
               />
             )}
@@ -827,7 +835,7 @@ export function RailSurface({
                         type: "remove",
                         id: popupItem.id,
                       });
-                      setPopup(null);
+                      completePopup(popup);
                     })
                   }
                 >

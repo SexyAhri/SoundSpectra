@@ -506,7 +506,13 @@ pub async fn rail_media(
 ) -> Result<Option<String>, String> {
     allowed(&window)?;
     let item = saved_item(&state, &id)?;
-    let path = item_path(&item)?;
+    tauri::async_runtime::spawn_blocking(move || load_media(&item))
+        .await
+        .map_err(|error| error.to_string())?
+}
+
+fn load_media(item: &RailItem) -> Result<Option<String>, String> {
+    let path = item_path(item)?;
     if item.kind == "image" {
         if std::fs::metadata(&path).map_err(|e| e.to_string())?.len() > 12 * 1024 * 1024 {
             return Err("图片超过 12 MB，请从原图查看".into());

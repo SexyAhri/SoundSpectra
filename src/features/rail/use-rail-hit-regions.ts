@@ -70,7 +70,10 @@ export function useRailHitRegions(
         }
         if (slot.visible && bodyPresent) next.set(id!, target)
         const before = previous.current.get(id!)
-        if (moving && before) regions.push(envelope(before, target))
+        // An interrupted turn can be between the last settled position and an
+        // abandoned destination. Include that actual position when reversing,
+        // without sending a new native region on every animation frame.
+        if (moving && before) regions.push(envelope(envelope(before, target), bounds(element, 24 * unit)))
         else if (slot.visible && bodyPresent) regions.push(moving ? envelope(bounds(element, 24 * unit), target) : target)
       }
       if (bodyPresent) {

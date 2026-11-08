@@ -1,4 +1,5 @@
 import { expect, test, type Page } from '@playwright/test'
+import { clickCord } from './rail-helpers'
 
 // Delay IPC reads and deliver real subscriptions to exercise the controller's
 // ordering. All files and OS dialogs stay behind the mocked native boundary.
@@ -45,6 +46,10 @@ async function fixture(page: Page) {
       if (command === 'rail_change') {
         if (window.failNextChange) { window.failNextChange = false; throw '保存失败'; }
         if (args.change.type === 'group') window.serverSnapshot.settings.groups[0].name = args.change.name;
+        if (args.change.type === 'item') {
+          const item = window.serverSnapshot.settings.groups[0].items.find(item => item.id === args.change.id);
+          if (args.change.text !== undefined) item.text = args.change.text;
+        }
         if (args.change.type === 'remove') window.serverSnapshot.settings.groups[0].items = [];
         window.emitSnapshot(window.serverSnapshot.settings.groups[0].name, window.serverSnapshot.settings.groups[0].items.length ? window.serverSnapshot.missing : []);
         const reply = structuredClone(window.serverSnapshot);
@@ -162,4 +167,43 @@ test('repeated activation shares a pending launch and a failed launch can be ret
   await page.evaluate(() => (window as any).opens[1].finish())
   await expect(page.getByRole('alert')).toHaveCount(0)
   await expect(card).toBeVisible()
+})
+
+test('a delayed file launch does not dismiss the panel opened afterwards', async ({ page }) => {
+  await fixture(page)
+  await page.evaluate(() => (window as any).reads[0].finish())
+  await page.getByRole('button', { name: '我的工作文档，文件', exact: true }).press('Enter')
+  await expect.poll(() => page.evaluate(() => (window as any).opens.length)).toBe(1)
+  await clickCord(page, true)
+  const list = page.locator('.rail-popup-more')
+  await expect(list).toHaveAttribute('data-state', 'open')
+  await page.evaluate(() => (window as any).opens[0].finish())
+  await expect(list).toHaveAttribute('data-state', 'open')
+  await expect(list.getByRole('searchbox', { name: '搜索挂件' })).toBeVisible()
+})
+
+test('finishing a note save cannot close another note or discard its draft', async ({ page }) => {
+  await fixture(page)
+  await page.evaluate(() => (window as any).reads[0].finish())
+  await page.evaluate(() => {
+    const app = window as any
+    app.serverSnapshot.settings.groups[0].items.push(
+      { id: 'note-one', name: '第一张', kind: 'note', path: '', crop: 'cover', text: '原内容一' },
+      { id: 'note-two', name: '第二张', kind: 'note', path: '', crop: 'cover', text: '原内容二' },
+    )
+    app.emitSnapshot('保留布局')
+    app.deferChanges = true
+  })
+  await page.getByRole('button', { name: '第一张，便签', exact: true }).press('Enter')
+  const text = page.getByRole('textbox', { name: '便签内容', exact: true })
+  await text.fill('第一张保存的新内容')
+  await text.press('Control+Enter')
+  await expect.poll(() => page.evaluate(() => (window as any).replies.length)).toBe(1)
+  await page.getByRole('button', { name: '关闭挂件面板' }).click()
+  await page.getByRole('button', { name: '第二张，便签', exact: true }).press('Enter')
+  await text.fill('第二张尚未保存的草稿')
+  await page.evaluate(() => (window as any).replies[0]())
+  await expect(page.locator('.rail-popup-note')).toHaveAttribute('data-state', 'open')
+  await expect(text).toHaveValue('第二张尚未保存的草稿')
+  expect(await page.evaluate(() => (window as any).serverSnapshot.settings.groups[0].items.find((i: any) => i.id === 'note-one').text)).toBe('第一张保存的新内容')
 })

@@ -25,6 +25,7 @@ async function fixture(page: Page) {
       if (command === 'plugin:event|listen') { window.eventListeners[args.event] = window.callbacks.get(args.handler); return args.handler; }
       if (command === 'plugin:event|unlisten') { delete window.eventListeners[args.event]; return; }
       window.commands.push({ command, args });
+      if (command === 'rail_double_click_interval') return window.fixtureDoubleClickInterval ?? 500;
       if (command === 'rail_media') return 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+a90sAAAAASUVORK5CYII=';
       if (command === 'rail_paste_image') {
         return new Promise((resolve, reject) => { window.finishPaste = fail => {
@@ -286,6 +287,21 @@ test('double clicking a moving card does not launch twice', async ({ page }) => 
   await page.mouse.dblclick(box.x + box.width / 2, box.y + box.height / 2, { delay: 180 })
   await expect.poll(() => page.evaluate(() => (window as any).commands.filter((c: any) => c.command === 'rail_open'))).toEqual([{ command: 'rail_open', args: { id: 'two', reveal: false } }])
   await expect(page.locator('[data-wheel-active=true]')).toHaveAttribute('data-rail-item', 'two')
+})
+
+test('moving cards respect a slower system double-click interval', async ({ page }) => {
+  await page.addInitScript(() => { (window as any).fixtureDoubleClickInterval = 1000 })
+  await fixture(page)
+  const photo = page.getByRole('button', { name: '照片，图片', exact: true })
+  const box = (await photo.boundingBox())!
+  const x = box.x + box.width / 2, y = box.y + box.height / 2
+  await page.mouse.click(x, y)
+  // Beyond the old fixed 500 ms guard, within the user's 1000 ms setting.
+  await page.waitForTimeout(650)
+  await page.mouse.click(x, y)
+  await expect(page.locator('[data-wheel-active=true]')).toHaveAttribute('data-rail-item', 'two')
+  await expect(page.locator('.rail-popup-note')).toHaveCount(0)
+  expect(await page.evaluate(() => (window as any).commands.filter((c: any) => c.command === 'rail_open'))).toEqual([{ command: 'rail_open', args: { id: 'two', reveal: false } }])
 })
 
 test('dragging and releasing on the original card does not open it or block later activation', async ({ page }) => {

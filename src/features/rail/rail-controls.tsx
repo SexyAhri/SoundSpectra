@@ -25,6 +25,7 @@ import { RailMedia } from "./rail-media";
 import type { RailController } from "./use-rail";
 import { RailAddPanel, NoteEditor } from "./rail-add-panel";
 import { useRailMotion } from "./use-rail-motion";
+import { RailMotionSnapshot } from "./rail-motion-snapshot";
 
 export function RailControls({
   controller,
@@ -45,7 +46,7 @@ export function RailControls({
   const group =
     controller.settings.groups.find((g) => g.id === selectedGroup) ??
     controller.settings.groups[0];
-  useRailMotion(
+  const captureMotion = useRailMotion(
     root,
     ".rail-control-item",
     "controlItem",
@@ -121,6 +122,7 @@ export function RailControls({
       .catch(() => {});
   };
   return (
+    <RailMotionSnapshot beforeUpdate={() => captureMotion(group?.items.map(item => item.id) ?? [])}>
     <div
       ref={root}
       className="rail-controls inspector-content"
@@ -426,6 +428,7 @@ export function RailControls({
         <p className="rail-list-empty">新建一组拾光绳，开始布置桌面。</p>
       )}
     </div>
+    </RailMotionSnapshot>
   );
 }
 function RailParameter({
