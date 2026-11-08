@@ -71,6 +71,24 @@ export function RailSurface({
   if (group.collapsed) animateBodyEntry.current = true;
   const [desktopSelection, setDesktopSelection] = useState<string | null>(null);
   const [rename, setRename] = useState<string | null>(null);
+  const [mediaRevision, setMediaRevision] = useState(0);
+  useEffect(() => {
+    if (!native || !desktop) return;
+    let disposed = false;
+    let stop: (() => void) | undefined;
+    void listen("rail-restored", () => {
+      if (!disposed) setMediaRevision((value) => value + 1);
+    })
+      .then((unsubscribe) => {
+        if (disposed) unsubscribe();
+        else stop = unsubscribe;
+      })
+      .catch(() => {});
+    return () => {
+      disposed = true;
+      stop?.();
+    };
+  }, [desktop]);
   useEffect(() => {
     if (requestedPopup?.token) { setRename(null); setNotice(null) }
   }, [requestedPopup?.token]);
@@ -455,7 +473,7 @@ export function RailSurface({
           ) : (
             <>
               <span className="rail-item-media">
-                <RailMedia item={item} unavailable={controller.missing.includes(item.id)} />
+                <RailMedia item={item} unavailable={controller.missing.includes(item.id)} revision={mediaRevision} />
               </span>
               {item.kind !== "image" && (
                 <span className="rail-item-name">{item.name}</span>

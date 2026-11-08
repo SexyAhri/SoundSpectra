@@ -3,7 +3,7 @@ import { AppWindow, File, Folder, Image, StickyNote } from "lucide-react";
 import { railMedia } from "./client";
 import type { RailItem } from "./model";
 const icons = { app: AppWindow, file: File, folder: Folder, image: Image, note: StickyNote };
-export function RailMedia({ item, unavailable = false }: { item: RailItem; unavailable?: boolean }) {
+export function RailMedia({ item, unavailable = false, revision = 0 }: { item: RailItem; unavailable?: boolean; revision?: number }) {
   const [media, setMedia] = useState<string | null>(null),
     [failed, setFailed] = useState(false);
   useEffect(() => {
@@ -19,10 +19,11 @@ export function RailMedia({ item, unavailable = false }: { item: RailItem; unava
     return () => {
       active = false;
     };
-  }, [item.id, item.path, item.kind, unavailable]);
+  }, [item.id, item.path, item.kind, unavailable, revision]);
   const Icon = icons[item.kind];
   return media && !failed ? (
     <img
+      key={revision}
       src={media}
       alt={item.kind === "image" ? item.name : ""}
       draggable={false}

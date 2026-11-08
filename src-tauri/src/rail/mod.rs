@@ -674,6 +674,33 @@ pub struct HitRect {
     height: f64,
 }
 #[tauri::command]
+pub async fn debug_rail_visibility(
+    app: AppHandle,
+    group_id: String,
+    mode: String,
+) -> Result<(), String> {
+    #[cfg(all(windows, debug_assertions))]
+    {
+        let window = app
+            .get_webview_window(&format!("rail-{group_id}"))
+            .ok_or("找不到测试用拾光绳")?;
+        let (tx, rx) = std::sync::mpsc::channel();
+        let target = window.clone();
+        window
+            .run_on_main_thread(move || {
+                let _ = tx.send(windows::obscure_for_test(&target, &mode));
+            })
+            .map_err(|e| e.to_string())?;
+        rx.recv_timeout(std::time::Duration::from_secs(5))
+            .map_err(|e| e.to_string())?
+    }
+    #[cfg(not(all(windows, debug_assertions)))]
+    {
+        let _ = (app, group_id, mode);
+        Err("此接口仅用于 Windows 开发验证".into())
+    }
+}
+#[tauri::command]
 pub async fn rail_hit_regions(window: WebviewWindow, regions: Vec<HitRect>) -> Result<(), String> {
     if !window.label().starts_with("rail-") {
         return Err("仅供桌面挂件使用".into());

@@ -5,7 +5,7 @@ use std::{
     path::Path,
     ptr::{null, null_mut},
 };
-use tauri::WebviewWindow;
+use tauri::{Emitter, WebviewWindow};
 use windows_sys::Win32::{
     Foundation::{HWND, LPARAM, POINT, RECT},
     Graphics::Gdi::*,
@@ -13,6 +13,123 @@ use windows_sys::Win32::{
 };
 fn wide(value: &str) -> Vec<u16> {
     value.encode_utf16().chain(Some(0)).collect()
+}
+
+const VISIBILITY_SUBCLASS: usize = 0x53535256;
+const REPAINT: windows_core::PCWSTR = windows_core::w!("SoundSpectra.RailRepaint");
+const BROWSER: windows_core::PCWSTR = windows_core::w!("SoundSpectra.RailBrowser");
+
+unsafe extern "system" fn observe_visibility(
+    hwnd: HWND,
+    message: u32,
+    wp: usize,
+    lp: isize,
+    _: usize,
+    _: usize,
+) -> isize {
+    if message == WM_SHOWWINDOW && wp == 0 {
+        // Remember even a hide/show pair between recovery ticks. Explorer can
+        // restore the HWND without restoring WebView2's compositor surface.
+        SetPropW(hwnd, REPAINT.as_ptr(), 1usize as _);
+    } else if message == WM_NCDESTROY {
+        RemovePropW(hwnd, REPAINT.as_ptr());
+        RemovePropW(hwnd, BROWSER.as_ptr());
+        RemoveWindowSubclass(hwnd, Some(observe_visibility), VISIBILITY_SUBCLASS);
+    }
+    DefSubclassProc(hwnd, message, wp, lp)
+}
+
+unsafe fn browser_visible(handle: HWND) -> bool {
+    let browser = GetPropW(handle, BROWSER.as_ptr()) as HWND;
+    !browser.is_null() && IsChild(handle, browser) != 0 && IsWindowVisible(browser) != 0
+}
+
+unsafe fn needs_repaint(handle: HWND) -> bool {
+    !GetPropW(handle, REPAINT.as_ptr()).is_null() || !browser_visible(handle)
+}
+
+unsafe fn layout_healthy(handle: HWND, parent: HWND, bounds: &Bounds) -> bool {
+    if IsWindowVisible(parent) == 0 {
+        SetPropW(handle, REPAINT.as_ptr(), 1usize as _);
+    }
+    GetParent(handle) == parent
+        && GetWindowLongPtrW(handle, GWL_STYLE) & WS_VISIBLE as isize != 0
+        && bounds.matches(handle)
+        // A hidden desktop is intentional. Leave the pending repaint in place
+        // until Explorer shows it, instead of repairing it every three seconds.
+        && (IsWindowVisible(parent) == 0 || !needs_repaint(handle))
+}
+
+#[cfg(debug_assertions)]
+pub fn obscure_for_test(window: &WebviewWindow, mode: &str) -> Result<(), String> {
+    let handle = window.hwnd().map_err(|e| e.to_string())?.0 as HWND;
+    unsafe {
+        match mode {
+            "rail" => {
+                ShowWindow(handle, SW_HIDE);
+            }
+            "cycle" => {
+                ShowWindow(handle, SW_HIDE);
+                ShowWindow(handle, SW_SHOWNOACTIVATE);
+            }
+            "browser" => {
+                let browser = GetPropW(handle, BROWSER.as_ptr()) as HWND;
+                if browser.is_null() || IsChild(handle, browser) == 0 {
+                    return Err("拾光绳 WebView 尚未就绪".into());
+                }
+                ShowWindow(browser, SW_HIDE);
+            }
+            _ => return Err("未知的拾光绳恢复测试".into()),
+        }
+    }
+    Ok(())
+}
+
+fn restore_browser(window: &WebviewWindow) -> Result<(), String> {
+    // with_webview runs with the runtime's WebView borrowed. Query HWNDs and
+    // emit frontend events outside that callback to avoid reentering Tauri.
+    let root = window.hwnd().map_err(|e| e.to_string())?.0 as usize;
+    window
+        .with_webview(move |webview| unsafe {
+            let result = (|| -> Result<(), String> {
+                let root = root as HWND;
+                let controller = webview.controller();
+                let mut browser = windows::Win32::Foundation::HWND::default();
+                controller
+                    .ParentWindow(&mut browser)
+                    .map_err(|e| e.to_string())?;
+                if SetPropW(root, BROWSER.as_ptr(), browser.0 as _) == 0 {
+                    return Err(std::io::Error::last_os_error().to_string());
+                }
+                if IsWindowVisible(root) == 0 {
+                    return Ok(());
+                }
+                // SetWindowPos only repairs the outer HWND. Restore both the
+                // Wry child and the controller, without activating the rail.
+                controller.SetIsVisible(false).map_err(|e| e.to_string())?;
+                ShowWindow(browser.0 as HWND, SW_SHOWNOACTIVATE);
+                controller.SetIsVisible(true).map_err(|e| e.to_string())?;
+                controller
+                    .NotifyParentWindowPositionChanged()
+                    .map_err(|e| e.to_string())?;
+                RemovePropW(root, REPAINT.as_ptr());
+                Ok(())
+            })();
+            if let Err(error) = result {
+                eprintln!("rail WebView recovery: {error}");
+            }
+        })
+        .map_err(|e| e.to_string())?;
+    // attach is called on the main thread, so the callback above has finished.
+    unsafe {
+        if IsWindowVisible(root as HWND) != 0 && GetPropW(root as HWND, REPAINT.as_ptr()).is_null()
+        {
+            window
+                .emit_to(window.label(), "rail-restored", ())
+                .map_err(|e| e.to_string())?;
+        }
+    }
+    Ok(())
 }
 
 #[cfg(test)]
@@ -66,6 +183,47 @@ mod transition_tests {
             unsafe {
                 DestroyWindow(self.0);
             }
+        }
+    }
+    #[test]
+    fn desktop_visibility_requires_one_repaint_after_restore() {
+        unsafe {
+            let parent = TestWindow::new(true);
+            let rail = TestWindow::new(false);
+            let browser = TestWindow::new(true);
+            position_window(rail.0, parent.0, -30000, -30000, 100, 100).unwrap();
+            SetParent(browser.0, rail.0);
+            SetWindowLongPtrW(browser.0, GWL_STYLE, (WS_CHILD | WS_VISIBLE) as isize);
+            SetPropW(rail.0, BROWSER.as_ptr(), browser.0 as _);
+            assert_ne!(
+                SetWindowSubclass(rail.0, Some(observe_visibility), VISIBILITY_SUBCLASS, 0),
+                0
+            );
+            let bounds = Bounds {
+                x: -30000,
+                y: -30000,
+                width: 100,
+                height: 100,
+            };
+            assert!(layout_healthy(rail.0, parent.0, &bounds));
+            // A quick hide/show between polling ticks must not lose recovery.
+            ShowWindow(rail.0, SW_HIDE);
+            ShowWindow(rail.0, SW_SHOWNOACTIVATE);
+            assert!(!layout_healthy(rail.0, parent.0, &bounds));
+            RemovePropW(rail.0, REPAINT.as_ptr());
+            assert!(layout_healthy(rail.0, parent.0, &bounds));
+            // A hidden browser is unhealthy even when the outer rail is visible.
+            ShowWindow(browser.0, SW_HIDE);
+            assert!(!layout_healthy(rail.0, parent.0, &bounds));
+            ShowWindow(browser.0, SW_SHOWNOACTIVATE);
+            assert!(layout_healthy(rail.0, parent.0, &bounds));
+            // Do not fight Explorer while the entire desktop host is hidden.
+            ShowWindow(parent.0, SW_HIDE);
+            assert!(layout_healthy(rail.0, parent.0, &bounds));
+            ShowWindow(parent.0, SW_SHOWNOACTIVATE);
+            assert!(!layout_healthy(rail.0, parent.0, &bounds));
+            RemovePropW(rail.0, REPAINT.as_ptr());
+            assert!(layout_healthy(rail.0, parent.0, &bounds));
         }
     }
     #[test]
@@ -161,7 +319,7 @@ pub fn attached(window: &WebviewWindow, group: &RailGroup) -> bool {
         match (window.hwnd(), host(), bounds(window, group)) {
             (Ok(hwnd), Ok(host), Ok(bounds)) => {
                 let handle = hwnd.0 as HWND;
-                GetParent(handle) == host && IsWindowVisible(handle) != 0 && bounds.matches(handle)
+                layout_healthy(handle, host, &bounds)
             }
             _ => false,
         }
@@ -198,7 +356,18 @@ pub fn attach(window: &WebviewWindow, group: &RailGroup) -> Result<(), String> {
         width,
         height,
     } = bounds(window, group)?;
-    unsafe { position_window(handle, parent, x, y, width, height) }
+    unsafe {
+        if SetWindowSubclass(handle, Some(observe_visibility), VISIBILITY_SUBCLASS, 0) == 0 {
+            return Err("无法监听拾光绳显示恢复".into());
+        }
+        let repaint = GetParent(handle) != parent || needs_repaint(handle);
+        position_window(handle, parent, x, y, width, height)?;
+        if repaint {
+            SetPropW(handle, REPAINT.as_ptr(), 1usize as _);
+            restore_browser(window)?;
+        }
+    }
+    Ok(())
 }
 fn bounds(window: &WebviewWindow, group: &RailGroup) -> Result<Bounds, String> {
     let monitor = window

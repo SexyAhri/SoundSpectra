@@ -410,6 +410,7 @@ pub fn run() {
             get_settings,
             debug_desktop_state,
             rail::debug_rail_drop_state,
+            rail::debug_rail_visibility,
             get_status,
             update_settings,
             apply_scene,
