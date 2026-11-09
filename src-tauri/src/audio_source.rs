@@ -178,9 +178,15 @@ pub struct SourceSnapshot {
     error: Option<String>,
     catalog: &'static [Player],
     discovery: Discovery,
+    builtin: BuiltinSource,
     #[cfg(windows)]
     #[serde(rename = "kugouSync")]
     kugou_sync: crate::kugou_sync::SyncStatus,
+}
+#[derive(Serialize)]
+struct BuiltinSource {
+    active: bool,
+    resumable: bool,
 }
 fn settings_window(window: &WebviewWindow) -> Result<(), String> {
     if window.label() != "settings" {
@@ -199,7 +205,15 @@ pub fn get_audio_sources(
         .lock()
         .map_err(|e| e.to_string())?
         .clone();
+    let builtin = {
+        let p = state.music.playback.lock().unwrap();
+        BuiltinSource {
+            active: !p.view.queue.is_empty() && !p.view.suspended,
+            resumable: !p.view.queue.is_empty(),
+        }
+    };
     Ok(SourceSnapshot {
+        builtin,
         selection: source.selection,
         error: source.error,
         catalog: PLAYERS,
@@ -223,9 +237,15 @@ pub async fn set_audio_source(
     settings_window(&window)?;
     selection.validate()?;
     let state = state.inner().clone();
-    tauri::async_runtime::spawn_blocking(move || set_audio_source_inner(&app, &state, selection))
-        .await
-        .map_err(|error| error.to_string())?
+    tauri::async_runtime::spawn_blocking(move || {
+        let saved = set_audio_source_inner(&app, &state, selection)?;
+        if crate::music::playback::active(&state) {
+            crate::music::playback::control(&app, &state, "stop", None)?;
+        }
+        Ok::<_, String>(saved)
+    })
+    .await
+    .map_err(|error| error.to_string())?
 }
 
 fn set_audio_source_inner(

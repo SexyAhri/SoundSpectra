@@ -241,6 +241,9 @@ pub fn get_now_playing(
     if !["settings", "overlay", "card-controls"].contains(&window.label()) {
         return Err("不支持的窗口".into());
     }
+    if let Some(value) = crate::music::playback::snapshot(&state.music) {
+        return Ok(value);
+    }
     let status = state.status.lock().map_err(|e| e.to_string())?.clone();
     let mut value = state.now_playing.lock().map_err(|e| e.to_string())?.clone();
     if value.process_id != status.process_id || now().saturating_sub(value.updated) > 10_000 {
@@ -261,6 +264,11 @@ pub fn start(state: Arc<AppState>) {
             netease_cover::Reader::new(state.path.with_file_name("cover-cache"));
         let mut accessibility = accessibility::Reader::default();
         while !state.shutdown.load(Ordering::Relaxed) {
+            if let Some(value) = crate::music::playback::snapshot(&state.music) {
+                *state.now_playing.lock().unwrap() = value;
+                thread::sleep(Duration::from_millis(250));
+                continue;
+            }
             let status = state.status.lock().unwrap().clone();
             let revision = state.audio_source.lock().unwrap().revision;
             // Performance cues need the player clock even when both visible
@@ -315,7 +323,7 @@ pub fn start(state: Arc<AppState>) {
             }
             // A slow metadata/cover request must never overwrite a newer selection.
             let source = state.audio_source.lock().unwrap();
-            if source.revision == revision {
+            if source.revision == revision && !crate::music::playback::active(&state) {
                 let mut current = state.now_playing.lock().unwrap();
                 if current.title != value.title
                     || current.artist != value.artist

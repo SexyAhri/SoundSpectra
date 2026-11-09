@@ -199,7 +199,7 @@ fn credit_preamble(text: &str) -> bool {
         })
 }
 
-fn parse(text: &str) -> Result<Vec<Line>, String> {
+pub(crate) fn parse(text: &str) -> Result<Vec<Line>, String> {
     if text.len() > 2_097_152 {
         return Err("歌词正文过大".into());
     }
@@ -658,6 +658,11 @@ pub async fn get_current_lyrics(
             status: "disabled".into(),
             ..Default::default()
         });
+    }
+    if let Some(document) =
+        crate::music::current_lyrics(&state).filter(|_| crate::music::playback::active(&state))
+    {
+        return Ok(document);
     }
     let info = state.now_playing.lock().map_err(|e| e.to_string())?.clone();
     let key = track_key(&info);

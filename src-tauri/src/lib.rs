@@ -26,6 +26,7 @@ mod lyrics;
 #[cfg(target_os = "macos")]
 #[path = "platform/macos/helper.rs"]
 mod macos_helper;
+mod music;
 #[cfg(windows)]
 mod now_playing;
 #[cfg(target_os = "macos")]
@@ -67,6 +68,7 @@ pub struct RuntimeStatus {
 }
 
 pub struct AppState {
+    music: Arc<music::MusicState>,
     now_playing: Mutex<now_playing::NowPlaying>,
     lyric_cache: Mutex<lyrics::LyricCache>,
     lyric_library: Mutex<lyrics::discovery::Library>,
@@ -375,6 +377,23 @@ pub fn run() {
         return;
     }
     let app = tauri::Builder::default()
+        .register_asynchronous_uri_scheme_protocol("music", |context, request, responder| {
+            if context.webview_label() != "music-player" {
+                responder.respond(
+                    tauri::http::Response::builder()
+                        .status(403)
+                        .body(Vec::<u8>::new())
+                        .unwrap(),
+                );
+                return;
+            }
+            let state = context
+                .app_handle()
+                .state::<Arc<AppState>>()
+                .inner()
+                .clone();
+            responder.respond(music::playback::resource(&state.music, request));
+        })
         .plugin(tauri_plugin_single_instance::init(|app, _, _| {
             show_settings(app)
         }))
@@ -386,6 +405,26 @@ pub fn run() {
                 .build(),
         )
         .invoke_handler(tauri::generate_handler![
+            music::music_snapshot,
+            music::music_login,
+            music::music_playlists,
+            music::music_tracks,
+            music::music_play,
+            music::music_control,
+            music::music_player_state,
+            music::music_player_feedback,
+            music::music_lyrics,
+            music::operations::music_library_data,
+            music::operations::music_artwork,
+            music::operations::music_browse,
+            music::operations::music_search,
+            music::operations::music_cloud_edit,
+            music::operations::music_preferences,
+            music::operations::music_queue_edit,
+            music::operations::music_cache,
+            music::operations::music_offset,
+            music::operations::music_diagnostics,
+            music::operations::music_media_control,
             application::application_info,
             application::get_preferences,
             application::save_preferences,
@@ -464,6 +503,7 @@ pub fn run() {
                 Err(error) => (Settings::default(), Some(error)),
             };
             let state = Arc::new(AppState {
+                music: Arc::new(music::MusicState::new(path.with_file_name("music"))),
                 now_playing: Mutex::new(now_playing::NowPlaying::default()),
                 lyric_cache: Mutex::new(lyrics::LyricCache::default()),
                 lyric_library: Mutex::new(lyrics::discovery::Library::default()),
@@ -486,6 +526,7 @@ pub fn run() {
                 desktop_occluded: AtomicBool::new(false),
             });
             app.manage(state.clone());
+            state.music.restore();
             app.manage(rail::RailState::new(app.handle()));
             system_tray::setup(app)?;
             if std::env::args().any(|arg| arg == "--autostart") {
@@ -565,6 +606,7 @@ pub fn run() {
             });
         }
         if let tauri::RunEvent::Exit = event {
+            app.state::<Arc<AppState>>().music.persist();
             app.state::<Arc<AppState>>()
                 .shutdown
                 .store(true, Ordering::Relaxed);

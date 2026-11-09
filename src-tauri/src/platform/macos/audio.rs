@@ -39,10 +39,16 @@ fn capture(
 ) -> Result<(), String> {
     let included: Vec<_> = targets
         .iter()
-        .filter(|t| match &source {
-            Source::Auto => true,
-            Source::Player { id } => t.player_id.as_ref() == Some(id),
-            _ => false,
+        .filter(|t| {
+            if crate::music::playback::active(state) {
+                t.pid == std::process::id()
+            } else {
+                match &source {
+                    Source::Auto => true,
+                    Source::Player { id } => t.player_id.as_ref() == Some(id),
+                    _ => false,
+                }
+            }
         })
         .map(|t| t.pid)
         .collect();
@@ -106,7 +112,14 @@ fn capture(
             return Ok(());
         }
         if refresh.elapsed() > Duration::from_secs(2) {
-            let current = audio_discovery::scan()?;
+            let current = if let Some(target) = crate::music::playback::capture_target(state) {
+                crate::audio_source::Discovery {
+                    targets: vec![target],
+                    warning: None,
+                }
+            } else {
+                audio_discovery::scan()?
+            };
             if current.targets.iter().map(|t| t.pid).collect::<Vec<_>>()
                 != targets.iter().map(|t| t.pid).collect::<Vec<_>>()
             {
@@ -131,7 +144,8 @@ fn capture(
                         });
                     }
                     state.audio_discovery.lock().unwrap().targets = targets.clone();
-                    let next = selector.choose(&source, &targets);
+                    let next = crate::music::playback::capture_target(state)
+                        .or_else(|| selector.choose(&source, &targets));
                     if selected != next.as_ref().map(|t| t.pid) {
                         analyzer = Analyzer::with_source_revision(revision);
                         silence(app);
@@ -202,7 +216,14 @@ pub fn start(app: AppHandle, state: Arc<AppState>) {
                 if let Some(error) = selected.error {
                     return Err(error);
                 }
-                let found = audio_discovery::scan()?;
+                let found = if let Some(target) = crate::music::playback::capture_target(&state) {
+                    crate::audio_source::Discovery {
+                        targets: vec![target],
+                        warning: None,
+                    }
+                } else {
+                    audio_discovery::scan()?
+                };
                 *state.audio_discovery.lock().unwrap() = found.clone();
                 status(
                     &state,

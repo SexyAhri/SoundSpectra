@@ -36,6 +36,15 @@ fn status(state: &AppState, kind: &str, message: &str, target: Option<&Target>, 
     }
 }
 fn discover(state: &AppState) -> Result<Vec<Target>, String> {
+    if let Some(target) = crate::music::playback::capture_target(state) {
+        let targets = vec![target];
+        *state.audio_discovery.lock().map_err(|e| e.to_string())? =
+            crate::audio_source::Discovery {
+                targets: targets.clone(),
+                warning: None,
+            };
+        return Ok(targets);
+    }
     match audio_discovery::scan() {
         Ok(snapshot) => {
             let targets = snapshot.targets.clone();
@@ -102,7 +111,11 @@ fn capture(
             }
             if last_process_check.elapsed() >= Duration::from_secs(1) {
                 let targets = discover(state)?;
-                let next = selector.choose(&selected.selection, &targets);
+                let next = if crate::music::playback::active(state) {
+                    targets.first().cloned()
+                } else {
+                    selector.choose(&selected.selection, &targets)
+                };
                 if !next.is_some_and(|next| {
                     next.pid == target.pid && next.executable == target.executable
                 }) {
@@ -216,7 +229,11 @@ pub fn start(app: AppHandle, state: Arc<AppState>) {
             }
             match discover(&state) {
                 Ok(targets) => {
-                    if let Some(target) = selector.choose(&selected.selection, &targets) {
+                    if let Some(target) = if crate::music::playback::active(&state) {
+                        targets.first().cloned()
+                    } else {
+                        selector.choose(&selected.selection, &targets)
+                    } {
                         status(
                             &state,
                             "connecting",

@@ -24,6 +24,7 @@ import { WorkspaceTools } from "./workspace-tools";
 import { PerformanceProvider } from "../performance/runtime";
 import { PerformancePanel } from "../performance/panel";
 import { Wordmark } from "./wordmark";
+import { MusicLibrary } from "../music/music-library";
 
 export function SettingsWorkspace() {
   const {
@@ -152,7 +153,11 @@ export function SettingsWorkspace() {
         </aside>
         <div className="workspace-shell">
           <header className="topbar" data-tauri-drag-region>
-            <h1 className="workspace-title" aria-label="SoundSpectra" data-tauri-drag-region>
+            <h1
+              className="workspace-title"
+              aria-label="SoundSpectra"
+              data-tauri-drag-region
+            >
               <Wordmark />
             </h1>
             <div className="topbar-actions">
@@ -186,117 +191,123 @@ export function SettingsWorkspace() {
             mobile
           />
           <div className="workspace-body">
-            <main className="main-pane" id="spectrum-workspace">
-              {(error ||
-                spectrumError ||
-                status.desktopError ||
-                (navigation.panel === "rail" && railDropError)) && (
-                <div className="error-banner" role="alert">
-                  <span>
-                    {error ||
-                      spectrumError ||
-                      status.desktopError ||
-                      railDropError}
-                  </span>
-                  {!loaded && (
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      disabled={busy}
-                      onClick={recover}
-                    >
-                      备份并恢复默认设置
-                    </Button>
+            {navigation.panel === "music" ? (
+              <MusicLibrary />
+            ) : (
+              <>
+                <main className="main-pane" id="spectrum-workspace">
+                  {(error ||
+                    spectrumError ||
+                    status.desktopError ||
+                    (navigation.panel === "rail" && railDropError)) && (
+                    <div className="error-banner" role="alert">
+                      <span>
+                        {error ||
+                          spectrumError ||
+                          status.desktopError ||
+                          railDropError}
+                      </span>
+                      {!loaded && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          disabled={busy}
+                          onClick={recover}
+                        >
+                          备份并恢复默认设置
+                        </Button>
+                      )}
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() =>
+                          loaded ? update({}) : window.location.reload()
+                        }
+                      >
+                        重试
+                      </Button>
+                    </div>
                   )}
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() =>
-                      loaded ? update({}) : window.location.reload()
+                  <DesktopPreview
+                    sceneActions={
+                      <PerformancePanel
+                        settings={settings}
+                        region={selected}
+                        disabled={!loaded || busy || status.editing}
+                      />
                     }
-                  >
-                    重试
-                  </Button>
-                </div>
-              )}
-              <DesktopPreview
-                sceneActions={
-                  <PerformancePanel
-                    settings={settings}
-                    region={selected}
-                    disabled={!loaded || busy || status.editing}
-                  />
-                }
-                activePanel={navigation.panel}
-                libraryRequest={libraryRequest}
-                editActions={
-                  <WorkspaceTools
+                    activePanel={navigation.panel}
+                    libraryRequest={libraryRequest}
+                    editActions={
+                      <WorkspaceTools
+                        settings={sceneSettings}
+                        status={status}
+                        rail={rail}
+                        lyrics={lyricDocument}
+                        loaded={loaded}
+                        busy={busy}
+                        saveState={saveState}
+                        disabled={!loaded || busy || status.editing}
+                        update={updateScene}
+                        commitScene={commitScene}
+                        undo={undo}
+                        redo={redo}
+                        canUndo={canUndo}
+                        canRedo={canRedo}
+                        onLibrary={() => requestLibrary((value) => value + 1)}
+                        onArrange={() => requestArrange((value) => value + 1)}
+                      />
+                    }
+                    onShow={() => setApplicationOpen(false)}
                     settings={sceneSettings}
-                    status={status}
-                    rail={rail}
-                    lyrics={lyricDocument}
-                    loaded={loaded}
-                    busy={busy}
-                    saveState={saveState}
-                    disabled={!loaded || busy || status.editing}
-                    update={updateScene}
+                    nowPlaying={nowPlaying}
+                    lyricDocument={lyricDocument}
                     commitScene={commitScene}
-                    undo={undo}
-                    redo={redo}
-                    canUndo={canUndo}
-                    canRedo={canRedo}
-                    onLibrary={() => requestLibrary((value) => value + 1)}
-                    onArrange={() => requestArrange((value) => value + 1)}
+                    rail={rail}
+                    selectedRail={selectedRailItem ?? selectedRail}
+                    railEditing={navigation.panel === "rail"}
+                    wallpaperEditing={navigation.panel === "wallpaper"}
+                    onSelectRail={onSelectRail}
+                    selectedRegion={selected}
+                    onSelectRegion={(id) => {
+                      selectRegion(id);
+                      navigation.selectPanel("scene");
+                    }}
+                    onEditLyrics={() => navigation.selectPanel("lyrics")}
+                    onEditCard={() => navigation.selectPanel("card")}
+                    arrangeRequest={arrangeRequest}
+                    update={updateScene}
+                    bands={bands}
+                    receivedAt={receivedAt}
+                    analysis={analysis}
+                    demo={demo}
+                    onDemoChange={setDemo}
+                    running={running}
+                    disabled={!loaded || busy || status.editing}
+                    active={!applicationOpen}
                   />
-                }
-                onShow={() => setApplicationOpen(false)}
-                settings={sceneSettings}
-                nowPlaying={nowPlaying}
-                lyricDocument={lyricDocument}
-                commitScene={commitScene}
-                rail={rail}
-                selectedRail={selectedRailItem ?? selectedRail}
-                railEditing={navigation.panel === "rail"}
-                wallpaperEditing={navigation.panel === "wallpaper"}
-                onSelectRail={onSelectRail}
-                selectedRegion={selected}
-                onSelectRegion={(id) => {
-                  selectRegion(id);
-                  navigation.selectPanel("scene");
-                }}
-                onEditLyrics={() => navigation.selectPanel("lyrics")}
-                onEditCard={() => navigation.selectPanel("card")}
-                arrangeRequest={arrangeRequest}
-                update={updateScene}
-                bands={bands}
-                receivedAt={receivedAt}
-                analysis={analysis}
-                demo={demo}
-                onDemoChange={setDemo}
-                running={running}
-                disabled={!loaded || busy || status.editing}
-                active={!applicationOpen}
-              />
-            </main>
-            <SceneInspector
-              sceneSettings={sceneSettings}
-              settings={settings}
-              lyricDocument={lyricDocument}
-              selected={selected}
-              onSelect={selectRegion}
-              rail={rail}
-              selectedRail={selectedRail}
-              selectedRailItem={selectedRailItem}
-              railSelectionRevision={railSelectionRevision}
-              onSelectRail={onSelectRail}
-              panel={navigation.panel}
-              tab={navigation.tab}
-              onTabChange={navigation.selectTab}
-              disabled={!loaded || busy}
-              editing={status.editing}
-              updateScene={updateScene}
-              update={update}
-            />
+                </main>
+                <SceneInspector
+                  sceneSettings={sceneSettings}
+                  settings={settings}
+                  lyricDocument={lyricDocument}
+                  selected={selected}
+                  onSelect={selectRegion}
+                  rail={rail}
+                  selectedRail={selectedRail}
+                  selectedRailItem={selectedRailItem}
+                  railSelectionRevision={railSelectionRevision}
+                  onSelectRail={onSelectRail}
+                  panel={navigation.panel}
+                  tab={navigation.tab}
+                  onTabChange={navigation.selectTab}
+                  disabled={!loaded || busy}
+                  editing={status.editing}
+                  updateScene={updateScene}
+                  update={update}
+                />
+              </>
+            )}
           </div>
           <WorkspaceFooter
             rail={rail}

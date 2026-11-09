@@ -38,7 +38,7 @@ interface Props {
   update: (patch: Partial<SpectrumSettings>) => void;
   tab: string;
   onTabChange: (value: string) => void;
-  panel: WorkspacePanel;
+  panel: Exclude<WorkspacePanel, "music">;
   rail: RailController;
   selectedRail: string | null;
   selectedRailItem: string | null;

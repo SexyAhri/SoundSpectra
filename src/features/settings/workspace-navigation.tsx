@@ -5,15 +5,23 @@ import {
   Monitor,
   Type,
   GalleryHorizontalEnd,
+  Music2,
 } from "lucide-react";
 
-export type WorkspacePanel = "scene" | "lyrics" | "card" | "wallpaper" | "rail";
+export type WorkspacePanel =
+  | "scene"
+  | "lyrics"
+  | "card"
+  | "wallpaper"
+  | "rail"
+  | "music";
 const panels = [
   { id: "scene", label: "灯效", icon: Monitor },
   { id: "lyrics", label: "歌词", icon: Type },
   { id: "card", label: "音乐卡片", icon: Disc3 },
   { id: "rail", label: "拾光绳", icon: GalleryHorizontalEnd },
   { id: "wallpaper", label: "壁纸", icon: Image },
+  { id: "music", label: "音乐库", icon: Music2 },
 ] as const;
 
 function readLocation() {
@@ -33,19 +41,28 @@ export function useWorkspaceNavigation() {
     window.addEventListener("hashchange", change);
     return () => window.removeEventListener("hashchange", change);
   }, []);
-  const navigate = useCallback((panel: WorkspacePanel, tab = view.tab) => {
-    const next = { panel, tab },
-      hash = `#${panel}${panel === "scene" ? `/${tab}` : ""}`;
-    if (location.hash !== hash)
-      history[panel === view.panel ? "replaceState" : "pushState"](
-        null,
-        "",
-        hash,
-      );
-    setView(next);
-  }, [view.panel, view.tab]);
-  const selectPanel = useCallback((panel: WorkspacePanel) => navigate(panel), [navigate]);
-  const selectTab = useCallback((tab: string) => navigate("scene", tab), [navigate]);
+  const navigate = useCallback(
+    (panel: WorkspacePanel, tab = view.tab) => {
+      const next = { panel, tab },
+        hash = `#${panel}${panel === "scene" ? `/${tab}` : ""}`;
+      if (location.hash !== hash)
+        history[panel === view.panel ? "replaceState" : "pushState"](
+          null,
+          "",
+          hash,
+        );
+      setView(next);
+    },
+    [view.panel, view.tab],
+  );
+  const selectPanel = useCallback(
+    (panel: WorkspacePanel) => navigate(panel),
+    [navigate],
+  );
+  const selectTab = useCallback(
+    (tab: string) => navigate("scene", tab),
+    [navigate],
+  );
   return {
     panel: view.panel,
     tab: view.tab,

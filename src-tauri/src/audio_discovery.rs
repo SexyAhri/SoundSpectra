@@ -187,6 +187,33 @@ pub fn scan() -> Result<Discovery, String> {
     })
 }
 
+fn builtin_process<'a>(
+    processes: &'a [Process],
+    peaks: &HashMap<u32, f32>,
+    root: u32,
+) -> Option<&'a Process> {
+    let map: HashMap<_, _> = processes.iter().map(|p| (p.pid, p)).collect();
+    processes
+        .iter()
+        .filter(|p| peaks.contains_key(&p.pid) && ancestors(p, &map).iter().any(|a| a.pid == root))
+        .max_by(|a, b| peaks[&a.pid].total_cmp(&peaks[&b.pid]))
+}
+
+/// WebView2 renders through a separate audio service. Target its actual audio
+/// session, including when a browser process outlives a hot-reloaded host.
+pub fn builtin_target() -> Option<Target> {
+    let processes = processes().ok()?;
+    let (peaks, _) = session_peaks();
+    let process = builtin_process(&processes, &peaks, std::process::id())?;
+    Some(Target {
+        pid: process.pid,
+        executable: process.executable.clone(),
+        name: "SoundSpectra · 内置播放".into(),
+        player_id: Some("soundspectra".into()),
+        audible: peaks[&process.pid] > 0.001,
+    })
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -196,6 +223,18 @@ mod tests {
             parent,
             executable: executable.into(),
         }
+    }
+    #[test]
+    fn builtin_capture_selects_only_its_own_audio_service() {
+        let processes = vec![
+            process(10, 1, "soundspectra.exe"),
+            process(11, 10, "msedgewebview2.exe"),
+            process(12, 11, "msedgewebview2.exe"),
+            process(20, 1, "chrome.exe"),
+        ];
+        let peaks = HashMap::from([(12, 0.1), (20, 0.9)]);
+        assert_eq!(builtin_process(&processes, &peaks, 10).unwrap().pid, 12);
+        assert!(builtin_process(&processes, &peaks, 30).is_none());
     }
     #[test]
     fn music_children_map_to_music_root_not_explorer_or_other_audio_apps() {

@@ -41,6 +41,7 @@ pub fn capabilities(
 #[tauri::command]
 pub async fn control_card_media(
     window: WebviewWindow,
+    app: tauri::AppHandle,
     state: State<'_, Arc<AppState>>,
     action: MediaAction,
     track_id: String,
@@ -48,6 +49,24 @@ pub async fn control_card_media(
 ) -> Result<(), String> {
     if !["settings", "overlay", "card-controls"].contains(&window.label()) {
         return Err("不支持的窗口".into());
+    }
+    if session_id == "soundspectra-music" {
+        let current = crate::music::playback::snapshot(&state.music).ok_or("内置播放已停止")?;
+        if current.track_id != track_id {
+            return Err("歌曲已切换，请稍后重试".into());
+        }
+        let action = match action {
+            MediaAction::Previous => "previous",
+            MediaAction::Next => "next",
+            MediaAction::Play => "play",
+            MediaAction::Pause => "pause",
+        };
+        let state = state.inner().clone();
+        return tauri::async_runtime::spawn_blocking(move || {
+            crate::music::playback::control(&app, &state, action, None)
+        })
+        .await
+        .map_err(|_| "内置播放控制失败")?;
     }
     #[cfg(windows)]
     {

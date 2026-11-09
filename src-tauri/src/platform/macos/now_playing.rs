@@ -22,6 +22,9 @@ pub fn get_now_playing(
     if !["settings", "overlay"].contains(&window.label()) {
         return Err("不支持的窗口".into());
     }
+    if let Some(value) = crate::music::playback::snapshot(&state.music) {
+        return Ok(value);
+    }
     let status = state.status.lock().map_err(|e| e.to_string())?.clone();
     let mut value = state.now_playing.lock().map_err(|e| e.to_string())?.clone();
     if value.process_id != status.process_id || now().saturating_sub(value.updated) > 10_000 {
@@ -36,6 +39,11 @@ pub fn get_now_playing(
 pub fn start(state: Arc<AppState>) {
     thread::spawn(move || {
         while !state.shutdown.load(Ordering::Relaxed) {
+            if let Some(value) = crate::music::playback::snapshot(&state.music) {
+                *state.now_playing.lock().unwrap() = value;
+                thread::sleep(Duration::from_millis(250));
+                continue;
+            }
             let revision = state.audio_source.lock().unwrap().revision;
             let pid = state.status.lock().unwrap().process_id;
             let enabled = {
@@ -65,7 +73,7 @@ pub fn start(state: Arc<AppState>) {
             }
             value.updated = now();
             let guard = state.audio_source.lock().unwrap();
-            if guard.revision == revision {
+            if guard.revision == revision && !crate::music::playback::active(&state) {
                 let mut old = state.now_playing.lock().unwrap();
                 if old.title != value.title
                     || old.artist != value.artist
