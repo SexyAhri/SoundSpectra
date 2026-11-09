@@ -113,6 +113,7 @@ test('folded controls reach the renderer, move the layer and persist from the re
   })
   await page.goto('/')
   await page.getByRole('button', { name: '歌词', exact: true }).click()
+  await setDemo(page)
   const canvas = page.locator('.folded-lyrics canvas'), layer = page.getByTestId('lyric-layer')
   await expect(canvas).toHaveAttribute('data-font-size', '18')
   const styles = page.getByRole('group', { name: '当前歌词编排', exact: true })

@@ -32,6 +32,7 @@ test('studio uses the real effect catalog and persists choices through illustrat
 
 test('music card supports persistent style, scale and keyboard placement without moving effects', async ({ page }) => {
   await page.goto('/')
+  await page.getByRole('switch', { name: '模拟预览', exact: true }).check()
   await page.getByRole('button', { name: '音乐卡片', exact: true }).click()
   await page.getByRole('switch', { name: '显示桌面音乐卡片' }).click()
   const card = page.getByTestId('music-card-layer')

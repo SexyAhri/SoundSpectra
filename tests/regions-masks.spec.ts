@@ -1,4 +1,5 @@
 import { chooseStyle } from './helpers/module-settings'
+import { setDemo } from './helpers/demo'
 import { settingsSection } from './helpers/module-settings'
 import { selectChoice } from './helpers/choices'
 import { test, expect, type Page } from '@playwright/test'
@@ -187,6 +188,7 @@ for (const effect of effectIds) test(`${effect}: disappears under a hard mask an
   }))
   await page.addInitScript(settings => localStorage.setItem('soundspectra.settings.v1', JSON.stringify(settings)), { ...defaults, effect, masks: [{ id: 'full', bounds: { x: 0, y: 0, width: 1, height: 1 }, feather: 0 }] })
   await page.goto('/'); await settled(page)
+  await setDemo(page)
   expect(await sample(), effect).toBe(0)
   await page.getByRole('button', { name: '遮罩', exact: true }).click(); await page.getByLabel('删除当前遮罩').click(); await settled(page)
   await expect.poll(sample, { timeout: 5000 }).toBeGreaterThan(0)

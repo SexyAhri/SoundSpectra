@@ -52,7 +52,7 @@ test('a saved retired selection reloads as a supported effect and exposes no ret
   await page.reload()
   await settingsSection(page, '动效')
   await expect(page.getByRole('group', { name: '当前灯效', exact: true })).toContainText('频谱回响')
-  await expect(page.locator('.three-scene-surface canvas').first()).toHaveAttribute('aria-label', '频谱回响 · 模拟音频预览')
+  await expect(page.locator('.three-scene-surface canvas').first()).toHaveAttribute('aria-label', '频谱回响 · 真实音乐声场')
 })
 
 test('MSAA boundaries keep HDR scene and bloom pixels finite through different camera views', async ({ page }) => {

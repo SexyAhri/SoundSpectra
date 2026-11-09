@@ -1,4 +1,5 @@
 import { chooseStyle } from './helpers/module-settings'
+import { setDemo } from './helpers/demo'
 import { expect, test } from '@playwright/test'
 import { defaults, normalizeSettings } from '../src/features/spectrum/model'
 import { desktopLayout, parseDesktopScene, scenePatch } from '../src/features/preview/desktop-scenes'
@@ -21,6 +22,7 @@ test('font choices migrate, round trip desktop scenes, and keep personal timing 
 test('the font selector persists through reload and reaches each production renderer', async ({ page }) => {
   test.setTimeout(90_000)
   await page.goto('/')
+  await setDemo(page)
   await page.getByRole('button', { name: '歌词', exact: true }).click()
   await page.getByRole('switch', { name: '显示桌面歌词', exact: true }).check()
   await page.getByRole('button', { name: '唱片诗页', exact: false }).click()
@@ -32,6 +34,7 @@ test('the font selector persists through reload and reaches each production rend
   }
   const saved = await page.evaluate(() => JSON.parse(localStorage.getItem('soundspectra.settings.v1')!))
   await page.reload()
+  await setDemo(page)
   await page.getByRole('button', { name: '歌词', exact: true }).click()
   await expect(page.getByRole('button', { name: /唱片诗页/ })).toHaveAttribute('aria-pressed', 'true')
   await expect(canvas).toHaveAttribute('data-font-style', 'poetry')

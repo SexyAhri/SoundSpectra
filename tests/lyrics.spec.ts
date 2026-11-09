@@ -160,6 +160,7 @@ test('three lyric designs have distinct composition and respect reduced motion',
     lyrics: { ...defaults.lyrics, enabled: true, fontSize: 72, bounds: { x: .06, y: .35, width: .88, height: .34 } },
   })
   await page.goto('/')
+  await setDemo(page)
   await page.getByRole('button', { name: '歌词', exact: true }).click()
   const layer = page.getByTestId('lyric-layer')
   for (const [mode, name] of [['depth', '文字漫游'], ['stage', '错落排版'], ['stardust', '弧形流转']]) {

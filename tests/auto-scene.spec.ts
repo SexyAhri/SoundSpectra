@@ -241,6 +241,7 @@ for (const viewport of [{ width: 1440, height: 940 }, { width: 1000, height: 620
     await page.getByRole('button', { name: '纯色预览背景' }).click()
     const errors: string[] = []; page.on('pageerror', error => errors.push(error.message))
     await open(page)
+    await page.getByRole('switch', { name: '搭配模拟音频', exact: true }).check()
     for (const name of ['星光留白', '浮光星海', '轻雪星光']) {
       await page.getByRole('button', { name: new RegExp(name) }).click()
       await expect(page.locator('canvas')).toHaveCount(name === '星光留白' ? 1 : 2)
