@@ -62,13 +62,21 @@ test('snow uses a transparent scene and preserves the wallpaper under silent and
    const {SceneMotion}=await import('/src/features/spectrum/three/motion.ts')
    const {defaults}=await import('/src/features/spectrum/model.ts')
    const {demoAnalysis}=await import('/src/features/spectrum/music-analysis.ts')
+   const {silentAnalysis}=await import('/src/features/spectrum/music-analysis.ts')
    const c=document.createElement('canvas');c.style.cssText='width:640px;height:360px';document.body.append(c)
    const config={...defaults,effect:'ripple' as const,sceneMode:'immersive' as const},world=new ClassicSceneRenderer(c),motion=new SceneMotion()
    try{await world.resize(config,1);for(let i=0;i<60;i++){motion.step(demoAnalysis(i/30),1/30,config.music,false);world.draw(motion,config,false)}
      const gl=world.renderer.getContext(),data=new Uint8Array(c.width*c.height*4);gl.readPixels(0,0,c.width,c.height,gl.RGBA,gl.UNSIGNED_BYTE,data)
-     let clear=0,flakes=0;for(let i=3;i<data.length;i+=4){if(data[i]===0)clear++;if(data[i]>8)flakes++}
-     return {clear:clear/(c.width*c.height),flakes,error:gl.getError()}
+     let clear=0,flakes=0,opaque=0,alpha=0;for(let i=3;i<data.length;i+=4){if(data[i]===0)clear++;if(data[i]>8)flakes++;if(data[i]>230)opaque++;alpha+=data[i]/255}
+     for(let i=0;i<120;i++){motion.step(silentAnalysis(),1/30,config.music,false);world.draw(motion,config,false)}
+     const silent=new Uint8Array(data.length);gl.readPixels(0,0,c.width,c.height,gl.RGBA,gl.UNSIGNED_BYTE,silent)
+     let silentAlpha=0;for(let i=3;i<silent.length;i+=4)silentAlpha+=silent[i]
+     return {clear:clear/(c.width*c.height),flakes,opaque:opaque/(c.width*c.height),meanAlpha:alpha/(c.width*c.height),silentAlpha,error:gl.getError()}
    }finally{world.dispose();world.renderer.forceContextLoss();c.remove()}
  })
- expect(result.clear).toBeGreaterThan(.80);expect(result.flakes).toBeGreaterThan(50);expect(result.error).toBe(0)
+ // The new near flakes and local ground mist cover more pixels; constrain
+ // actual opacity as well as empty space so wallpaper remains visible.
+ expect(result.clear).toBeGreaterThan(.55);expect(result.flakes).toBeGreaterThan(50)
+ expect(result.opaque).toBeLessThan(.02);expect(result.meanAlpha).toBeLessThan(.12)
+ expect(result.silentAlpha).toBe(0);expect(result.error).toBe(0)
 })
