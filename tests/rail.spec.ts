@@ -305,11 +305,12 @@ test('clicking the cord adds a real persisted note and clicking the note edits i
   expect(saved.text).toContain('带相机和水')
 })
 
-test('photo labels are hidden and the photo menu anchors to its card within the scene', async ({ page }) => {
+test('photo labels retain the real name and the photo menu anchors to its card within the scene', async ({ page }) => {
   await page.addInitScript(() => localStorage.setItem('soundspectra.rail.v1', JSON.stringify({ version: 1, enabled: false, groups: [{ id: 'apps', name: '我的拾光绳', x: .07, y: .18, width: .86, collapsed: false, items: Array.from({ length: 5 }, (_, i) => ({ id: `photo-${i}`, name: `很长的照片文件名-${i}`, path: `C:\\Pictures\\${i}.jpg`, kind: 'image', crop: 'cover' })) }] })))
   await page.goto('/#rail')
   const photo = page.locator('.rail-hanging.rail-image').last()
-  await expect(photo.locator('.rail-item-name')).toHaveCount(0)
+  await expect(photo.locator('.rail-item-name')).toBeVisible()
+  await expect(photo.locator('.rail-item-name')).toHaveText('很长的照片文件名-4')
   await photo.locator('.rail-item-menu').click()
   const menu = page.locator('.rail-popup-menu')
   await expect(menu).toBeVisible()
