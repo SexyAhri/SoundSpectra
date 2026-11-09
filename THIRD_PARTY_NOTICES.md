@@ -53,3 +53,9 @@ SOFTWARE.
 The previously bundled two-dimensional fluid solver has been removed from the source tree. Its MIT notice remains available in historical revisions containing that solver.
 
 Noto Sans SC Variable and Noto Serif SC Variable (5.3.1), distributed through Fontsource, are bundled locally for lyric typography. Copyright belongs to the Noto Project Authors. Licensed under SIL Open Font License 1.1; full notices are in `licenses/noto-sans-sc-OFL.txt` and `licenses/noto-serif-sc-OFL.txt`. Font files are unmodified.
+
+The music library also uses the existing rusqlite / bundled SQLite dependency for account-scoped metadata and paused playback restoration. No cookies or signed playback addresses are stored in that database.
+
+Optional music loudness measurement uses Symphonia 0.5.5 and its codec/format crates (MPL-2.0, Copyright (c) the Symphonia Project Developers) and ebur128 0.1.11 (MIT, Copyright (c) 2011 Jan Kokemüller and (c) 2020 Sebastian Dröge). Complete texts are in `licenses/MPL-2.0.txt` and `licenses/ebur128-MIT.txt`. Symphonia sources are unmodified and available at https://github.com/pdeljanov/Symphonia/tree/v0.5.5 and the corresponding crates.io source packages; locked dependency versions are recorded in Cargo.lock. SoundSpectra's analysis worker is independent project code.
+
+QQ Music authentication, playlists, metadata, artwork, lyrics and authorized audio are requested at runtime from the service for the user's own session. No shared account, membership credential, copyrighted recording, or music lyrics are bundled. Service availability and account entitlements determine playback availability.
