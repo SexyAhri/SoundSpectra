@@ -35,6 +35,13 @@ export function useRailReorder(
   const cancel = () => {
     const current = gesture.current;
     gesture.current = null;
+    if (current?.dragging)
+      current.source.dispatchEvent(
+        new CustomEvent("rail-item-release", {
+          bubbles: true,
+          detail: { id: current.id },
+        }),
+      );
     if (current?.source.hasPointerCapture(current.pointer))
       current.source.releasePointerCapture(current.pointer);
     setTarget(null);
@@ -51,7 +58,9 @@ export function useRailReorder(
         cancel();
       }
     };
-    const visibility = () => { if (document.hidden) cancel(); };
+    const visibility = () => {
+      if (document.hidden) cancel();
+    };
     window.addEventListener("blur", cancel);
     window.addEventListener("keydown", escape);
     document.addEventListener("visibilitychange", visibility);
@@ -65,13 +74,26 @@ export function useRailReorder(
   const destination = (event: { clientX: number; clientY: number }) => {
     const element = document.elementFromPoint(event.clientX, event.clientY);
     if (element?.closest(".rail-popup:not(.rail-popup-more)")) return null;
-    let container = element?.closest<HTMLElement>(".rail-overflow-items, .rail-body");
+    let container = element?.closest<HTMLElement>(
+      ".rail-overflow-items, .rail-body",
+    );
     // The transparent space around the cord deliberately passes normal clicks
     // through to the desktop. Pointer capture still lets a drag land in its gaps.
-    if (!container && !element?.closest(".rail-popup") && !gesture.current?.fromList) {
-      container = [...document.querySelectorAll<HTMLElement>(".rail-body:not([inert])")].find(body => {
+    if (
+      !container &&
+      !element?.closest(".rail-popup") &&
+      !gesture.current?.fromList
+    ) {
+      container = [
+        ...document.querySelectorAll<HTMLElement>(".rail-body:not([inert])"),
+      ].find((body) => {
         const box = body.getBoundingClientRect();
-        return event.clientX >= box.left && event.clientX <= box.right && event.clientY >= box.top && event.clientY <= box.bottom;
+        return (
+          event.clientX >= box.left &&
+          event.clientX <= box.right &&
+          event.clientY >= box.top &&
+          event.clientY <= box.bottom
+        );
       });
     }
     if (!container) return null;
@@ -83,25 +105,47 @@ export function useRailReorder(
     if (!group) return null;
     // Include gaps between cards, but ignore clipped/offscreen slots. In a grid,
     // prefer the row under the pointer before comparing horizontal distances.
-    const candidates = [...container.querySelectorAll<HTMLElement>("[data-rail-list-item], [data-rail-item]:not([inert])")]
-      .map(node => ({ node, box: node.getBoundingClientRect() }))
+    const candidates = [
+      ...container.querySelectorAll<HTMLElement>(
+        "[data-rail-list-item], [data-rail-item]:not([inert])",
+      ),
+    ]
+      .map((node) => ({ node, box: node.getBoundingClientRect() }))
       .filter(({ box }) => box.width > 0 && box.height > 0);
     const grid = container.matches(".rail-overflow-items");
-    const distance = ({ box }: typeof candidates[number]) => {
-      const dx = Math.max(box.left - event.clientX, 0, event.clientX - box.right);
-      const dy = Math.max(box.top - event.clientY, 0, event.clientY - box.bottom);
+    const distance = ({ box }: (typeof candidates)[number]) => {
+      const dx = Math.max(
+        box.left - event.clientX,
+        0,
+        event.clientX - box.right,
+      );
+      const dy = Math.max(
+        box.top - event.clientY,
+        0,
+        event.clientY - box.bottom,
+      );
       return grid ? dy * 10000 + dx : dx;
     };
     const nearest = candidates.sort((a, b) => distance(a) - distance(b))[0];
-    if (!nearest) return group.items.length ? null : { group, item: undefined, side: null, index: 0 };
-    const item = nearest.node.dataset.railListItem ?? nearest.node.dataset.railItem;
-    const index = group.items.findIndex(value => value.id === item);
+    if (!nearest)
+      return group.items.length
+        ? null
+        : { group, item: undefined, side: null, index: 0 };
+    const item =
+      nearest.node.dataset.railListItem ?? nearest.node.dataset.railItem;
+    const index = group.items.findIndex((value) => value.id === item);
     if (index < 0) return null;
-    const side = event.clientX >= nearest.box.left + nearest.box.width / 2 ? "after" : "before";
+    const side =
+      event.clientX >= nearest.box.left + nearest.box.width / 2
+        ? "after"
+        : "before";
     const boundary = index + (side === "after" ? 1 : 0);
-    const sourceIndex = group.items.findIndex(value => value.id === gesture.current?.id);
+    const sourceIndex = group.items.findIndex(
+      (value) => value.id === gesture.current?.id,
+    );
     // The move command takes an index in the array AFTER removing the source.
-    const insertion = boundary - (sourceIndex >= 0 && sourceIndex < boundary ? 1 : 0);
+    const insertion =
+      boundary - (sourceIndex >= 0 && sourceIndex < boundary ? 1 : 0);
     return { group, item, side, index: insertion } as const;
   };
   const mark = (next: ReturnType<typeof destination>) => {
@@ -110,7 +154,8 @@ export function useRailReorder(
   };
   useEffect(() => {
     if (!dragging || !gesture.current?.fromList) return;
-    let frame = 0, last = performance.now();
+    let frame = 0,
+      last = performance.now();
     const scroll = (now: number) => {
       const current = gesture.current;
       const list = current?.source.closest<HTMLElement>(".rail-overflow-items");
@@ -118,11 +163,21 @@ export function useRailReorder(
       const box = list.getBoundingClientRect();
       const elapsed = Math.min(32, now - last);
       last = now;
-      if (current.clientX >= box.left && current.clientX <= box.right && current.clientY >= box.top && current.clientY <= box.bottom) {
+      if (
+        current.clientX >= box.left &&
+        current.clientX <= box.right &&
+        current.clientY >= box.top &&
+        current.clientY <= box.bottom
+      ) {
         const edge = 28;
-        const speed = current.clientY < box.top + edge ? -1 : current.clientY > box.bottom - edge ? 1 : 0;
+        const speed =
+          current.clientY < box.top + edge
+            ? -1
+            : current.clientY > box.bottom - edge
+              ? 1
+              : 0;
         if (speed) {
-          list.scrollTop += speed * elapsed * .45;
+          list.scrollTop += speed * elapsed * 0.45;
           mark(destination(current));
         }
       }
@@ -149,7 +204,8 @@ export function useRailReorder(
           ".rail-item, .rail-overflow-entry",
         );
         const id =
-          source?.dataset.railListItem ?? source?.closest<HTMLElement>("[data-rail-item]")?.dataset.railItem;
+          source?.dataset.railListItem ??
+          source?.closest<HTMLElement>("[data-rail-item]")?.dataset.railItem;
         if (source && id)
           gesture.current = {
             id,
@@ -189,8 +245,15 @@ export function useRailReorder(
           .flatMap((group) => group.items)
           .find((item) => item.id === current.id);
         if (current.fromList) {
-          const panel = current.source.closest(".rail-popup-more")?.getBoundingClientRect();
-          const outside = panel && (event.clientX < panel.left - 8 || event.clientX > panel.right + 8 || event.clientY < panel.top - 8 || event.clientY > panel.bottom + 8);
+          const panel = current.source
+            .closest(".rail-popup-more")
+            ?.getBoundingClientRect();
+          const outside =
+            panel &&
+            (event.clientX < panel.left - 8 ||
+              event.clientX > panel.right + 8 ||
+              event.clientY < panel.top - 8 ||
+              event.clientY > panel.bottom + 8);
           setDetaching(outside && item ? current.id : null);
           mark(outside ? null : next);
           return;
@@ -219,15 +282,28 @@ export function useRailReorder(
         const current = gesture.current;
         if (!current || current.pointer !== event.pointerId) return;
         const next = current.dragging ? destination(event) : null;
-        const panel = current.fromList && current.source.closest(".rail-popup-more")?.getBoundingClientRect();
-        const outside = panel && (event.clientX < panel.left - 8 || event.clientX > panel.right + 8 || event.clientY < panel.top - 8 || event.clientY > panel.bottom + 8);
-        const item = groups.flatMap(group => group.items).find(item => item.id === current.id);
+        const panel =
+          current.fromList &&
+          current.source.closest(".rail-popup-more")?.getBoundingClientRect();
+        const outside =
+          panel &&
+          (event.clientX < panel.left - 8 ||
+            event.clientX > panel.right + 8 ||
+            event.clientY < panel.top - 8 ||
+            event.clientY > panel.bottom + 8);
+        const item = groups
+          .flatMap((group) => group.items)
+          .find((item) => item.id === current.id);
         cancel();
         if (current.dragging && outside && detach && item) {
           void detach(current.id);
           return;
         }
-        if (next && next.index !== next.group.items.findIndex(item => item.id === current.id))
+        if (
+          next &&
+          next.index !==
+            next.group.items.findIndex((item) => item.id === current.id)
+        )
           move({
             type: "move",
             id: current.id,

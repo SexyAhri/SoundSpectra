@@ -1,0 +1,99 @@
+.rail-study {
+  min-height: 100vh;
+  background: #162723;
+  color: #e7e8db;
+  padding: 36px max(20px, calc((100vw - 1200px) / 2));
+}
+
+.rail-study[data-light=true] {
+  background: #e5e4d4;
+  color: #424e3e;
+}
+
+.rail-study>header {
+  display: flex;
+  justify-content: space-between;
+  align-items: end;
+  gap: 24px;
+}
+
+.rail-study h1 {
+  font-family: 'Noto Serif SC Variable', serif;
+  font-size: 25px;
+  font-weight: 450;
+  margin: 0 0 10px;
+}
+
+.rail-study header p,
+.rail-study-hint {
+  font-size: 12px;
+  opacity: .6;
+  line-height: 1.8;
+}
+
+.rail-study-options {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  max-width: 520px;
+}
+
+.rail-study-options button {
+  padding: 7px 10px;
+  border: 1px solid #91a08a66;
+  border-radius: 5px;
+  font-size: 12px;
+  background: transparent;
+}
+
+.rail-study-options button[aria-pressed=true] {
+  background: #93a17d33;
+  border-color: #a6b18a;
+}
+
+.rail-study-options label {
+  display: inline-flex;
+  gap: 6px;
+  align-items: center;
+  font-size: 12px;
+  padding: 4px;
+}
+
+.rail-study-scene {
+  padding-top: 24px;
+}
+
+.rail-study-row {
+  margin: 0 auto;
+  width: 100%;
+}
+
+.rail-study-row+.rail-study-row {
+  margin-top: -22px;
+}
+
+.rail-study .rail-header {
+  opacity: 1;
+}
+
+.rail-study .rail-header-actions>button,
+.rail-study .rail-drag {
+  background: #eceddf;
+  color: #44503e;
+}
+
+@media(max-width: 760px) {
+  .rail-study>header {
+    align-items: start;
+    flex-direction: column;
+  }
+
+  .rail-study h1 {
+    font-size: 21px;
+  }
+
+  .rail-study {
+    padding: 24px 16px;
+  }
+}

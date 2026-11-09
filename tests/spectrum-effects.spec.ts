@@ -1,3 +1,4 @@
+import { setDemo } from './helpers/demo'
 import { settingsSection } from './helpers/module-settings'
 import { selectChoice } from './helpers/choices'
 import { test, expect, type Page } from '@playwright/test'
@@ -51,7 +52,7 @@ test('idle, obscured previews and offscreen previews stop drawing; quality remai
   await expect(page.getByText('已保存到此浏览器')).toBeVisible()
   await selectChoice(page, '渲染性能', 'eco')
   await expect(page.getByText('已保存到此浏览器')).toBeVisible()
-  await page.reload()
+  await page.reload(); await setDemo(page)
   await expect(page.getByRole('combobox', { name: '渲染性能' })).toContainText('省电 · 30 帧')
   const canvas = page.locator('.three-scene-surface canvas').first()
   await expect(canvas).toHaveAttribute('data-frames', /^\d+$/)

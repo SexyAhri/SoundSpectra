@@ -33,6 +33,7 @@ test('NetEase event position updates the music card and expires with the native 
 test('small and large cards preserve readable titles and scale the same composition in preview', async ({ page }) => {
   test.setTimeout(90_000)
   await page.goto('/tests/fixtures/music-card.html?parity')
+  await page.waitForFunction(() => typeof (window as any).cardProbe?.layout === 'function')
   for (const variant of ['record', 'compact', 'afternoon', 'floating']) {
     for (const [width, height] of [[240, 80], [320, 100], [480, 152], [720, 220]]) {
       await page.evaluate(({ variant, width, height }) => {
@@ -57,7 +58,7 @@ test('small and large cards preserve readable titles and scale the same composit
 test('quiet audio settles without DOM writes and never changes the reported playback state', async ({ page }) => {
   await page.goto('/tests/fixtures/music-card.html')
   await page.evaluate(() => (window as any).cardProbe.layout({ sound: false }))
-  await expect(page.locator('.mc-meter')).toHaveAttribute('data-energy', 'quiet')
+  await expect(page.locator('#card-frame .mc-meter')).toHaveAttribute('data-energy', 'quiet')
   expect(await page.evaluate(async () => {
     let writes = 0
     const observer = new MutationObserver(records => { writes += records.length })
@@ -67,38 +68,38 @@ test('quiet audio settles without DOM writes and never changes the reported play
   })).toBe(0)
   // This fixture has no media poller; keep the observation fresh for the state assertion.
   await page.evaluate(() => (window as any).cardProbe.set({ updated: Date.now() }))
-  await expect(page.locator('.mc')).toHaveAttribute('data-playing', 'true')
+  await expect(page.locator('#card-frame .mc')).toHaveAttribute('data-playing', 'true')
   await page.evaluate(() => (window as any).cardProbe.layout({ active: false }))
-  await expect(page.locator('.mc')).toHaveAttribute('data-active', 'false')
-  const transform = await page.locator('.mc-progress-fill').getAttribute('style')
+  await expect(page.locator('#card-frame .mc')).toHaveAttribute('data-active', 'false')
+  const transform = await page.locator('#card-frame .mc-progress-fill').getAttribute('style')
   await page.waitForTimeout(180)
-  expect(await page.locator('.mc-progress-fill').getAttribute('style')).toBe(transform)
+  expect(await page.locator('#card-frame .mc-progress-fill').getAttribute('style')).toBe(transform)
 })
 
 test('hidden previews stop visual work while an embedded desktop keeps following real input', async ({ page }) => {
   await page.addInitScript(() => Object.defineProperty(document, 'hidden', { configurable: true, get: () => true }))
   await page.goto('/tests/fixtures/music-card.html')
-  const fill = page.locator('.mc-progress-fill')
+  const fill = page.locator('#card-frame .mc-progress-fill')
   const before = await fill.getAttribute('style')
   await page.waitForTimeout(180)
   expect(await fill.getAttribute('style')).toBe(before)
-  await expect(page.locator('.mc')).toHaveAttribute('data-hidden', 'true')
+  await expect(page.locator('#card-frame .mc')).toHaveAttribute('data-hidden', 'true')
   await page.evaluate(() => (window as any).cardProbe.layout({ desktop: true }))
-  await expect(page.locator('.mc')).toHaveAttribute('data-hidden', 'false')
+  await expect(page.locator('#card-frame .mc')).toHaveAttribute('data-hidden', 'false')
   const current = await fill.getAttribute('style')
   await expect.poll(() => fill.getAttribute('style')).not.toBe(current)
-  await expect(page.locator('.mc-meter')).toHaveAttribute('data-energy', 'active')
+  await expect(page.locator('#card-frame .mc-meter')).toHaveAttribute('data-energy', 'active')
 })
 
 test('cover inheritance drops the old palette when the next track has no artwork', async ({ page }) => {
   await page.goto('/tests/fixtures/music-card.html')
   await page.evaluate(() => (window as any).cardProbe.configure({ followCover: true, color: '#91bdeb' }))
-  const accent = () => page.locator('.mc').evaluate(node => (node as HTMLElement).style.getPropertyValue('--mc-accent'))
+  const accent = () => page.locator('#card-frame .mc').evaluate(node => (node as HTMLElement).style.getPropertyValue('--mc-accent'))
   const fallback = resolveEffectPalette({ ...defaults, color: '#91bdeb' }).main
   await expect.poll(accent).not.toBe(fallback)
   await page.evaluate(() => (window as any).cardProbe.set({ trackId: 'new-without-cover', title: '新歌', cover: null }))
   await expect.poll(accent).toBe(fallback)
-  await expect(page.locator('.mc img')).toHaveCount(0)
+  await expect(page.locator('#card-frame .mc img')).toHaveCount(0)
 })
 
 test('legacy cards inherit and invalid accent falls back while region edits keep it global to the card', () => {
@@ -117,7 +118,7 @@ test('legacy cards inherit and invalid accent falls back while region edits keep
 
 test('rapid tracks and late covers cannot mix artwork, text or revive an old request', async ({ page }) => {
   await page.goto('/tests/fixtures/music-card.html')
-  const card = page.locator('.mc')
+  const card = page.locator('#card-frame .mc')
   await expect(card.locator('.mc-sleeve img')).toHaveCount(1)
   let release: (() => void) | undefined
   const pending = new Promise<void>(resolve => { release = resolve })
@@ -139,7 +140,7 @@ test('rapid tracks and late covers cannot mix artwork, text or revive an old req
 
 test('rotation survives polling and pause, progress advances continuously and seek applies directly', async ({ page }) => {
   await page.goto('/tests/fixtures/music-card.html')
-  const card = page.locator('.mc')
+  const card = page.locator('#card-frame .mc')
   const arc = card.locator('.mc-arc-fill')
   await expect(card).toHaveAttribute('data-timeline', 'available')
   const read = () => arc.evaluate(node => parseFloat(getComputedStyle(node).strokeDashoffset))
@@ -162,12 +163,12 @@ test('rotation survives polling and pause, progress advances continuously and se
 test('broken covers fall back and stale observations stop the record instead of inventing playback', async ({ page }) => {
   await page.goto('/tests/fixtures/music-card.html')
   await page.evaluate(() => (window as any).cardProbe.set({ trackId: 'broken', title: '无法读取封面', cover: 'data:image/png;base64,bm90LWFuLWltYWdl' }))
-  await expect(page.locator('.mc img')).toHaveCount(0)
-  await expect(page.locator('.mc-title')).toHaveText('无法读取封面')
+  await expect(page.locator('#card-frame .mc img')).toHaveCount(0)
+  await expect(page.locator('#card-frame .mc-title')).toHaveText('无法读取封面')
   await page.evaluate(() => (window as any).cardProbe.set({ updated: Date.now() - 3900 }))
-  await expect(page.locator('.mc')).toHaveAttribute('data-playing', 'false')
-  await expect(page.locator('.mc')).toHaveAttribute('data-timeline', 'unavailable')
-  await expect(page.locator('.mc-kicker')).toContainText('媒体状态待确认')
+  await expect(page.locator('#card-frame .mc')).toHaveAttribute('data-playing', 'false')
+  await expect(page.locator('#card-frame .mc')).toHaveAttribute('data-timeline', 'unavailable')
+  await expect(page.locator('#card-frame .mc-kicker')).toContainText('媒体状态待确认')
 })
 
 test('switching to and from floating while paused immediately restores the frozen timeline', async ({ page }) => {
@@ -175,8 +176,8 @@ test('switching to and from floating while paused immediately restores the froze
   await page.evaluate(() => (window as any).cardProbe.set({ playing: false, position: 59, duration: 236 }))
   for (const variant of ['floating', 'record', 'afternoon', 'floating']) {
     await page.evaluate(variant => (window as any).cardProbe.layout({ variant }), variant)
-    await expect(page.locator('.mc-progress')).toHaveAttribute('aria-valuenow', '59')
-    await expect(page.locator('.mc-progress-fill')).toHaveAttribute('style', 'transform: scaleX(0.25);')
+    await expect(page.locator('#card-frame .mc-progress')).toHaveAttribute('aria-valuenow', '59')
+    await expect(page.locator('#card-frame .mc-progress-fill')).toHaveAttribute('style', 'transform: scaleX(0.25);')
   }
 })
 

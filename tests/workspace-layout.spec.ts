@@ -44,7 +44,7 @@ test('preview and transport stay visible while each inspector scrolls independen
   await expect.poll(() => page.locator('.three-scene-surface canvas').first().getAttribute('data-frames')).not.toBeNull()
   // Check layout with an idle preview after verifying the real renderer starts.
   // Continuous animation and screenshots have their own rendering/capture suites.
-  await page.getByRole('switch', { name: '模拟预览', exact: true }).click()
+  await page.getByRole('switch', { name: '模拟预览', exact: true }).uncheck()
   await expect(page.locator('.three-scene-surface canvas').first()).toHaveAttribute('data-rms', '0.0000')
   for (const [width, height] of [[1440, 940], [1000, 620], [900, 620]]) {
     await page.setViewportSize({ width, height })

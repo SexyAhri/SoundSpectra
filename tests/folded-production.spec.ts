@@ -1,3 +1,4 @@
+import { setDemo } from './helpers/demo'
 import { chooseStyle } from './helpers/module-settings'
 import { expect, test } from '@playwright/test'
 import { defaults, normalizeSettings } from '../src/features/spectrum/model'
@@ -5,13 +6,13 @@ import { defaults, normalizeSettings } from '../src/features/spectrum/model'
 test('fourth lyric mode is selectable and persists in the actual settings panel', async ({ page }) => {
   const errors: string[] = []; page.on('pageerror', error => errors.push(error.message))
   expect(normalizeSettings({ lyrics: { ...defaults.lyrics, motion: 'folded' } }).lyrics.motion).toBe('folded')
-  await page.goto('/')
+  await page.goto('/'); await setDemo(page)
   await page.getByRole('button', { name: '歌词', exact: true }).click()
   await page.getByRole('switch', { name: '显示桌面歌词', exact: true }).click()
   await chooseStyle(page, '歌词编排', '折幕字场')
   await expect(page.locator('.folded-lyrics canvas')).toHaveAttribute('data-composition', 'folded')
   await expect.poll(() => page.evaluate(() => JSON.parse(localStorage.getItem('soundspectra.settings.v1')!).lyrics.motion)).toBe('folded')
-  await page.reload()
+  await page.reload(); await setDemo(page)
   await page.getByRole('button', { name: '歌词', exact: true }).click()
   await expect(page.getByRole('group', { name: '当前歌词编排', exact: true })).toContainText('折幕字场')
   await expect(page.locator('.folded-lyrics canvas')).toBeVisible()

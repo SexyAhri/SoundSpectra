@@ -1,9 +1,11 @@
-import { memo } from 'react';
-import { Tabs } from 'radix-ui';
-import { MusicControls } from './music-controls';
+import { memo } from "react";
+import { Tabs } from "radix-ui";
+import { MusicControls } from "./music-controls";
 import {
   SlidersHorizontal,
-  Sparkles, Palette, Move,
+  Sparkles,
+  Palette,
+  Move,
   Disc3,
   Type,
   Image,
@@ -21,8 +23,8 @@ import { LyricControls } from "../lyrics/lyric-controls";
 import type { LyricDocument } from "../lyrics/model";
 import { WallpaperDepthControls } from "../wallpaper-depth/wallpaper-depth-controls";
 import type { WorkspacePanel } from "./workspace-navigation";
-import { MappingControls } from '../performance/mapping-controls';
-import './module-settings.css';
+import { MappingControls } from "../performance/mapping-controls";
+import "./module-settings.css";
 
 interface Props {
   lyricDocument: LyricDocument;
@@ -55,7 +57,8 @@ function SceneInspectorContent({
   updateScene,
   update,
   panel,
-  tab, onTabChange,
+  tab,
+  onTabChange,
   rail,
   selectedRail,
   selectedRailItem,
@@ -77,18 +80,26 @@ function SceneInspectorContent({
     rail: GalleryHorizontalEnd,
   }[panel];
   const description = {
-    scene: '选择灯效，调整当前区域的画面',
-    lyrics: '选择文字编排，调整阅读与同步',
-    card: '选择卡片样式，布置歌曲信息',
-    wallpaper: '调整壁纸构图，点缀局部音乐微光',
-    rail: '把应用、照片与便签挂在桌面上',
+    scene: "选择灯效，调整当前区域的画面",
+    lyrics: "选择文字编排，调整阅读与同步",
+    card: "选择卡片样式，布置歌曲信息",
+    wallpaper: "调整壁纸构图，点缀局部音乐微光",
+    rail: "把应用、照片与便签挂在桌面上",
   }[panel];
   return (
-    <aside className={`inspector module-inspector${panel === 'scene' ? ' effect-inspector' : ''}`} aria-label="对象属性">
-      <div className="inspector-heading">
-        <Icon size={16} />
-        <div className="inspector-heading-copy"><h2>{heading}</h2><p>{description}</p></div>
-      </div>
+    <aside
+      className={`inspector module-inspector${panel === "scene" ? " effect-inspector" : ""}`}
+      aria-label="对象属性"
+    >
+      {panel !== "rail" && (
+        <div className="inspector-heading">
+          <Icon size={16} />
+          <div className="inspector-heading-copy">
+            <h2>{heading}</h2>
+            <p>{description}</p>
+          </div>
+        </div>
+      )}
       {panel === "scene" ? (
         <>
           <RegionPanel
@@ -98,36 +109,81 @@ function SceneInspectorContent({
             disabled={disabled || editing}
             update={updateScene}
           />
-          <Tabs.Root className="module-scene-tabs" value={tab} onValueChange={onTabChange}>
+          <Tabs.Root
+            className="module-scene-tabs"
+            value={tab}
+            onValueChange={onTabChange}
+          >
             <Tabs.List className="module-section-nav" aria-label="灯效设置分类">
-              {([['effect', '动效', Sparkles], ['appearance', '外观', Palette], ['position', '位置', Move]] as const).map(([value, label, Icon]) =>
-                <Tabs.Trigger key={value} value={value}><Icon size={14} />{label}</Tabs.Trigger>)}
+              {(
+                [
+                  ["effect", "动效", Sparkles],
+                  ["appearance", "外观", Palette],
+                  ["position", "位置", Move],
+                ] as const
+              ).map(([value, label, Icon]) => (
+                <Tabs.Trigger key={value} value={value}>
+                  <Icon size={14} />
+                  {label}
+                </Tabs.Trigger>
+              ))}
             </Tabs.List>
             <Tabs.Content value="effect" className="module-tab-panel">
               <div className="inspector-scroll" key={`effect-${selected}`}>
-              <div className="module-settings-content">
-                <EffectPanel scope={selected} settings={settings} update={update} disabled={disabled} positionDisabled={editing} />
-                <MusicControls settings={settings} update={update} disabled={disabled} />
-              </div>
+                <div className="module-settings-content">
+                  <EffectPanel
+                    scope={selected}
+                    settings={settings}
+                    update={update}
+                    disabled={disabled}
+                    positionDisabled={editing}
+                  />
+                  <MusicControls
+                    settings={settings}
+                    update={update}
+                    disabled={disabled}
+                  />
+                </div>
               </div>
             </Tabs.Content>
             <Tabs.Content value="appearance" className="module-tab-panel">
               <div className="inspector-scroll" key={`appearance-${selected}`}>
-              <div className="module-settings-content">
-                <AppearancePanel settings={settings} region={selected} update={update} disabled={disabled} />
-                <details className="module-advanced"><summary>音乐响应映射</summary><MappingControls settings={settings} region={selected} disabled={disabled} /></details>
-              </div>
+                <div className="module-settings-content">
+                  <AppearancePanel
+                    settings={settings}
+                    region={selected}
+                    update={update}
+                    disabled={disabled}
+                  />
+                  <details className="module-advanced">
+                    <summary>音乐响应映射</summary>
+                    <MappingControls
+                      settings={settings}
+                      region={selected}
+                      disabled={disabled}
+                    />
+                  </details>
+                </div>
               </div>
             </Tabs.Content>
             <Tabs.Content value="position" className="module-tab-panel">
               <div className="inspector-scroll" key={`position-${selected}`}>
-              <div className="module-settings-content"><PositionPanel settings={settings} update={update} disabled={disabled || editing} /></div>
+                <div className="module-settings-content">
+                  <PositionPanel
+                    settings={settings}
+                    update={update}
+                    disabled={disabled || editing}
+                  />
+                </div>
               </div>
             </Tabs.Content>
           </Tabs.Root>
         </>
       ) : (
-        <div className={`inspector-scroll global-inspector-scroll${panel === 'rail' ? ' rail-inspector-pane' : ''}`} key={panel}>
+        <div
+          className={`inspector-scroll global-inspector-scroll${panel === "rail" ? " rail-inspector-pane" : ""}`}
+          key={panel}
+        >
           {panel === "rail" && (
             <RailControls
               controller={rail}

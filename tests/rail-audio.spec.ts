@@ -83,6 +83,13 @@ test('capture-clock beats agree at 30, 60 and 144 Hz without duplicate impulses'
   }
 })
 
+test('silence settles in real time after slow or irregular render frames', () => {
+  const motion = new RailAudioMotion()
+  for (let i = 0; i < 60; i++) motion.update(1 / 60, frame({ beatIndex: i }), config, false)
+  for (const elapsed of [.4, .6, 1, 1]) motion.update(elapsed, null, config, false)
+  expect(motion.level + motion.bass + motion.pulse).toBeLessThan(.00001)
+})
+
 test('audio source rejects bad, duplicate and old packets; stale capture returns silence', () => {
   const source = new RailAudioSource()
   expect(source.sample(0)).toBeNull()

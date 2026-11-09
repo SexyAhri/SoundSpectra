@@ -280,7 +280,7 @@
   pointer-events: none;
 }
 
-.rail-cord path {
+.rail-cord path:where(:not(.rail-pin-art > path)) {
   stroke: #d1c1a1;
   stroke-width: calc(2.4 * var(--rail-unit));
   fill: none;
@@ -303,12 +303,32 @@
   opacity: .16;
 }
 
-.rail-cord .rail-floral-braid .rail-braid-strand { stroke-width: calc(var(--rail-rope-width) * var(--rail-unit)); }
-.rail-cord .rail-braid-0 { stroke: var(--rail-braid-0); }
-.rail-cord .rail-braid-1 { stroke: var(--rail-braid-1); }
-.rail-cord .rail-braid-2 { stroke: var(--rail-braid-2); }
-.rail-cord .rail-floral-braid .rail-braid-edge { stroke: var(--rail-braid-edge); stroke-width: calc(var(--rail-braid-edge-width) * var(--rail-unit)); }
-.rail-cord .rail-floral-braid .rail-braid-light { stroke: var(--rail-braid-light); stroke-width: calc(var(--rail-rope-highlight-width) * var(--rail-unit)); opacity: .7; }
+.rail-cord .rail-floral-braid .rail-braid-strand {
+  stroke-width: calc(var(--rail-rope-width) * var(--rail-unit));
+}
+
+.rail-cord .rail-braid-0 {
+  stroke: var(--rail-braid-0);
+}
+
+.rail-cord .rail-braid-1 {
+  stroke: var(--rail-braid-1);
+}
+
+.rail-cord .rail-braid-2 {
+  stroke: var(--rail-braid-2);
+}
+
+.rail-cord .rail-floral-braid .rail-braid-edge {
+  stroke: var(--rail-braid-edge);
+  stroke-width: calc(var(--rail-braid-edge-width) * var(--rail-unit));
+}
+
+.rail-cord .rail-floral-braid .rail-braid-light {
+  stroke: var(--rail-braid-light);
+  stroke-width: calc(var(--rail-rope-highlight-width) * var(--rail-unit));
+  opacity: .7;
+}
 
 .rail-cord .rail-vine-leaf {
   fill: var(--rail-leaf);
@@ -343,7 +363,11 @@
   fill: var(--rail-pollen);
 }
 
-.rail-vine-pink-petal { fill: var(--rail-pink-petal); stroke: var(--rail-pink-edge); stroke-width: .45; }
+.rail-vine-pink-petal {
+  fill: var(--rail-pink-petal);
+  stroke: var(--rail-pink-edge);
+  stroke-width: .45;
+}
 
 .rail-items {
   position: relative;
@@ -372,7 +396,10 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .rail-sway { transform: none; will-change: auto; }
+  .rail-sway {
+    transform: none;
+    will-change: auto;
+  }
 }
 
 .rail-hanging:hover,
@@ -397,20 +424,15 @@
   left: calc(50% - var(--rail-clip-width) * var(--rail-unit) / 2);
   z-index: 4;
   border-radius: calc(2 * var(--rail-unit));
-  background: var(--rail-clip-material, linear-gradient(90deg, #b79465, #dcc39b 36%, #c6a573 62%, #a88a60));
-  box-shadow: 1px 2px 3px #5c4c3526;
+  filter: drop-shadow(1px 2px 1px #382f2366);
   pointer-events: none;
 }
 
-.rail-clip::after {
-  content: '';
-  position: absolute;
-  top: 43%;
-  left: -1px;
-  right: -1px;
-  height: calc(3 * var(--rail-unit));
-  background: var(--rail-clip-band, #8e806b);
-  box-shadow: 0 1px var(--rail-clip-sheen, #ead9b8);
+.rail-pin-art {
+  display: block;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
 }
 
 .rail-surface[data-rail-clip-accent="leaf"] .rail-clip::before {
@@ -1368,6 +1390,58 @@
 
 .rail-desktop .rail-popup-host .rail-popup-add:has(.rail-add-mode-desktop) {
   max-height: 360px;
+}
+
+/* A note owns its text scrolling; the panel heading and save action stay put.
+   The companion measures natural content before resizing its native window. */
+.rail-popup:has(.rail-note-editor) {
+  display: flex;
+  flex-direction: column;
+  max-height: 360px;
+  overflow: hidden;
+}
+
+.rail-desktop .rail-popup:has(.rail-note-editor) {
+  max-height: max(240px, min(360px, calc(100vh - var(--rail-popup-top) - 12px)));
+}
+
+.rail-desktop .rail-popup-host .rail-popup:has(.rail-note-editor) {
+  max-height: 360px;
+}
+
+.rail-popup:has(.rail-note-editor)>.rail-popup-heading,
+.rail-popup:has(.rail-note-editor) .rail-add-back {
+  flex-shrink: 0;
+}
+
+.rail-popup .rail-add-mode-note,
+.rail-popup .rail-note-editor,
+.rail-popup .rail-note-editor>label {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+.rail-popup .rail-note-editor textarea {
+  flex: 1 1 128px;
+  height: 128px;
+  min-height: 60px;
+  max-height: 160px;
+  resize: none;
+  overflow-y: auto;
+}
+
+.rail-popup .rail-note-editor-footer,
+.rail-popup .rail-note-draft-status {
+  flex-shrink: 0;
+}
+
+.rail-popup:has(.rail-note-editor) .rail-note-conflict,
+.rail-popup:has(.rail-note-editor) .rail-popup-error {
+  flex-shrink: 0;
+  max-height: 64px;
+  overflow-y: auto;
 }
 
 .rail-popup-add>.rail-popup-heading {

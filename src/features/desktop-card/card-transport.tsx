@@ -29,7 +29,7 @@ export function CardTransport({ info, disabled = false, demo = false }: { info: 
       const label = action === 'previous' ? '上一首' : action === 'next' ? '下一首' : action === 'pause' ? '暂停' : '播放'
       const Icon = pending === action ? LoaderCircle : action === 'previous' ? SkipBack : action === 'next' ? SkipForward : action === 'pause' ? Pause : Play
       const blocked = unavailable || !info.controls?.[action]
-      return <button key={action === 'play' || action === 'pause' ? 'toggle' : action} type="button" className={`mc-control ${action === toggle ? 'mc-control-primary' : ''}`} aria-label={label} disabled={blocked || !!pending} title={demo ? '模拟预览，不控制播放器' : blocked ? `${label} · 播放器暂不支持` : label} onClick={() => void send(action)}><Icon className={pending === action ? 'mc-control-loading' : undefined} size={15} strokeWidth={1.8} /></button>
+      return <button key={action === 'play' || action === 'pause' ? 'toggle' : action} type="button" className={`mc-control ${action === toggle ? 'mc-control-primary' : ''}`} aria-label={label} disabled={blocked || !!pending} title={[demo ? '模拟预览，不控制播放器' : blocked ? `${label} · 播放器暂不支持` : label, info.title, info.artist].filter(Boolean).join('\n')} onClick={() => void send(action)}><Icon className={pending === action ? 'mc-control-loading' : undefined} size={15} strokeWidth={1.8} /></button>
     })}
     <span className="mc-control-feedback" role="status" title={error}>{error}</span>
   </div>

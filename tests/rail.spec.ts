@@ -1,4 +1,5 @@
 import { railSection } from './helpers/module-settings'
+import { selectChoice } from './helpers/choices'
 import { expect, test } from '@playwright/test'
 import { defaults } from '../src/features/spectrum/model'
 
@@ -27,6 +28,7 @@ test('inactive rails leave other editors clear and preview gaps pass pointer inp
 
 test('rail references persist, reorder and move independently of music settings', async ({ page }) => {
   await page.goto('/#rail')
+  await page.getByRole('tab', { name: '外观', exact: true }).click()
   await expect(page.locator('.rail-controls').getByRole('switch', { name: '显示桌面拾光绳' })).toBeDisabled()
   const before = await page.evaluate(() => localStorage.getItem('soundspectra.settings.v1'))
   await railSection(page, '添加')
@@ -42,11 +44,13 @@ test('rail references persist, reorder and move independently of music settings'
   const getRail = () => page.evaluate(() => JSON.parse(localStorage.getItem('soundspectra.rail.v1')!))
   await expect.poll(async () => (await getRail()).groups[0].items.map((i: { name: string }) => i.name)).toEqual(['Editor', 'Afternoon', 'Project'])
   await page.getByRole('button', { name: 'Afternoon，图片', exact: true }).click()
+  await page.getByRole('button', { name: '分组管理', exact: true }).click()
   await page.getByRole('button', { name: '新建拾光绳', exact: true }).click()
   await expect.poll(async () => (await getRail()).groups.length).toBe(2)
   const destination = (await getRail()).groups[1].id
   await railSection(page, '挂件列表')
-  await expect(page.getByRole('combobox', { name: '当前拾光绳', exact: true })).toContainText('新拾光绳 · 0 项')
+  await expect(page.getByRole('combobox', { name: '当前拾光绳', exact: true })).toContainText('新拾光绳')
+  await selectChoice(page, '当前拾光绳', (await getRail()).groups[0].id)
   await page.getByRole('button', { name: 'Afternoon，图片', exact: true }).click()
   await page.getByLabel('所在拾光绳', { exact: true }).selectOption(destination)
   await expect.poll(async () => (await getRail()).groups[1].items[0]?.name).toBe('Afternoon')
@@ -69,6 +73,22 @@ test('rail settings have one add chooser and compact management controls', async
   await expect(page.getByRole('dialog').locator('.rail-add-actions')).toHaveCount(0)
   await railSection(page, '布局')
   await expect(page.getByRole('button', { name: '搭配午后音乐卡片' })).toHaveCount(0)
+  await page.getByRole('button', { name: '分组管理', exact: true }).click()
+  const name = page.getByRole('textbox', { name: '当前名称', exact: true })
+  await name.fill('不要保存')
+  await name.press('Escape')
+  await expect(page.getByRole('dialog', { name: '分组管理', exact: true })).toHaveCount(0)
+  await page.getByRole('button', { name: '分组管理', exact: true }).click()
+  await expect(name).toHaveValue('我的拾光绳')
+  await name.fill('桌边时光')
+  await name.press('Enter')
+  await expect(name).toHaveValue('桌边时光')
+  await expect(page.getByRole('button', { name: '移除空拾光绳' })).toBeEnabled()
+  await page.getByRole('button', { name: '移除空拾光绳' }).click()
+  await expect(page.getByText('新建一组拾光绳，开始布置桌面。')).toBeVisible()
+  await page.getByRole('button', { name: '分组管理', exact: true }).click()
+  await page.getByRole('button', { name: '新建拾光绳', exact: true }).click()
+  await expect(page.getByRole('dialog', { name: '添加挂件', exact: true })).toBeVisible()
   expect(await page.evaluate(() => localStorage.getItem('soundspectra.settings.v1'))).toBe(settings)
 })
 
@@ -168,17 +188,18 @@ test('mounting and unmounting animate while removed references immediately stop 
   expect((await motion()).length).toBe(count)
 })
 
-test('rail list and expanded layout share one scroll surface without moving the inspector heading', async ({ page }) => {
+test('rail tabs keep group controls fixed while their content owns scrolling', async ({ page }) => {
   await page.addInitScript(() => localStorage.setItem('soundspectra.rail.v1', JSON.stringify({ version: 1, enabled: false, groups: [{ id: 'apps', name: '滚动验证', x: .07, y: .12, width: .86, collapsed: false, items: Array.from({ length: 48 }, (_, i) => ({ id: `item-${i}`, name: `软件 ${i + 1}`, kind: 'app', path: `C:/Apps/${i}.exe`, crop: 'cover' })) }] })))
   await page.goto('/#rail')
   for (const size of [{ width: 1440, height: 940 }, { width: 1000, height: 720 }]) {
     await page.setViewportSize(size)
-    const pane = page.locator('.rail-inspector-pane'), heading = page.locator('.module-inspector .inspector-heading')
-    const top = (await heading.boundingBox())!.y
-    await pane.evaluate(el => { el.scrollTop = 0 })
-    await railSection(page, '添加')
-    await expect(page.getByRole('dialog').getByRole('button', { name: '从桌面添加', exact: true })).toBeVisible()
     await railSection(page, '挂件列表')
+    const pane = page.getByRole('tabpanel', { name: '挂件', exact: true }), heading = page.locator('.module-inspector .inspector-heading')
+    const top = (await heading.boundingBox())!.y
+    const selectorTop = (await page.getByRole('combobox', { name: '当前拾光绳', exact: true }).boundingBox())!.y
+    const tabsTop = (await page.getByRole('tablist', { name: '拾光绳设置分类' }).boundingBox())!.y
+    await pane.evaluate(el => { el.scrollTop = 0 })
+    await expect(page.getByRole('button', { name: '添加挂件', exact: true })).toBeDisabled()
     await page.locator('.rail-control-select').first().click()
     const input = page.getByLabel('显示名称', { exact: true })
     await input.hover()
@@ -186,18 +207,44 @@ test('rail list and expanded layout share one scroll surface without moving the 
     await page.mouse.wheel(0, 460)
     await expect.poll(() => pane.evaluate(el => el.scrollTop)).toBeGreaterThan(before)
     expect((await heading.boundingBox())!.y).toBe(top)
+    expect((await page.getByRole('combobox', { name: '当前拾光绳', exact: true }).boundingBox())!.y).toBe(selectorTop)
+    expect((await page.getByRole('tablist', { name: '拾光绳设置分类' }).boundingBox())!.y).toBe(tabsTop)
     await page.locator('.rail-control-select').last().click()
     await expect(page.locator('.rail-item-controls')).toBeInViewport({ ratio: 1 })
     await railSection(page, '布局')
-    await page.getByRole('textbox', { name: '拾光绳名称', exact: true }).scrollIntoViewIfNeeded()
     await expect(heading).toBeInViewport()
-    expect(await pane.evaluate(el => getComputedStyle(el).scrollbarWidth)).toBe('none')
+    const position = page.getByRole('tabpanel', { name: '位置', exact: true })
+    expect(await position.evaluate(el => getComputedStyle(el).overflowY)).toBe('auto')
+    await expect(page.getByRole('slider', { name: '拾光绳宽度' })).toBeVisible()
+    await expect(page.getByRole('tab', { name: '位置', exact: true })).toHaveAttribute('data-state', 'active')
+    expect(await page.getByRole('tablist', { name: '拾光绳设置分类' }).evaluate(el => el.getBoundingClientRect().top - el.closest('.rail-controls')!.getBoundingClientRect().top)).toBeLessThan(100)
     expect(await page.evaluate(() => document.documentElement.scrollHeight)).toBeLessThanOrEqual(size.height)
   }
   await page.setViewportSize({ width: 390, height: 844 })
+  await railSection(page, '挂件列表')
   await page.locator('.rail-control-select').first().click()
   await expect(page.getByLabel('显示名称', { exact: true })).toBeVisible()
   expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(390)
+})
+
+test('full-width rails keep a fixed horizontal slider aligned and restore adjustment after shrinking', async ({ page }) => {
+  await page.addInitScript(() => localStorage.setItem('soundspectra.rail.v1', JSON.stringify({ version: 1, enabled: false, groups: [{ id: 'wide', name: '铺满屏幕', x: 0, y: 0, width: 1, collapsed: false, items: [] }] })))
+  await page.goto('/#rail')
+  await railSection(page, '布局')
+  const left = page.getByRole('slider', { name: '距屏幕左侧', exact: true })
+  const top = page.getByRole('slider', { name: '距屏幕顶部', exact: true })
+  await expect(left).toHaveAttribute('data-disabled', '')
+  await expect(left).toHaveAttribute('aria-valuenow', '0')
+  await expect(left).toHaveAttribute('aria-valuemax', '0')
+  await expect.poll(async () => Math.abs((await left.boundingBox())!.x - (await top.boundingBox())!.x)).toBeLessThan(1)
+  await page.getByRole('tabpanel', { name: '位置', exact: true }).screenshot({ path: 'artifacts/rail-position-full-width.png' })
+  await page.getByRole('slider', { name: '拾光绳宽度', exact: true }).press('Home')
+  await expect(left).not.toHaveAttribute('data-disabled', '')
+  await expect(left).toHaveAttribute('aria-valuemax', '80')
+  await left.press('End')
+  await expect(left).toHaveAttribute('aria-valuenow', '80')
+  await expect.poll(() => page.evaluate(() => JSON.parse(localStorage.getItem('soundspectra.rail.v1')!).groups[0].x)).toBe(.8)
+  await page.getByRole('tabpanel', { name: '位置', exact: true }).screenshot({ path: 'artifacts/rail-position-slider.png' })
 })
 
 test('rapid rail changes replace motion instead of stacking and tab switches do not replay mounting', async ({ page }) => {

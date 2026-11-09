@@ -1,57 +1,612 @@
 /* A shared rhythm: status, current style, common controls, optional details. */
-.studio-shell .module-inspector .inspector-heading{min-height:64px;padding:16px 20px;margin:0;border-bottom:1px solid var(--border);gap:10px}
-.studio-shell .module-inspector .inspector-heading>svg{color:var(--primary);width:17px;flex-shrink:0}
-.studio-shell .module-inspector .inspector-heading h2{font-size:14px;font-weight:600}
-.studio-shell .module-inspector .inspector-heading-copy p{font-size:11px;margin-top:5px;line-height:1.5;color:var(--muted-foreground)}
-.studio-shell .module-inspector .region-panel{margin:0;padding:14px 20px;border-bottom:1px solid var(--border)}
-.studio-shell .module-inspector .region-panel-heading{font-size:11px;margin-bottom:8px}.studio-shell .module-inspector .region-panel-heading label{font-size:11px}.studio-shell .module-inspector .region-panel-heading small{font-size:10px}
-.studio-shell .module-inspector .region-selector-row .choice-trigger{height:32px;font-size:12px;background:transparent;border-color:var(--border)}
-.studio-shell .module-inspector .inspector-content,.studio-shell .module-inspector .module-settings-content{padding:16px 20px 24px}
-.studio-shell .module-inspector .module-settings-content>.inspector-content{padding:0}
-.studio-shell .module-inspector .module-enable{padding:0 0 14px;margin:0;border-bottom:1px solid var(--border);min-height:40px}.studio-shell .module-inspector .module-enable span{font-size:12px}
-.module-inspector .effect-settings-block,.module-inspector .module-section{padding:0 0 22px;margin:0 0 22px;border:0;border-bottom:1px solid var(--border);background:transparent;min-width:0}
-.module-inspector .module-section:last-child{margin-bottom:0;border-bottom:0;padding-bottom:0}
-.module-inspector .effect-block-heading{margin-bottom:20px}.module-inspector .effect-block-heading h3,.module-inspector .module-section>h3{font-size:12px;font-weight:600;margin:0 0 16px}.module-inspector .effect-block-heading p{display:none}
-.studio-shell .module-inspector .parameter{margin-bottom:22px}.studio-shell .module-inspector .parameter-label{font-size:12px;margin-bottom:12px}.studio-shell .module-inspector .parameter-label output{font-size:11px;color:var(--primary);font-variant-numeric:tabular-nums}
-.module-inspector .custom-color{display:flex;min-width:0;align-items:center;gap:10px;font-size:12px;margin-bottom:16px}.module-inspector .custom-color>span{flex-shrink:0}.module-inspector .custom-color .choice-trigger{min-width:0;max-width:100%;height:32px;font-size:11px;padding-inline:8px}
-.module-inspector .effect-color-settings{margin-top:20px}.module-inspector .effect-color-settings .custom-color:last-child{margin-bottom:0}
-.module-inspector .art-control{margin:0 0 25px}.module-inspector .art-control small{font-size:10px;line-height:1.6;margin-top:-8px;color:var(--muted-foreground)}
-.module-inspector .creative-details,.module-inspector .inspector-advanced,.module-inspector .module-advanced{margin:12px 0 0;padding:0;border:0;border-top:1px solid var(--border);font-size:12px}
-.module-inspector .module-advanced{margin-top:0}.module-inspector .creative-details>summary,.module-inspector .inspector-advanced>summary,.module-inspector .module-advanced>summary{padding:14px 0;cursor:pointer;color:var(--muted-foreground);font-size:12px}
-.module-inspector details[open]>summary{color:var(--foreground);margin-bottom:10px}.module-inspector .reset-button{font-size:11px;margin-top:8px;color:var(--muted-foreground)}
-.module-inspector .effect-response-note{font-size:11px;color:var(--muted-foreground);margin:-6px 0 20px}.effect-response-note summary{cursor:pointer;padding:4px 0}.effect-response-note p{padding:10px 0;line-height:1.8;font-size:11px}
-.module-inspector .mapping-controls{border:0;margin:0;padding:0}.module-inspector .mapping-controls>.section-label{display:none}.module-inspector .mapping-controls .creative-rule{font-size:11px}
-.module-inspector .layout-presets{grid-template-columns:repeat(3,minmax(0,1fr));gap:7px;margin:0}.module-inspector .layout-presets>button{font-size:10px;padding:8px 4px}.module-inspector .scene-view-controls>.section-label{display:none}.module-inspector .scene-view-hint{font-size:11px}
-.studio-shell .module-inspector .lyric-controls,.studio-shell .module-inspector .card-controls{padding-top:16px}
-.module-inspector .lyric-status{font-size:11px;line-height:1.7;margin:10px 0;color:var(--muted-foreground)}.module-inspector .lyric-status[role=alert]{color:var(--destructive)}
-.module-inspector .lyric-font-options{margin:0 0 22px}.studio-shell .module-inspector .lyric-font-option{min-height:36px;flex-direction:row;gap:0;padding:7px;font-size:11px}.studio-shell .module-inspector .lyric-font-option>span{display:block;font-size:12px}
+.studio-shell .module-inspector .inspector-heading {
+  min-height: 64px;
+  padding: 16px 20px;
+  margin: 0;
+  border-bottom: 1px solid var(--border);
+  gap: 10px
+}
 
-.module-inspector .setting-toggle{min-width:0}.module-inspector .setting-toggle span{font-size:12px}.module-inspector .setting-toggle p{font-size:11px}.module-inspector .lyric-sync-actions{gap:5px;margin:0 0 18px}.module-inspector .lyric-sync-actions button{font-size:10px;padding-inline:7px}
-.module-inspector .card-color-description{font-size:11px;line-height:1.7}.module-inspector .card-accent-control{margin-top:16px;font-size:11px}.module-inspector .card-position-options{margin-bottom:20px}.module-inspector .card-position-options>button{font-size:11px}
-.module-inspector .wallpaper-depth-controls{gap:22px}.module-inspector .wallpaper-control-section{padding-bottom:20px}.module-inspector .wallpaper-control-section:first-child{border:0;padding:0}.module-inspector .wallpaper-control-section:first-child .module-style-row{margin-top:-4px;margin-bottom:10px}.module-inspector .wallpaper-control-section h3{font-size:12px}.module-inspector .wallpaper-depth-controls p{font-size:11px;line-height:1.7;margin-top:10px}.module-inspector .wallpaper-choice{font-size:12px}.module-inspector .wallpaper-choice .choice-trigger{font-size:11px;height:32px}.module-inspector .wallpaper-control-section .setting-toggle{margin-bottom:20px}
-.studio-shell .module-inspector .rail-inspector-pane{display:block;overflow-y:auto}.studio-shell .module-inspector .rail-controls.inspector-content{display:block;flex:none;padding:16px 20px 24px}.module-inspector .rail-settings-header{padding:0}.module-inspector .rail-control-heading{padding-bottom:14px}.module-inspector .rail-enable{flex:1;flex-direction:row-reverse;justify-content:space-between;font-size:12px}.module-inspector .rail-save-state{display:none}.module-inspector .rail-browser-hint{font-size:11px;margin:10px 0;color:var(--muted-foreground)}.module-inspector .rail-group-label{margin:18px 0 10px}.module-inspector .rail-settings-header>.choice-trigger{width:100%;height:34px;font-size:12px}.module-inspector .rail-add-trigger{width:100%;font-size:12px;margin:12px 0 22px}.module-inspector .rail-list-heading{margin-bottom:12px}.module-inspector .rail-control-list{max-height:none}.module-inspector .rail-layout-settings{padding:0}.module-inspector .rail-layout-settings>h3{font-size:12px;margin:20px 0 15px}
-.module-add-dialog{position:fixed;inset:50% auto auto 50%;transform:translate(-50%,-50%);width:min(620px,calc(100vw - 32px));max-height:calc(100dvh - 32px);display:flex;flex-direction:column;border:1px solid var(--border);border-radius:12px;background:var(--card);color:var(--foreground);box-shadow:0 24px 80px var(--shadow-strong);overflow:hidden;z-index:100}.module-add-dialog>header{padding:20px;display:flex;align-items:flex-start;justify-content:space-between;gap:16px;border-bottom:1px solid var(--border);flex-shrink:0}.module-add-dialog h2{font-size:16px;font-weight:600;margin:0}.module-add-dialog>header p{font-size:12px;color:var(--muted-foreground);margin-top:7px}.module-add-body{min-height:0;overflow:auto;padding:18px 20px}.module-add-body .rail-popup.rail-add-inline{position:static;transform:none;width:100%;max-height:none;overflow:visible;padding:0;border:0;background:transparent;box-shadow:none}.module-add-body .rail-add-choices{grid-template-columns:1fr 1fr}.module-add-body .rail-desktop-picker-list{max-height:320px}
-@media(max-width:1199px){.studio-shell .module-inspector .inspector-content,.studio-shell .module-inspector .module-settings-content,.studio-shell .module-inspector .rail-controls.inspector-content{padding-inline:16px}.studio-shell .module-inspector .region-panel{padding-inline:16px}.studio-shell .module-inspector .module-settings-content>.inspector-content{padding:0}}
-@media(max-height:760px) and (min-width:761px){.studio-shell .module-inspector .inspector-heading{min-height:52px;padding-block:12px}.studio-shell .module-inspector .inspector-heading-copy p{display:none}.studio-shell .module-inspector .region-panel{padding-block:11px}}
-@media(max-width:760px){.studio-shell .module-inspector .inspector-heading{max-width:none}.studio-shell .module-inspector .region-panel{max-width:none;width:100%}.studio-shell .module-inspector .inspector-content,.studio-shell .module-inspector .module-settings-content{max-width:600px;margin-inline:auto}.studio-shell .module-inspector .rail-inspector-pane{overflow:visible}.module-style-row{gap:8px}}
+.studio-shell .module-inspector .inspector-heading>svg {
+  color: var(--primary);
+  width: 17px;
+  flex-shrink: 0
+}
 
-.studio-shell .module-inspector .rail-settings-header{padding:0}.studio-shell .module-inspector .rail-control-list{border-top:0}.studio-shell .module-inspector .rail-control-heading{border-bottom:1px solid var(--border)}
-.studio-shell .module-inspector .module-section>h3{margin-bottom:18px}.studio-shell .module-inspector .module-enable .setting-toggle-copy{min-width:0}
+.studio-shell .module-inspector .inspector-heading h2 {
+  font-size: 14px;
+  font-weight: 600
+}
 
-.module-inspector .module-section:has(+details){margin-bottom:0;border-bottom:0;padding-bottom:12px}.studio-shell .module-inspector .lyric-font-options{margin-bottom:14px}.studio-shell .module-inspector .lyric-font-option>span{letter-spacing:0}.studio-shell .module-inspector .rail-items-section{padding-bottom:16px}.studio-shell .module-inspector .rail-add-trigger{margin-bottom:18px}
+.studio-shell .module-inspector .inspector-heading-copy p {
+  font-size: 11px;
+  margin-top: 5px;
+  line-height: 1.5;
+  color: var(--muted-foreground)
+}
+
+.studio-shell .module-inspector .region-panel {
+  margin: 0;
+  padding: 14px 20px;
+  border-bottom: 1px solid var(--border)
+}
+
+.studio-shell .module-inspector .region-panel-heading {
+  font-size: 11px;
+  margin-bottom: 8px
+}
+
+.studio-shell .module-inspector .region-panel-heading label {
+  font-size: 11px
+}
+
+.studio-shell .module-inspector .region-panel-heading small {
+  font-size: 10px
+}
+
+.studio-shell .module-inspector .region-selector-row .choice-trigger {
+  height: 32px;
+  font-size: 12px;
+  background: transparent;
+  border-color: var(--border)
+}
+
+.studio-shell .module-inspector .inspector-content,
+.studio-shell .module-inspector .module-settings-content {
+  padding: 16px 20px 24px
+}
+
+.studio-shell .module-inspector .module-settings-content>.inspector-content {
+  padding: 0
+}
+
+.studio-shell .module-inspector .module-enable {
+  padding: 0 0 14px;
+  margin: 0;
+  border-bottom: 1px solid var(--border);
+  min-height: 40px
+}
+
+.studio-shell .module-inspector .module-enable span {
+  font-size: 12px
+}
+
+.module-inspector .effect-settings-block,
+.module-inspector .module-section {
+  padding: 0 0 22px;
+  margin: 0 0 22px;
+  border: 0;
+  border-bottom: 1px solid var(--border);
+  background: transparent;
+  min-width: 0
+}
+
+.module-inspector .module-section:last-child {
+  margin-bottom: 0;
+  border-bottom: 0;
+  padding-bottom: 0
+}
+
+.module-inspector .effect-block-heading {
+  margin-bottom: 20px
+}
+
+.module-inspector .effect-block-heading h3,
+.module-inspector .module-section>h3 {
+  font-size: 12px;
+  font-weight: 600;
+  margin: 0 0 16px
+}
+
+.module-inspector .effect-block-heading p {
+  display: none
+}
+
+.studio-shell .module-inspector .parameter {
+  margin-bottom: 22px
+}
+
+.studio-shell .module-inspector .parameter-label {
+  font-size: 12px;
+  margin-bottom: 12px
+}
+
+.studio-shell .module-inspector .parameter-label output {
+  font-size: 11px;
+  color: var(--primary);
+  font-variant-numeric: tabular-nums
+}
+
+.module-inspector .custom-color {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 10px;
+  font-size: 12px;
+  margin-bottom: 16px
+}
+
+.module-inspector .custom-color>span {
+  flex-shrink: 0
+}
+
+.module-inspector .custom-color .choice-trigger {
+  min-width: 0;
+  max-width: 100%;
+  height: 32px;
+  font-size: 11px;
+  padding-inline: 8px
+}
+
+.module-inspector .effect-color-settings {
+  margin-top: 20px
+}
+
+.module-inspector .effect-color-settings .custom-color:last-child {
+  margin-bottom: 0
+}
+
+.module-inspector .art-control {
+  margin: 0 0 25px
+}
+
+.module-inspector .art-control small {
+  font-size: 10px;
+  line-height: 1.6;
+  margin-top: -8px;
+  color: var(--muted-foreground)
+}
+
+.module-inspector .creative-details,
+.module-inspector .inspector-advanced,
+.module-inspector .module-advanced {
+  margin: 12px 0 0;
+  padding: 0;
+  border: 0;
+  border-top: 1px solid var(--border);
+  font-size: 12px
+}
+
+.module-inspector .module-advanced {
+  margin-top: 0
+}
+
+.module-inspector .creative-details>summary,
+.module-inspector .inspector-advanced>summary,
+.module-inspector .module-advanced>summary {
+  padding: 14px 0;
+  cursor: pointer;
+  color: var(--muted-foreground);
+  font-size: 12px
+}
+
+.module-inspector details[open]>summary {
+  color: var(--foreground);
+  margin-bottom: 10px
+}
+
+.module-inspector .reset-button {
+  font-size: 11px;
+  margin-top: 8px;
+  color: var(--muted-foreground)
+}
+
+.module-inspector .effect-response-note {
+  font-size: 11px;
+  color: var(--muted-foreground);
+  margin: -6px 0 20px
+}
+
+.effect-response-note summary {
+  cursor: pointer;
+  padding: 4px 0
+}
+
+.effect-response-note p {
+  padding: 10px 0;
+  line-height: 1.8;
+  font-size: 11px
+}
+
+.module-inspector .mapping-controls {
+  border: 0;
+  margin: 0;
+  padding: 0
+}
+
+.module-inspector .mapping-controls>.section-label {
+  display: none
+}
+
+.module-inspector .mapping-controls .creative-rule {
+  font-size: 11px
+}
+
+.module-inspector .layout-presets {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 7px;
+  margin: 0
+}
+
+.module-inspector .layout-presets>button {
+  font-size: 10px;
+  padding: 8px 4px
+}
+
+.module-inspector .scene-view-controls>.section-label {
+  display: none
+}
+
+.module-inspector .scene-view-hint {
+  font-size: 11px
+}
+
+.studio-shell .module-inspector .lyric-controls,
+.studio-shell .module-inspector .card-controls {
+  padding-top: 16px
+}
+
+.module-inspector .lyric-status {
+  font-size: 11px;
+  line-height: 1.7;
+  margin: 10px 0;
+  color: var(--muted-foreground)
+}
+
+.module-inspector .lyric-status[role=alert] {
+  color: var(--destructive)
+}
+
+.module-inspector .lyric-font-options {
+  margin: 0 0 22px
+}
+
+.studio-shell .module-inspector .lyric-font-option {
+  min-height: 36px;
+  flex-direction: row;
+  gap: 0;
+  padding: 7px;
+  font-size: 11px
+}
+
+.studio-shell .module-inspector .lyric-font-option>span {
+  display: block;
+  font-size: 12px
+}
+
+.module-inspector .setting-toggle {
+  min-width: 0
+}
+
+.module-inspector .setting-toggle span {
+  font-size: 12px
+}
+
+.module-inspector .setting-toggle p {
+  font-size: 11px
+}
+
+.module-inspector .lyric-sync-actions {
+  gap: 5px;
+  margin: 0 0 18px
+}
+
+.module-inspector .lyric-sync-actions button {
+  font-size: 10px;
+  padding-inline: 7px
+}
+
+.module-inspector .card-color-description {
+  font-size: 11px;
+  line-height: 1.7
+}
+
+.module-inspector .card-accent-control {
+  margin-top: 16px;
+  font-size: 11px
+}
+
+.module-inspector .card-position-options {
+  margin-bottom: 20px
+}
+
+.module-inspector .card-position-options>button {
+  font-size: 11px
+}
+
+.module-inspector .wallpaper-depth-controls {
+  gap: 22px
+}
+
+.module-inspector .wallpaper-control-section {
+  padding-bottom: 20px
+}
+
+.module-inspector .wallpaper-control-section:first-child {
+  border: 0;
+  padding: 0
+}
+
+.module-inspector .wallpaper-control-section:first-child .module-style-row {
+  margin-top: -4px;
+  margin-bottom: 10px
+}
+
+.module-inspector .wallpaper-control-section h3 {
+  font-size: 12px
+}
+
+.module-inspector .wallpaper-depth-controls p {
+  font-size: 11px;
+  line-height: 1.7;
+  margin-top: 10px
+}
+
+.module-inspector .wallpaper-choice {
+  font-size: 12px
+}
+
+.module-inspector .wallpaper-choice .choice-trigger {
+  font-size: 11px;
+  height: 32px
+}
+
+.module-inspector .wallpaper-control-section .setting-toggle {
+  margin-bottom: 20px
+}
+
+.module-add-dialog {
+  position: fixed;
+  inset: 50% auto auto 50%;
+  transform: translate(-50%, -50%);
+  width: min(620px, calc(100vw - 32px));
+  max-height: calc(100dvh - 32px);
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--card);
+  color: var(--foreground);
+  box-shadow: 0 24px 80px var(--shadow-strong);
+  overflow: hidden;
+  z-index: 100
+}
+
+.module-add-dialog>header {
+  padding: 20px;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0
+}
+
+.module-add-dialog h2 {
+  font-size: 16px;
+  font-weight: 600;
+  margin: 0
+}
+
+.module-add-dialog>header p {
+  font-size: 12px;
+  color: var(--muted-foreground);
+  margin-top: 7px
+}
+
+.module-add-body {
+  min-height: 0;
+  overflow: auto;
+  padding: 18px 20px
+}
+
+.module-add-body .rail-popup.rail-add-inline {
+  position: static;
+  transform: none;
+  width: 100%;
+  max-height: none;
+  overflow: visible;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  box-shadow: none
+}
+
+.module-add-body .rail-add-choices {
+  grid-template-columns: 1fr 1fr
+}
+
+.module-add-body .rail-desktop-picker-list {
+  max-height: 320px
+}
+
+@media(max-width:1199px) {
+
+  .studio-shell .module-inspector .inspector-content,
+  .studio-shell .module-inspector .module-settings-content,
+  .studio-shell .module-inspector .region-panel {
+    padding-inline: 16px
+  }
+
+  .studio-shell .module-inspector .module-settings-content>.inspector-content {
+    padding: 0
+  }
+}
+
+@media(max-height:760px) and (min-width:761px) {
+  .studio-shell .module-inspector .inspector-heading {
+    min-height: 52px;
+    padding-block: 12px
+  }
+
+  .studio-shell .module-inspector .inspector-heading-copy p {
+    display: none
+  }
+
+  .studio-shell .module-inspector .region-panel {
+    padding-block: 11px
+  }
+}
+
+@media(max-width:760px) {
+  .studio-shell .module-inspector .inspector-heading {
+    max-width: none
+  }
+
+  .studio-shell .module-inspector .region-panel {
+    max-width: none;
+    width: 100%
+  }
+
+  .studio-shell .module-inspector .inspector-content,
+  .studio-shell .module-inspector .module-settings-content {
+    max-width: 600px;
+    margin-inline: auto
+  }
+
+  .module-style-row {
+    gap: 8px
+  }
+}
+
+.studio-shell .module-inspector .module-section>h3 {
+  margin-bottom: 18px
+}
+
+.studio-shell .module-inspector .module-enable .setting-toggle-copy {
+  min-width: 0
+}
+
+.module-inspector .module-section:has(+details) {
+  margin-bottom: 0;
+  border-bottom: 0;
+  padding-bottom: 12px
+}
+
+.studio-shell .module-inspector .lyric-font-options {
+  margin-bottom: 14px
+}
+
+.studio-shell .module-inspector .lyric-font-option>span {
+  letter-spacing: 0
+}
 
 /* Three distinct settings panels with a quiet underline treatment. */
-.studio-shell .module-inspector .module-section-nav{display:flex;flex-shrink:0;margin:0 20px;border-bottom:1px solid var(--border);padding:0;background:transparent;gap:4px}
-.module-section-nav>button{display:flex;align-items:center;justify-content:center;gap:7px;flex:1;height:40px;position:relative;border:0;border-radius:0;background:transparent;color:var(--muted-foreground);font-size:12px}
-.module-section-nav>button:hover{color:var(--foreground)}.module-section-nav>button[data-state=active]{color:var(--primary)}.module-section-nav>button[data-state=active]::after{content:'';position:absolute;bottom:-1px;left:8px;right:8px;height:2px;border-radius:2px;background:var(--primary)}
-.studio-shell .module-inspector .module-settings-content>div>.inspector-content{padding:0}
-@media(max-width:1199px){.studio-shell .module-inspector .module-section-nav{margin-inline:16px}}
+.studio-shell .module-inspector .module-section-nav {
+  display: flex;
+  flex-shrink: 0;
+  margin: 0 20px;
+  border-bottom: 1px solid var(--border);
+  padding: 0;
+  background: transparent;
+  gap: 4px
+}
 
-.module-scene-tabs{display:flex;flex-direction:column;flex:1;min-height:0;overflow:hidden}.module-scene-tabs>[role=tabpanel]{outline:none}.module-scene-tabs>[role=tabpanel][hidden]{display:none}.module-inspector .music-controls:last-child{border-bottom:0;margin-bottom:0;padding-bottom:0}
-@media(max-width:760px){.module-scene-tabs{overflow:visible;flex:none}.module-scene-tabs>.inspector-scroll{overflow:visible}}
+.module-section-nav>button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  flex: 1;
+  height: 40px;
+  position: relative;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: var(--muted-foreground);
+  font-size: 12px
+}
 
-.module-scene-tabs>.module-tab-panel{display:flex;flex-direction:column;flex:1;min-height:0;overflow:hidden}.module-scene-tabs>.module-tab-panel[hidden]{display:none}@media(max-width:760px){.module-scene-tabs>.module-tab-panel{overflow:visible;flex:none}}
+.module-section-nav>button:hover {
+  color: var(--foreground)
+}
 
-.studio-shell .module-inspector .module-section-nav>button:focus,.studio-shell .module-inspector .module-section-nav>button:focus-visible{outline:none;box-shadow:none}
+.module-section-nav>button[data-state=active] {
+  color: var(--primary)
+}
 
-.module-inspector .appearance-controls>.effect-settings-block:last-child,.module-inspector .effect-position-controls>.effect-settings-block{border-bottom:0;margin-bottom:0;padding-bottom:16px}
+.module-section-nav>button[data-state=active]::after {
+  content: '';
+  position: absolute;
+  bottom: -1px;
+  left: 8px;
+  right: 8px;
+  height: 2px;
+  border-radius: 2px;
+  background: var(--primary)
+}
+
+.studio-shell .module-inspector .module-settings-content>div>.inspector-content {
+  padding: 0
+}
+
+@media(max-width:1199px) {
+  .studio-shell .module-inspector .module-section-nav {
+    margin-inline: 16px
+  }
+}
+
+.module-scene-tabs {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden
+}
+
+.module-scene-tabs>[role=tabpanel] {
+  outline: none
+}
+
+.module-scene-tabs>[role=tabpanel][hidden] {
+  display: none
+}
+
+.module-inspector .music-controls:last-child {
+  border-bottom: 0;
+  margin-bottom: 0;
+  padding-bottom: 0
+}
+
+@media(max-width:760px) {
+  .module-scene-tabs {
+    overflow: visible;
+    flex: none
+  }
+
+  .module-scene-tabs>.inspector-scroll {
+    overflow: visible
+  }
+}
+
+.module-scene-tabs>.module-tab-panel {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden
+}
+
+.module-scene-tabs>.module-tab-panel[hidden] {
+  display: none
+}
+
+@media(max-width:760px) {
+  .module-scene-tabs>.module-tab-panel {
+    overflow: visible;
+    flex: none
+  }
+}
+
+.studio-shell .module-inspector .module-section-nav>button:focus,
+.studio-shell .module-inspector .module-section-nav>button:focus-visible {
+  outline: none;
+  box-shadow: none
+}
+
+.module-inspector .appearance-controls>.effect-settings-block:last-child,
+.module-inspector .effect-position-controls>.effect-settings-block {
+  border-bottom: 0;
+  margin-bottom: 0;
+  padding-bottom: 16px
+}

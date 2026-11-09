@@ -5,6 +5,7 @@ import {
   type MusicDriverFrame,
 } from "../music-engine/effects/musicDriver";
 import { createMusicEnvelope } from "../music-engine/effects/musicEnvelope";
+import { MUSIC_GATE_CLOSE_RMS } from "../music-engine/effects/musicGate";
 
 export interface FieldRipple {
   x: number;
@@ -43,7 +44,7 @@ export class SceneMotion {
   readonly terrainPeaks = new Float32Array(2);
   frame: MusicDriverFrame | null = null;
   presence = 0;
-  /** Display release can remain visible after the source has stopped transporting. */
+  /** Only current PCM above the noise floor can transport or display music. */
   transporting = false;
   musicDropCount = 0;
   volume = 0;
@@ -58,7 +59,6 @@ export class SceneMotion {
   phase = 0;
   /** Aurora transport is perceptually scaled; amplitude still comes from the captured audio. */
   auroraPhase = 0;
-  private auroraSpeed = 0;
   private elapsed = 0;
   private sequence = 0;
   private rain = 0;
@@ -71,21 +71,34 @@ export class SceneMotion {
   simulationTime = 0;
   /** Event caches must follow source resets even when the new clock is later. */
   resetRevision = 0;
-  private transportSpeed = 0;
-  private readonly flows = new Map<string, { phase: number; speed: number; step: number }>();
+  private readonly flows = new Map<string, { phase: number; speed: number; target: number; step: number }>();
 
   /** Layer recreation and effect changes reuse their last path instead of replaying it. */
   flowPhase(key: string, speed: number, sustainFlow: number, reduced: boolean) {
     let state = this.flows.get(key);
-    if (!state) { state = { phase: 0, speed: 0, step: -1 }; this.flows.set(key, state); }
+    if (!state) { state = { phase: 0, speed: 0, target: 0, step: -1 }; this.flows.set(key, state); }
     if (state.step !== this.stepIndex) {
       state.step = this.stepIndex;
       if (!reduced && this.transporting && this.frame) {
-        const target = (.04 + this.energy * (1.25 + this.frame.sustain * sustainFlow)) * speed;
-        const tau = .16, decay = Math.exp(-this.stepSeconds / tau);
-        state.phase += target * this.stepSeconds + (state.speed - target) * tau * (1 - decay);
-        state.speed = target + (state.speed - target) * decay;
-      } else state.speed = 0;
+        // Travel uses the short audio envelope, not the square-root display
+        // brightness. No baseline speed: a quiet note must travel less than a
+        // loud one, and captured attacks must change movement as well as light.
+        const level = Math.min(2, Math.max(0, this.frame.intensity) * 10);
+        const accentWeight = Math.sqrt(unit(this.frame.intensitySample.current / .18) * this.frame.sensitivity);
+        const attack = Math.max(0, this.frame.transients[0] * 1.25 + this.frame.transients[1] * .65 + this.frame.transients[2] * .25) * accentWeight;
+        const target = (level + attack) * speed * (1 + this.frame.sustain * sustainFlow * .15);
+        const dt = this.stepSeconds, tau = .06;
+        if (dt > 0) {
+          // Integrate the line between accepted audio samples analytically.
+          // Holding the new endpoint for the whole frame overcounts each attack
+          // at 30Hz compared with 120Hz.
+          const slope = (target - state.target) / dt, decay = Math.exp(-dt / tau);
+          const next = target - slope * tau + (state.speed - state.target + slope * tau) * decay;
+          state.phase += Math.max(0, (state.target + target) * .5 * dt - tau * (next - state.speed));
+          state.speed = Math.max(0, next);
+        }
+        state.target = target;
+      } else state.speed = state.target = 0;
     }
     return state.phase;
   }
@@ -117,9 +130,7 @@ export class SceneMotion {
       this.phase = 0;
       this.auroraPhase = 0;
       this.flows.clear();
-    } else for (const state of this.flows.values()) state.speed = 0;
-    this.transportSpeed = 0;
-    this.auroraSpeed = 0;
+    } else for (const state of this.flows.values()) state.speed = state.target = 0;
     this.sharedBeat = -1;
   }
 
@@ -172,7 +183,9 @@ export class SceneMotion {
         );
     if (sharedFrame) this.sharedBeat = sharedFrame.beatIndex;
     const audible = frame.audible;
-    this.transporting = audible && unit(audio.rms) > 0;
+    // The gate's 100ms hold stabilizes detection; it must not let digital
+    // silence or sub-threshold noise keep moving the last audible frame.
+    this.transporting = audible && unit(audio.rms) >= MUSIC_GATE_CLOSE_RMS;
     const shape = audio.spectrumRms ?? audio.spectrum;
     let peak = 0.000001;
     for (const value of shape)
@@ -213,25 +226,8 @@ export class SceneMotion {
       const value = this.terrainPeaks[i];
       this.terrainPeaks[i] += (target - value) * (1 - Math.exp(-elapsed / (target > value ? .10 : .38)));
     });
-    if (!reduced && this.transporting) {
-      const target = this.energy * (.8 + settings.speed * .5);
-      const tau = .24, decay = Math.exp(-elapsed / tau);
-      this.phase += target * elapsed + (this.transportSpeed - target) * tau * (1 - decay);
-      this.transportSpeed = target + (this.transportSpeed - target) * decay;
-    } else this.transportSpeed = 0;
-    if (!reduced && this.transporting) {
-      // Keep the light curtains visibly travelling during sustained music, including
-      // quiet passages. This floor is audio-gated transport, never a synthesized beat.
-      const target =
-        (0.35 + Math.sqrt(unit(frame.intensity)) * 0.9 + this.middle * 0.2) *
-        (0.45 + settings.speed * 0.2);
-      const tau = 0.32,
-        decay = Math.exp(-elapsed / tau);
-      // Integrate the exponential response analytically so travel matches at 30/120 Hz.
-      this.auroraPhase +=
-        target * elapsed + (this.auroraSpeed - target) * tau * (1 - decay);
-      this.auroraSpeed = target + (this.auroraSpeed - target) * decay;
-    } else this.auroraSpeed = 0;
+    this.phase = this.flowPhase('terrain-transport', .8 + settings.speed * .5, 0, reduced);
+    this.auroraPhase = this.flowPhase('aurora-transport', .45 + settings.speed * .2, .2, reduced);
     for (let i = this.ripples.length - 1; i >= 0; i--) {
       this.ripples[i].lifetime += elapsed;
       if (!reduced) this.ripples[i].age += elapsed;
@@ -290,7 +286,9 @@ export class SceneMotion {
     // keeps the existing envelope. The pulse cannot increase energy past PCM RMS.
     const fastEnergy = unit(audio.rms) * unit(frame.pulse * 4);
     const energyVisibility = .2 + .8 * Math.sqrt(unit(Math.max(visible.intensity, fastEnergy) / .12));
-    this.presence = Math.max(visible.presence * energyVisibility, touch);
+    // One final transparent presentation lets every canvas sleep immediately.
+    // Pointer feedback remains an explicit interaction, not background music.
+    this.presence = Math.max(this.transporting ? visible.presence * energyVisibility : 0, touch);
     return frame;
   }
 

@@ -465,6 +465,7 @@ export function ThreeSceneCanvas({
                   ? timeline?.sample(now, config.music)
                   : null;
             motion.step(audio, dt, config.music, reduced.matches, shared);
+            canvas.dataset.transporting = String(motion.transporting);
             // Do not clear or reset the scene: CSS retains the last frame while
             // native presentation changes size, and transport still follows audio.
             const paused = !desktop && (previewResizePending(now) || resizePending);

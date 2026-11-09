@@ -78,7 +78,7 @@ export function SettingsWorkspace() {
   );
   const [arrangeRequest, requestArrange] = useState(0);
   const [libraryRequest, requestLibrary] = useState(0);
-  const [demo, setDemo] = useState(!native);
+  const [demo, setDemo] = useState(false);
   const [applicationOpen, setApplicationOpen] = useState(false);
   const navigation = useWorkspaceNavigation();
   const rail = useRail();

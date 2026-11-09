@@ -3,6 +3,7 @@ import { invoke } from '@tauri-apps/api/core'
 import { railSkin, type RailGroup } from './model'
 import type { railWheel } from './rail-wheel'
 import { botanicalSprigs } from './rail-botanical-layout'
+import { railFloralLayout } from './rail-floral-layout'
 import { getRailSkinTheme } from './skin-theme'
 import { railAudioTravel } from './audio-motion'
 
@@ -84,8 +85,12 @@ export function useRailHitRegions(
       }
       if (bodyPresent) {
         // Include hanging flowers locally, leaving gaps available to the desktop.
-        for (const sprig of botanicalSprigs(railSkin(group.skin), unit, geometry,
-          group.items.map((_, index) => geometry.slot(index, active)).filter(slot => slot.visible).map(slot => slot.x))) {
+        const attachments = group.items.map((_, index) => geometry.slot(index, active)).filter(slot => slot.visible).map(slot => slot.x)
+        const floral = railFloralLayout(unit, geometry, attachments, theme)
+        const sprigs = theme.decoration.type === 'floral'
+          ? [...floral.flowers, ...floral.leaves].map(x => geometry.atX(x))
+          : botanicalSprigs(railSkin(group.skin), unit, geometry, attachments)
+        for (const sprig of sprigs) {
           const bounds = theme.decoration.bounds
           const extra = group.audioSync?.enabled ? railAudioTravel : 0
           regions.push({ x: sprig.x - bounds.left * unit, y: 28 + sprig.y - (bounds.top + extra) * unit,

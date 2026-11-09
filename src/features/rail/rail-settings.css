@@ -1,0 +1,263 @@
+/* Match the effect inspector: fixed context and tabs, one scrolling panel. */
+.studio-shell .module-inspector .rail-inspector-pane {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.studio-shell .module-inspector .rail-controls.inspector-content {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  max-width: none;
+  margin: 0;
+  padding: 0;
+}
+
+.rail-controls .rail-settings-heading {
+  flex-shrink: 0;
+}
+
+.rail-settings-heading .inspector-heading-copy {
+  flex: 1;
+  min-width: 0;
+}
+
+.rail-settings-heading .rail-heading-selector {
+  width: auto;
+  max-width: 100%;
+  height: 26px;
+  gap: 8px;
+  margin: -4px 0 0 -6px;
+  padding: 0 6px;
+  border-color: transparent;
+  background: transparent;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.rail-heading-selector>span:first-child {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.rail-settings-heading .rail-heading-selector:hover {
+  background: var(--accent);
+}
+
+.rail-settings-heading>button {
+  flex-shrink: 0;
+}
+
+.rail-controls .rail-save-state {
+  display: inline-flex;
+}
+
+.rail-controls>.rail-control-error {
+  flex-shrink: 0;
+  margin: 12px 20px;
+}
+
+.rail-group-dialog {
+  width: min(420px, calc(100vw - 32px));
+}
+
+.rail-group-dialog .rail-form-row {
+  margin: 0 0 20px;
+}
+
+.rail-group-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.rail-group-dialog .rail-remove-group {
+  color: var(--destructive);
+}
+
+.rail-controls .rail-settings-tabs {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+  gap: 0;
+}
+
+.rail-controls .rail-settings-tabs>.rail-settings-panel {
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior-y: contain;
+  padding: 18px 20px 24px;
+  outline: none;
+}
+
+.rail-settings-tabs>.rail-settings-panel[hidden] {
+  display: none;
+}
+
+.studio-shell .module-inspector .rail-settings-tab-list>button:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: -4px;
+}
+
+.rail-items-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+
+.rail-items-toolbar>h3 {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  min-width: 0;
+}
+
+.rail-items-toolbar>h3>span {
+  color: var(--muted-foreground);
+  font-size: 10px;
+  font-weight: 400;
+  font-variant-numeric: tabular-nums;
+}
+
+.rail-controls .rail-add-trigger {
+  flex-shrink: 0;
+  width: auto;
+  height: 30px;
+  margin: 0;
+  padding-inline: 9px;
+  font-size: 11px;
+}
+
+.rail-controls .rail-control-list {
+  border-top: 1px solid var(--border);
+}
+
+.rail-controls .rail-control-item {
+  padding: 7px 3px;
+}
+
+.rail-controls .rail-control-select>span:last-child {
+  align-items: flex-start;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.rail-controls .rail-control-select strong {
+  max-width: 100%;
+}
+
+.rail-controls .rail-control-select small {
+  max-width: 100%;
+  font-size: 10px;
+}
+
+.rail-controls .rail-list-empty {
+  padding: 24px 0;
+  margin: 0;
+  line-height: 1.8;
+}
+
+.rail-controls>.rail-list-empty {
+  padding-inline: 20px;
+}
+
+.rail-controls .rail-list-empty small {
+  max-width: 28em;
+}
+
+.rail-settings-panel>.rail-skin-entry {
+  margin-bottom: 22px;
+}
+
+.studio-shell .module-inspector .rail-settings-panel>.module-enable {
+  margin-bottom: 20px;
+}
+
+.rail-settings-panel>.rail-skin-entry .module-style-row {
+  margin-top: 0;
+}
+
+.rail-controls .rail-audio-settings {
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.rail-audio-fields .rail-form-row>.choice-trigger {
+  flex: 1;
+  min-width: 0;
+  width: 0;
+  height: 34px;
+  font-size: 12px;
+}
+
+.rail-controls .rail-layout-settings {
+  padding: 0;
+}
+
+.rail-layout-settings .rail-position-presets {
+  gap: 6px;
+  margin: 0 0 22px;
+}
+
+.rail-position-presets>button[aria-pressed=true] {
+  color: var(--primary);
+  border-color: var(--primary);
+  background: var(--accent);
+}
+
+.rail-layout-settings .rail-form-row {
+  align-items: center;
+  margin: 0 0 16px;
+}
+
+.rail-controls .rail-remove-group {
+  color: var(--destructive);
+  font-size: 11px;
+  padding-left: 0;
+}
+
+.rail-controls .rail-item-controls {
+  padding: 12px 8px 14px;
+  background: var(--muted);
+}
+
+@media (max-width: 1199px) {
+  .rail-controls .rail-settings-tabs>.rail-settings-panel {
+    padding-inline: 16px;
+  }
+}
+
+@media (max-width: 760px) {
+  .studio-shell .module-inspector .rail-inspector-pane {
+    overflow: visible;
+  }
+
+  .studio-shell .module-inspector .rail-controls.inspector-content {
+    flex: none;
+    width: 100%;
+    max-width: 600px;
+    margin-inline: auto;
+  }
+
+  .rail-controls .rail-settings-tabs {
+    flex: none;
+    overflow: visible;
+  }
+
+  .rail-controls .rail-settings-tabs>.rail-settings-panel {
+    overflow: visible;
+  }
+}

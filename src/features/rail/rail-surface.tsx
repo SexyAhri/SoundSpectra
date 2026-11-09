@@ -1,5 +1,6 @@
 import {
   useEffect,
+  useId,
   useLayoutEffect,
   useRef,
   useState,
@@ -39,10 +40,15 @@ import {
 } from "./use-rail-popup-window";
 import { useRailHitRegions } from "./use-rail-hit-regions";
 import { RailCord } from "./rail-cord";
-import { RailItemFrame } from './rail-item-frame';
-import { getRailSkinTheme, railSkinStyle } from './skin-theme';
-import { useRailSway } from './use-rail-sway';
-import './rail-skins.css';
+import { RailItemFrame } from "./rail-item-frame";
+import { RailItemLabel } from "./rail-item-label";
+import { RailPaperDetails } from "./rail-paper-details";
+import { RailPaperMaterial } from "./rail-paper-material";
+import { RailLeafCanopy } from "./rail-leaf-canopy";
+import { getRailSkinTheme, railSkinStyle } from "./skin-theme";
+import { useRailSway } from "./use-rail-sway";
+import "./rail-skins.css";
+import "./rail-keepsakes.css";
 
 interface Props {
   group: RailGroup;
@@ -141,10 +147,11 @@ export function RailSurface({
     };
   }, []);
   // Keep the approved proportions without shrinking narrow groups into miniature cards.
+  const materialId = useId();
   const unit = Math.max(0.65, Math.min(1.35, width / 880));
   const itemWidth = (item: RailItem) =>
     item.kind === "app"
-      ? Math.min(88, 72 * unit)
+      ? Math.min(96, 80 * unit)
       : (item.kind === "image"
           ? 167
           : item.kind === "file" || item.kind === "folder"
@@ -164,8 +171,16 @@ export function RailSurface({
     group.items.length,
     theme.physics.gravitySagFactor,
   );
-  useRailSway(holder, theme, group.id, `${wheel.active}:${group.items.map(item => item.id).join(',')}`,
-    !!bodyPresent && !group.collapsed && !editing && popupWindow !== 'host', geometry, unit, group.audioSync);
+  useRailSway(
+    holder,
+    theme,
+    group.id,
+    `${wheel.active}:${group.items.map((item) => item.id).join(",")}`,
+    !!bodyPresent && !group.collapsed && !editing && popupWindow !== "host",
+    geometry,
+    unit,
+    group.audioSync,
+  );
   const visible = group.items;
   const rotate = (direction: number) => {
     const index =
@@ -481,14 +496,14 @@ export function RailSurface({
           } as CSSProperties
         }
       >
-        <RailItemFrame>
+        <RailItemFrame item={item} materialId={materialId}>
           <button
             className="rail-item"
             type="button"
             aria-label={`${item.name}，${kindLabels[item.kind]}`}
             title={
               item.kind === "note"
-                ? item.text
+                ? `${item.name}\n${item.text ?? ""}`
                 : `${item.name}\n${item.path}\n单击或 Enter 打开，拖出拾光绳可发送到其他软件`
             }
             aria-pressed={(desktop ? desktopSelection : selected) === item.id}
@@ -526,6 +541,7 @@ export function RailSurface({
               }
             }}
           >
+            <RailPaperDetails item={item} materialId={materialId} />
             {item.kind === "note" ? (
               <>
                 <span className="rail-note-kicker">随手记</span>
@@ -540,9 +556,7 @@ export function RailSurface({
                     revision={mediaRevision}
                   />
                 </span>
-                {item.kind !== "image" && (
-                  <span className="rail-item-name">{item.name}</span>
-                )}
+                <RailItemLabel item={item} />
               </>
             )}
             {controller.missing.includes(item.id) && (
@@ -607,6 +621,7 @@ export function RailSurface({
       ref={holder}
       className={`rail-surface rail-wheel${popupWindow === "host" ? " rail-popup-host" : ""}${popup ? " rail-popup-open" : ""}${editing ? " rail-is-editing" : ""}${group.collapsed ? " rail-is-collapsed" : ""}`}
       data-rail-skin={railSkin(group.skin)}
+      data-rail-canopy={railSkin(group.skin) === 'floral' && !group.collapsed}
       data-rail-clip-accent={theme.clipStyle.accent}
       data-rail-group={group.id}
       {...reorder.events}
@@ -674,6 +689,7 @@ export function RailSurface({
         } as CSSProperties
       }
     >
+      <RailPaperMaterial id={materialId} />
       <div className="rail-design">
         {popupWindow !== "host" && (
           <header className="rail-header">
@@ -683,6 +699,24 @@ export function RailSurface({
               onClick={() => onSelect?.(group.id)}
               onPointerDown={(event) => onDragGroup?.(event, group)}
             >
+              {group.collapsed && (
+                <span className="rail-folded-cord" aria-hidden="true">
+                  <svg className="rail-cord" viewBox="0 0 70 32">
+                    <RailCord
+                      skin={railSkin(group.skin)}
+                      unit={0.6}
+                      geometry={railWheel(
+                        70,
+                        20,
+                        0.6,
+                        0,
+                        theme.physics.gravitySagFactor,
+                      )}
+                      attachments={[]}
+                    />
+                  </svg>
+                </span>
+              )}
               <GripHorizontal size={16} />
               <strong>{group.name}</strong>
               <span>{group.items.length.toString().padStart(2, "0")}</span>
@@ -752,7 +786,8 @@ export function RailSurface({
                 preserveAspectRatio="none"
                 aria-hidden="true"
               >
-                <RailCord skin={railSkin(group.skin)}
+                <RailCord
+                  skin={railSkin(group.skin)}
                   unit={unit}
                   geometry={geometry}
                   attachments={group.items
@@ -760,9 +795,15 @@ export function RailSurface({
                     .filter((slot) => slot.visible)
                     .map((slot) => slot.x)}
                 />
-                <path className="rail-cord-hit" data-rail-rope-path={geometry.path} d={geometry.path} />
+                <path
+                  className="rail-cord-hit"
+                  data-rail-rope-path={geometry.path}
+                  d={geometry.path}
+                />
               </svg>
             </button>
+            {railSkin(group.skin) === 'floral' && <RailLeafCanopy unit={unit} geometry={geometry} theme={theme}
+              attachments={group.items.map((_, index) => geometry.slot(index, wheel.active)).filter(slot => slot.visible).map(slot => slot.x)} />}
             <RailMotionSnapshot
               beforeUpdate={() =>
                 captureMotion(group.items.map((item) => item.id))

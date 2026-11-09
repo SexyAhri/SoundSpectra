@@ -8,6 +8,7 @@ import { useState } from 'react'
 import { invoke } from '@tauri-apps/api/core'
 import { native } from '../spectrum/bridge'
 import { StylePicker } from '@/components/ui/style-picker'
+import { LyricStylePreview } from './lyric-style-preview'
 
 export function LyricControls({ settings, document, update, disabled }: { settings: SpectrumSettings; document: LyricDocument; update: SettingsUpdate; disabled: boolean }) {
   const lyrics = settings.lyrics
@@ -34,8 +35,8 @@ export function LyricControls({ settings, document, update, disabled }: { settin
       {lyrics.enabled && <p className="lyric-status" role="status">{document.status === 'ready' ? '歌词已就绪' : document.message}</p>}
       {document.issue && <p className="lyric-status" role="alert">{document.issue}</p>}
       <StylePicker label="歌词编排" value={lyrics.motion} disabled={disabled} onChange={motion => chooseComposition(motion as LyricSettings['motion'])}
-        options={[[ 'depth', '文字漫游', '镜域 · 穿行' ], [ 'stage', '错落排版', '切片 · 撞版' ], [ 'stardust', '弧形流转', '弧线 · 环游' ], [ 'folded', '折幕字场', '棱镜 · 翻幕' ]].map(([value, label, detail]) => ({ value, label, detail,
-          preview: <span className={`composition-option-${value}`}><span className="composition-mark">{value === 'folded' ? <><i>折</i><i>幕</i></> : value === 'depth' ? '风 光' : value === 'stage' ? '听\n见' : '时 光'}</span></span> }))} />
+        options={([[ 'depth', '文字漫游', '镜域 · 穿行' ], [ 'stage', '错落排版', '切片 · 撞版' ], [ 'stardust', '弧形流转', '弧线 · 环游' ], [ 'folded', '折幕字场', '棱镜 · 翻幕' ]] as const).map(([value, label, detail]) => ({ value, label, detail,
+          preview: <LyricStylePreview motion={value} /> }))} />
       <section className="module-section" aria-label="歌词阅读"><h3>文字与可读性</h3>
       <Parameter label="歌词字号" value={lyrics.fontSize} min={18} max={72} unit=" px" disabled={disabled} onChange={fontSize => change({ fontSize })} />
       <div className="lyric-font-options" role="group" aria-label="歌词字体风格">

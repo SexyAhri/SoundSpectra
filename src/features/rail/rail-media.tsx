@@ -64,6 +64,11 @@ export function RailMedia({
       style={{ objectFit: item.kind === "image" ? item.crop : "contain" }}
       onError={() => setFailed(true)}
     />
+  ) : item.kind === "image" ? (
+    <span className="rail-photo-placeholder" aria-hidden="true">
+      <Icon />
+      <span>暂无预览</span>
+    </span>
   ) : (
     <Icon aria-hidden="true" />
   );

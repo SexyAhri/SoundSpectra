@@ -1,3 +1,4 @@
+import { setDemo } from './helpers/demo'
 import { chooseStyle } from './helpers/module-settings'
 import { expect, test } from '@playwright/test'
 import { defaults, normalizeSettings } from '../src/features/spectrum/model'
@@ -71,7 +72,7 @@ test('NetEase native event clock drives lyrics and stops when observations expir
 })
 
 test('lyrics preview animates independently, persists controls and never fabricates live lyrics', async ({ page }) => {
-  await page.goto('/')
+  await page.goto('/'); await setDemo(page)
   await page.getByRole('button', { name: '歌词', exact: true }).click()
   await page.getByRole('switch', { name: '显示桌面歌词', exact: true }).click()
   await expect(page.getByLabel('QQ 音乐歌词目录', { exact: true })).toHaveCount(0)
@@ -92,7 +93,7 @@ test('lyrics preview animates independently, persists controls and never fabrica
   expect(saved.desktopCard.enabled).toBe(false)
   expect(saved.effect).toBe(defaults.effect)
   await page.screenshot({ path: 'artifacts/lyrics-desktop.png' })
-  await page.reload(); await page.getByRole('button', { name: '歌词', exact: true }).click()
+  await page.reload(); await setDemo(page); await page.getByRole('button', { name: '歌词', exact: true }).click()
   await expect(page.getByRole('switch', { name: '显示桌面歌词', exact: true })).toBeChecked()
   await expect(page.getByRole('slider', { name: '歌词背景', exact: true })).toHaveAttribute('aria-valuenow', '0')
   await page.getByRole('switch', { name: '模拟预览', exact: true }).click()

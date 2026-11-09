@@ -15,16 +15,8 @@
 .lyric-style-options button { min-width: 0; height: 66px; padding: 5px 2px; display: flex; flex-direction: column; gap: 3px; font-size: 10px; }
 .lyric-style-options button small { color: var(--muted-foreground); font-size: 8px; line-height: 1.25; font-weight: 400; }
 .lyric-style-options button[aria-pressed="true"] { background: var(--accent); border-color: var(--primary); color: var(--primary); }
-.composition-mark { display: grid; place-items: center; height: 22px; width: 100%; color: var(--primary); font: 15px/1 Georgia,SimSun,serif; white-space: pre; letter-spacing: .15em; }
-.composition-option-depth .composition-mark { position: relative; transform: perspective(100px) rotateY(-18deg) rotateZ(-4deg); word-spacing: 6px; color: #83b8cc; text-shadow: 2px 1px 0 #83b8cc22; }
-.composition-option-depth .composition-mark::before { content: ''; position: absolute; inset: 1px 18%; border: 1px solid #83b8cc24; transform: perspective(80px) rotateY(18deg); }
-.composition-option-stage .composition-mark { font-size: 12px; line-height: .9; transform: rotate(-8deg); text-align: right; color: #c68d70; text-decoration: underline; text-decoration-color: #c68d7044; text-underline-offset: 2px; }
-.composition-option-stardust .composition-mark { border-bottom: 1px solid var(--border); border-radius: 0 0 50% 50%; width: 68%; letter-spacing: .3em; transform: rotate(7deg); color: var(--success); }
 .lyric-status { color: var(--muted-foreground); font-size: 11px; line-height: 1.6; margin: 12px 0; overflow-wrap: anywhere; }
 
-.composition-option-folded .composition-mark { display: flex; justify-content: center; width: 68%; perspective: 120px; color: var(--primary); }
-.composition-option-folded .composition-mark i { display: grid; place-items: center; width: 25px; height: 20px; font-style: normal; font-weight: 400; letter-spacing: 0; border-block: 1px solid color-mix(in srgb, currentColor 16%, transparent); transform: rotateY(-29deg) rotateZ(-7deg); }
-.composition-option-folded .composition-mark i + i { transform: rotateY(29deg) rotateZ(7deg); border-left: 1px solid color-mix(in srgb, currentColor 22%, transparent); }
 .folded-lyrics { position: absolute; inset: 0; pointer-events: none; }
 .lyric-font-options { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin: 5px 0 14px; }
 .lyric-font-option { height: auto; min-height: 74px; min-width: 0; padding: 8px 4px; display: flex; flex-direction: column; gap: 3px; }
@@ -34,8 +26,3 @@
 .lyric-font-option > span:nth-child(2) { font-size: 10px; }
 .lyric-font-option small { font-size: 9px; color: var(--muted-foreground); font-weight: 400; }
 .lyric-font-option[aria-pressed="true"] { background: var(--accent); border-color: var(--primary); color: var(--primary); }
-
-.composition-option-folded .composition-mark { position: relative; isolation: isolate; }
-.composition-option-folded .composition-mark i { color: #79d9c8; text-shadow: 2px 2px 0 #ae7bce66; }
-.composition-option-folded .composition-mark i + i { color: #b893d2; text-shadow: -2px -1px 0 #62cebc55; }
-.composition-option-folded .composition-mark::before { content: ''; position: absolute; inset: 4px 2px; z-index: -1; background: linear-gradient(135deg, #5fd6c818, transparent 44%, #b986dc22); clip-path: polygon(0 12%, 45% 0, 58% 100%, 100% 80%, 52% 44%); }

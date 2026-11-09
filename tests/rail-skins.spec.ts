@@ -21,6 +21,7 @@ test.beforeEach(async ({ page }) => {
 test('skin changes persist per group while cancel and legacy loading preserve data', async ({ page }) => {
   test.setTimeout(60_000)
   await page.goto('/#rail')
+  await page.getByRole('tab', { name: '外观', exact: true }).click()
   const surface = page.locator('.rail-wheel').first()
   await expect(surface).toHaveAttribute('data-rail-skin', 'floral')
   const stored = () => page.evaluate(() => JSON.parse(localStorage.getItem('soundspectra.rail.v1')!) as RailSettings)
@@ -49,10 +50,11 @@ test('skin changes persist per group while cancel and legacy loading preserve da
     expect(next.groups[0]).toEqual({ ...before.groups[0], skin })
     expect(next.groups[1]).toEqual(before.groups[1])
     await page.reload()
+    await page.getByRole('tab', { name: '外观', exact: true }).click()
     await expect(surface).toHaveAttribute('data-rail-skin', skin)
   }
   await page.getByRole('combobox', { name: '当前拾光绳', exact: true }).click()
-  await page.getByRole('option', { name: '工作资料 · 0 项' }).click()
+  await page.getByRole('option').filter({ hasText: '工作资料' }).click()
   await expect(page.getByRole('group', { name: '当前拾光绳皮肤', exact: true })).toContainText('原木拾光')
   expect(await page.evaluate(() => localStorage.getItem('soundspectra.settings.v1'))).toBe(musicBefore)
 })
@@ -60,6 +62,7 @@ test('skin changes persist per group while cancel and legacy loading preserve da
 test('four skins remain readable in both themes and the chooser fits narrow screens', async ({ page }) => {
   test.setTimeout(60_000)
   await page.goto('/#rail')
+  await page.getByRole('tab', { name: '外观', exact: true }).click()
   for (const theme of ['light', 'dark']) {
     await page.evaluate(theme => { document.documentElement.dataset.theme = theme }, theme)
     for (const [skin, name] of [['floral', '花间小径'], ['wisteria', '紫藤轻垂'], ['autumn', '秋枝来信']] as const) {
@@ -78,6 +81,7 @@ test('four skins remain readable in both themes and the chooser fits narrow scre
     await page.getByRole('button', { name: '更换拾光绳皮肤' }).click()
     const dialog = page.getByRole('dialog', { name: '选择拾光绳皮肤' })
     await expect(dialog.locator('.module-style-option')).toHaveCount(4)
+    await expect(dialog).toBeInViewport({ ratio: 1 })
     const box = (await dialog.boundingBox())!
     expect(box.x).toBeGreaterThanOrEqual(0)
     expect(box.y).toBeGreaterThanOrEqual(0)

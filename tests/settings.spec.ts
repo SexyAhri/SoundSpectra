@@ -1,10 +1,11 @@
+import { setDemo } from './helpers/demo'
 import { settingsSection } from './helpers/module-settings'
 import { test, expect } from '@playwright/test'
 
 test('source effect renders actual pixels, source parameters persist, and silence clears the preview', async ({ page }) => {
   const errors: string[] = []
   page.on('pageerror', (error) => errors.push(error.message))
-  await page.goto('/')
+  await page.goto('/'); await setDemo(page)
   await expect(page.getByText('已保存到此浏览器')).toBeVisible()
   await expect(page.getByRole('switch', { name: '显示到桌面' })).toBeDisabled()
   await expect(page.getByRole('button', { name: '调整桌面位置' })).toBeDisabled()
@@ -38,7 +39,7 @@ test('source effect renders actual pixels, source parameters persist, and silenc
   await speed.focus(); await speed.press('ArrowLeft')
   await expect(speed).toHaveAttribute('aria-valuenow', '2.3')
   await expect(page.getByText('已保存到此浏览器')).toBeVisible()
-  await page.reload()
+  await page.reload(); await setDemo(page)
   await settingsSection(page, '外观')
   await expect(page.getByRole('slider', { name: '不透明度', exact: true })).toHaveAttribute('aria-valuenow', '86')
   await settingsSection(page, '动效')

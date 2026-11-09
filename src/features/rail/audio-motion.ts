@@ -14,12 +14,15 @@ export class RailAudioMotion {
   private beat = -1
   update(dt: number, frame: RailMusicFrame | null, config: RailAudioConfig, paused: boolean) {
     if (!Number.isFinite(dt) || dt <= 0) return 0
+    // Exponential envelopes are stable over a long frame. They must consume
+    // real elapsed time so silence still settles when rendering is busy.
+    const elapsed = dt
     dt = Math.max(0, Math.min(.05, dt))
     const amount = config.enabled && !paused ? config.amount / 100 : 0
-    const mix = 1 - Math.exp(-dt / (paused ? .06 : .18))
+    const mix = 1 - Math.exp(-elapsed / (paused ? .06 : .18))
     this.level += ((frame?.level ?? 0) * amount - this.level) * mix
     this.bass += ((frame?.bass ?? 0) * amount - this.bass) * mix
-    this.pulse *= Math.exp(-dt / .22)
+    this.pulse *= Math.exp(-elapsed / .22)
     this.time += dt
     let impulse = 0
     if (frame) {
@@ -36,7 +39,7 @@ export class RailAudioMotion {
         }
       }
     }
-    if (paused || !config.enabled) this.pulse *= Math.exp(-dt / .04)
+    if (paused || !config.enabled) this.pulse *= Math.exp(-elapsed / .04)
     return impulse
   }
   offset(t: number, config: RailAudioConfig, unit: number) {

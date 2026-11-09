@@ -85,21 +85,33 @@ for (const theme of ['light', 'dark']) test(`${theme} modules and chooser fit sh
   await page.evaluate(theme => document.documentElement.dataset.theme = theme, theme)
   for (const [width, height] of [[900, 620], [390, 844]]) {
     await page.setViewportSize({ width, height })
-    for (const [panel, module] of [['灯效', '灯效'], ['歌词', '歌词编排'], ['音乐卡片', '卡片样式'], ['壁纸', '壁纸来源'], ['拾光绳', '']]) {
+    for (const [panel, module] of [['灯效', '灯效'], ['歌词', '歌词编排'], ['音乐卡片', '卡片样式'], ['壁纸', '壁纸来源'], ['拾光绳', '拾光绳皮肤']]) {
       await page.getByRole('button', { name: panel, exact: true }).click()
+      if (panel === '拾光绳') await page.getByRole('tab', { name: '外观', exact: true }).click()
       const pane = page.getByRole('complementary', { name: '对象属性', exact: true })
-      if (module) await pane.getByRole('button', { name: `更换${module}`, exact: true }).click()
-      else await pane.getByRole('button', { name: '添加挂件', exact: true }).click()
+      const trigger = pane.getByRole('button', { name: `更换${module}`, exact: true })
+      await trigger.click()
       const dialog = page.getByRole('dialog')
       await expect(dialog).toBeInViewport({ ratio: 1 })
       expect(await dialog.evaluate(el => el.scrollWidth <= el.clientWidth)).toBe(true)
-      if (module) {
-        const preview = dialog.locator('.module-option-preview').first()
-        const rect = (await preview.boundingBox())!
-        expect(rect.height).toBeGreaterThan(rect.width / 2)
-        expect(await dialog.locator('.module-style-options').evaluate(el => getComputedStyle(el).scrollbarWidth)).toBe('none')
-      }
+      const drawer = (await dialog.boundingBox())!
+      expect(drawer.x + drawer.width).toBeCloseTo(width, 0)
+      expect(drawer.y).toBe(0)
+      expect(drawer.height).toBe(height)
+      if (width < 600) expect(drawer.width).toBe(width)
+      const preview = dialog.locator('.module-option-preview').first()
+      const rect = (await preview.boundingBox())!
+      expect(rect.height).toBeGreaterThan(rect.width / 2)
+      const options = dialog.locator('.module-style-options'), header = dialog.locator('header')
+      expect(await options.evaluate(el => getComputedStyle(el).scrollbarWidth)).toBe('none')
+      const headerTop = (await header.boundingBox())!.y
+      await options.getByRole('button').last().scrollIntoViewIfNeeded()
+      expect((await header.boundingBox())!.y).toBe(headerTop)
+      await expect(dialog.getByRole('button', { name: `关闭${module}选择`, exact: true })).toBeInViewport()
+      if (theme === 'dark') await page.screenshot({ path: `artifacts/style-drawers/${panel}-${width}.png` })
       await page.keyboard.press('Escape')
+      await expect(dialog).toHaveCount(0)
+      await expect(trigger).toBeFocused()
       expect(await page.locator('.inspector-scroll').evaluate(el => getComputedStyle(el).scrollbarWidth)).toBe('none')
       expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
       if (width > 760) { await expect(pane.locator('.inspector-heading')).toBeInViewport(); await expect(page.locator('.workspace-footer')).toBeInViewport() }

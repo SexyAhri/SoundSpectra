@@ -53,13 +53,21 @@ async function fixture(page: Page, surface = false, popupWindow?: 'source' | 'ho
         ? React.createElement(RailSurface, { group: settings.groups[0], controller, desktop: true, popupWindow: ${JSON.stringify(popupWindow) ?? 'undefined'} })
         : React.createElement(RailControls, { controller, selectedGroup: 'apps', selectedItem: selection, onSelect: (_, id) => select(id ?? null), onApplyAfternoon: () => {} });
       window.updateGroup = () => setSettings(current => ({ ...current, groups: current.groups.map(group => ({ ...group, name: 'updated', items: [...group.items] })) }));
-      return React.createElement('div', { className: ${surface} ? 'rail-desktop' : '', style: { width: ${surface ? surfaceWidth : 390}, margin: 24 } },
-        React.createElement('input', { 'aria-label': 'other input' }), children);
+      return React.createElement('div', { className: ${surface} ? 'rail-desktop' : '', style: { width: ${popupWindow === 'host' ? "'100%'" : surface ? surfaceWidth : 390}, margin: ${popupWindow === 'host' ? 0 : 24} } },
+        ${popupWindow === 'host' ? 'null' : "React.createElement('input', { 'aria-label': 'other input' })"}, children);
     }
     ReactDOM.createRoot(document.getElementById('root')).render(React.createElement(Fixture));
   `));
   await page.addInitScript(() => { Object.assign(window, { isTauri: true }) })
   await page.goto('/?rail-input-fixture')
+  if (surface && popupWindow !== 'host') {
+    // Initial ResizeObserver sizing moves the wheel from its fallback width.
+    // Measure drag coordinates only after that authored entry has settled.
+    await expect(page.locator('.rail-cord').first()).toHaveAttribute('viewBox', new RegExp(`^0 0 ${surfaceWidth} `))
+    await page.locator('.rail-surface').evaluate(async node => {
+      await Promise.all(node.getAnimations({ subtree: true }).filter(animation => animation.effect?.getComputedTiming().iterations !== Infinity).map(animation => animation.finished.catch(() => {})))
+    })
+  }
 }
 
 for (const skin of ['floral', 'wisteria', 'autumn']) test(`${skin} ornaments fit native clipping while empty desktop areas pass through`, async ({ page }) => {
@@ -69,7 +77,7 @@ for (const skin of ['floral', 'wisteria', 'autumn']) test(`${skin} ornaments fit
     const host = document.querySelector('.rail-surface')!, box = host.getBoundingClientRect(), dpi = devicePixelRatio
     const regions = (window as any).hitRegions.at(-1) ?? []
     const covered = (x: number, y: number) => regions.some((r: { x: number; y: number; width: number; height: number }) => x >= r.x && x <= r.x + r.width && y >= r.y && y <= r.y + r.height)
-    const missed = [...host.querySelectorAll('.rail-floral-sprig :is(path, ellipse, circle), .rail-botanical-cord > g')].flatMap(sprig => {
+    const missed = [...host.querySelectorAll('.rail-floral-sprig :is(path, ellipse, circle, image), .rail-leaf-canopy :is(path, image), .rail-botanical-cord > g')].flatMap(sprig => {
       const b = sprig.getBoundingClientRect()
       // Disconnected leaf veins have empty corners in their bounding box.
       // Check the actual SVG outline against the native region instead.
@@ -392,4 +400,35 @@ test('companion panel restores initial state and hides only after its exit', asy
   await expect(page.locator('.rail-popup[data-state=closed]')).toHaveAttribute('inert', '')
   await expect(page.locator('.rail-popup')).toHaveCount(0)
   await expect.poll(() => page.evaluate(() => (window as any).hiddenPanels)).toEqual(['initial-panel'])
+})
+
+test('companion note panels fit their measured window and keep save visible while long text scrolls', async ({ page }) => {
+  await page.setViewportSize({ width: 464, height: 344 })
+  await fixture(page, true, 'host')
+  await expect.poll(() => page.evaluate(() => !!(window as any).eventListeners['rail-popup-show'])).toBe(true)
+  for (const mode of ['add', 'note']) {
+    await page.evaluate(mode => (window as any).eventListeners['rail-popup-show']({ payload: {
+      token: 'note-layout-' + mode, mode, itemId: mode === 'note' ? 'note' : null, left: 12, top: 12, width: 440,
+    } }), mode)
+    const panel = page.locator('.rail-popup')
+    if (mode === 'add') await panel.getByRole('button', { name: '写便签', exact: true }).click()
+    const input = panel.getByRole('textbox', { name: '便签内容' })
+    await input.fill('留住今天的一点小事。\n'.repeat(100))
+    await expect.poll(() => page.evaluate(() => (window as any).panelSizes.at(-1)?.token)).toBe('note-layout-' + mode)
+    const measured = await page.evaluate(() => (window as any).panelSizes.at(-1))
+    expect(measured.height).toBeLessThanOrEqual(360)
+    await page.setViewportSize({ width: measured.width + 24, height: measured.height + 24 })
+    const dimensions = await panel.evaluate(node => {
+      const box = node.getBoundingClientRect(), footer = node.querySelector('.rail-note-editor-footer')!.getBoundingClientRect()
+      const text = node.querySelector('textarea')!
+      return { outerScroll: node.scrollHeight - node.clientHeight, footerVisible: footer.bottom <= box.bottom - 8,
+        inWindow: box.bottom <= innerHeight - 11, textScroll: text.scrollHeight > text.clientHeight, resize: getComputedStyle(text).resize }
+    })
+    expect(dimensions).toEqual({ outerScroll: 0, footerVisible: true, inWindow: true, textScroll: true, resize: 'none' })
+    await page.screenshot({ path: `artifacts/rail-keepsakes/note-${mode}.png` })
+    await input.press('Control+Enter')
+    await expect.poll(() => page.evaluate(() => (window as any).changes.at(-1)?.type)).toBe(mode === 'add' ? 'addNote' : 'item')
+    await page.evaluate(() => (window as any).finishSave())
+    await expect(panel).toHaveCount(0)
+  }
 })

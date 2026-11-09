@@ -1,0 +1,487 @@
+/* The sway angle belongs to the pivot, never its SVG descendants. */
+@property --rail-sway-angle { syntax: '<angle>'; inherits: false; initial-value: 0rad; }
+
+/* The tether starts at the real cord anchor. Only the paper lifts on interaction. */
+.rail-surface {
+  --rail-keepsake-paper: #f6f1e3;
+  --rail-keepsake-edge: #b5a780;
+  --rail-print-ink: #718365;
+  --rail-string: #998967;
+}
+
+.rail-keepsake {
+  position: relative;
+  padding-top: calc(var(--rail-string-length) * var(--rail-unit));
+  transition: translate 260ms cubic-bezier(.2,.8,.3,1), scale 260ms cubic-bezier(.2,.8,.3,1);
+}
+
+.rail-tether {
+  position: absolute;
+  left: calc(50% - 2 * var(--rail-unit));
+  top: calc(5 * var(--rail-unit));
+  width: calc(4 * var(--rail-unit));
+  height: calc((var(--rail-string-length) + 6) * var(--rail-unit));
+  border: max(.7px, calc(.8 * var(--rail-unit))) solid var(--rail-string);
+  border-top: 0;
+  border-radius: 0 0 50% 50%;
+  box-shadow: inset 1px 0 #fff9, 1px 1px 1px #493b3340;
+  z-index: 2;
+  pointer-events: none;
+  transform-origin: center top;
+}
+
+.rail-surface .rail-hanging .rail-item {
+  color: var(--rail-tag-ink);
+  background: var(--rail-paper-base, var(--rail-keepsake-paper)) !important;
+  box-shadow: .6px 1px 0 #e2d5b9, 1.2px 2px 0 #ad9c78, 2px 3px 2px #332c242b, 3px 7px 8px #15201930, 6px 13px 16px #15201914, inset 1px 1px 1px #fffcecd9, inset -1px -1px 2px #a28e6347;
+}
+
+.rail-paper-details {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  overflow: hidden;
+  z-index: -1;
+  background-image: radial-gradient(ellipse at 5% 5%, #fffdf1ad, #fff0 65%), linear-gradient(100deg, #fff5, #fff0 35%, #fff0 78%, #99815b1f 100%);
+}
+
+.rail-paper-fibers { position: absolute; inset: 0; pointer-events: none; }
+.rail-paper-material { position: absolute; pointer-events: none; overflow: hidden; }
+
+.rail-hanging:not(.rail-image) .rail-paper-details::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: calc(50% - 12 * var(--rail-unit));
+  width: calc(24 * var(--rail-unit));
+  height: calc(17 * var(--rail-unit));
+  background: radial-gradient(ellipse at 50% 0, #77644424, #fff7 38%, #fff0 72%);
+}
+
+.rail-paper-edge {
+  position: absolute;
+  inset: calc(3 * var(--rail-unit));
+  border: .6px solid var(--rail-keepsake-edge);
+  border-bottom-width: 1px;
+  box-shadow: inset 0 1px 1px #fff9;
+  opacity: .3;
+  border-radius: inherit;
+}
+
+.rail-paper-hole {
+  position: absolute;
+  top: calc(5 * var(--rail-unit));
+  left: calc(50% - 2.5 * var(--rail-unit));
+  width: calc(5 * var(--rail-unit));
+  height: calc(5 * var(--rail-unit));
+  border-radius: 50%;
+  background: var(--rail-string);
+  box-shadow: 0 1px 0 1px #fff9, 0 0 0 1px #b5a17c99, inset 1px 1.5px 1px #302b22ad;
+}
+
+.rail-paper-botanical {
+  position: absolute;
+  right: 2%;
+  bottom: 0;
+  width: 96%;
+  height: 96%;
+  stroke: var(--rail-print-ink);
+  stroke-width: 1.1;
+  opacity: .93;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.rail-paper-leaf {
+  fill: var(--rail-pressed-leaf);
+  fill-opacity: .92;
+}
+
+.rail-paper-vein { stroke: #f5e4b6; stroke-width: .55; }
+.rail-paper-petals, .rail-paper-loose-petal { fill: var(--rail-pressed-petal); stroke: var(--rail-flower-edge, #865467); stroke-width: .5; }
+.rail-paper-petals>g:nth-child(2n) { fill-opacity: .82; }
+.rail-paper-daisies { fill: var(--rail-pressed-daisy); stroke: #a68c49; stroke-width: .45; }
+.rail-paper-botanical .rail-petal-crease { fill: none; stroke: #f5d2b6; stroke-width: .45; opacity: .5; }
+.rail-paper-botanical .rail-pollen-grain { stroke: #f1d497; stroke-width: 1; }
+.rail-paper-botanical .rail-paper-pollen { fill: #957248; stroke: #f3d491; stroke-width: .7; }
+
+.rail-sway[data-paper-print="1"] .rail-paper-botanical {
+  right: auto;
+  left: 0;
+  rotate: -8deg;
+}
+
+.rail-sway[data-paper-print="1"] { --rail-paper-base: #d9bd90; --rail-label-paper: #f1e4c5; }
+.rail-sway[data-paper-print="2"] { --rail-paper-base: #f9f5e8; }
+.rail-sway[data-paper-print="1"] .rail-paper-details { background-color: #b28b4714; }
+.rail-sway[data-paper-print="2"] .rail-paper-details { background-color: #fff3; }
+
+.rail-sway[data-paper-print="2"] .rail-paper-botanical {
+  opacity: .72;
+}
+
+.rail-surface .rail-app .rail-item {
+  min-height: calc(142 * var(--rail-unit));
+  padding: calc(44 * var(--rail-unit)) calc(6 * var(--rail-unit)) calc(12 * var(--rail-unit)) !important;
+  border-radius: calc(11 * var(--rail-unit)) calc(11 * var(--rail-unit)) calc(3 * var(--rail-unit)) calc(3 * var(--rail-unit));
+  gap: calc(10 * var(--rail-unit));
+  justify-content: flex-end;
+}
+
+.rail-app .rail-sway[data-paper-print="1"] .rail-item {
+  min-height: calc(140 * var(--rail-unit));
+  border-radius: calc(14 * var(--rail-unit)) calc(3 * var(--rail-unit)) calc(14 * var(--rail-unit)) calc(3 * var(--rail-unit));
+  corner-shape: bevel;
+}
+.rail-app .rail-sway[data-paper-print="1"] :is(.rail-paper-details, .rail-paper-edge) { corner-shape: inherit; }
+.rail-app .rail-sway[data-paper-print="2"] .rail-item {
+  min-height: calc(148 * var(--rail-unit));
+  border-radius: calc(3 * var(--rail-unit)) calc(3 * var(--rail-unit)) calc(21 * var(--rail-unit)) calc(3 * var(--rail-unit));
+}
+
+.rail-app .rail-paper-botanical {
+  top: calc(5 * var(--rail-unit));
+  bottom: auto;
+  right: 4%;
+  width: 88%;
+  height: 61%;
+  mask-image: linear-gradient(#000 48%, #0000 100%);
+}
+
+.rail-surface .rail-app .rail-item-media {
+  width: calc(39 * var(--rail-unit));
+  height: calc(39 * var(--rail-unit));
+  padding: calc(4 * var(--rail-unit));
+  border: .7px solid #a5987733;
+  border-radius: calc(5 * var(--rail-unit));
+  background: #fffdf0e8;
+  box-shadow: 0 1px 0 #fffce8, 1px 2px 1px #8c7b5140, 2px 4px 4px #51452e26, inset 0 1px 1px #fff;
+}
+
+.rail-surface .rail-app .rail-item-name {
+  width: 100%;
+  max-width: 100%;
+  padding: calc(3 * var(--rail-unit));
+  margin: 0;
+  color: var(--rail-tag-ink);
+  background: var(--rail-label-paper, #fff8e9f2);
+  border: .5px solid #b09d6d4d;
+  box-shadow: .5px 1px 0 #ae997344, 1px 2px 2px #67533024, inset 0 1px #fffc;
+  font-family: 'Segoe UI', 'Microsoft YaHei', sans-serif;
+  font-size: max(10px, calc(10.5 * var(--rail-unit)));
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  line-height: 1.4;
+}
+
+.rail-surface .rail-file .rail-item {
+  min-height: calc(112 * var(--rail-unit));
+  border-radius: 2px 2px calc(10 * var(--rail-unit)) 2px;
+}
+
+.rail-file .rail-paper-edge {
+  border-right-width: 2px;
+}
+
+.rail-surface .rail-folder .rail-item {
+  min-height: calc(106 * var(--rail-unit));
+  border-radius: 3px;
+}
+
+.rail-folder .rail-paper-details::after {
+  content: '';
+  position: absolute;
+  inset: 48% -1px 0;
+  background: linear-gradient(30deg, #fff3 49%, #aa93752b 50%, #fff0 51%), linear-gradient(-30deg, #fff3 49%, #aa93752b 50%, #fff0 51%);
+}
+
+.rail-folder .rail-paper-botanical {
+  opacity: .62;
+}
+
+.rail-hanging:is(.rail-file, .rail-folder) .rail-paper-botanical {
+  left: auto;
+  top: calc(4 * var(--rail-unit));
+  bottom: auto;
+  right: 3%;
+  width: 58%;
+  height: 65%;
+  mask-image: linear-gradient(#000 40%, #0000 90%);
+}
+
+.rail-surface :is(.rail-file, .rail-folder) .rail-item-name {
+  line-height: 1.5;
+  min-height: 3em;
+}
+
+.rail-surface .rail-file .rail-item-name-with-extension {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: calc(3 * var(--rail-unit));
+  overflow: visible;
+}
+
+.rail-item-name-text {
+  width: 100%;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.rail-item-extension {
+  font-family: 'Segoe UI', 'Microsoft YaHei', sans-serif;
+  font-size: max(9px, calc(9.5 * var(--rail-unit)));
+  line-height: 1.3;
+  color: var(--rail-tag-ink);
+  opacity: .72;
+}
+
+.rail-file .rail-item-media,
+.rail-folder .rail-item-media {
+  position: relative;
+  z-index: 1;
+}
+
+.rail-file .rail-item-name,
+.rail-folder .rail-item-name {
+  position: relative;
+  z-index: 1;
+}
+
+.rail-surface .rail-image .rail-item {
+  background: var(--rail-photo-frame, #fffdf0) !important;
+  padding-bottom: calc(8 * var(--rail-unit)) !important;
+}
+
+.rail-image .rail-paper-botanical,
+.rail-image .rail-paper-edge,
+.rail-image .rail-paper-hole {
+  display: none;
+}
+
+.rail-surface .rail-image .rail-item-name {
+  margin-top: calc(7 * var(--rail-unit));
+  color: #635c4c;
+  font-size: max(9px, calc(10 * var(--rail-unit)));
+}
+
+.rail-photo-placeholder {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: calc(8 * var(--rail-unit));
+  width: 100%;
+  height: 100%;
+  color: #817f6c;
+  background: radial-gradient(ellipse at 25% 10%, #fff9, #fff0 70%), repeating-linear-gradient(0deg, #fff0 0 3px, #89857008 3px 4px), #e6e4d8;
+  box-shadow: inset 0 0 0 1px #9c967b24;
+}
+
+.rail-photo-placeholder>svg {
+  width: calc(26 * var(--rail-unit));
+  height: calc(26 * var(--rail-unit));
+  stroke-width: 1.2;
+}
+
+.rail-photo-placeholder>span {
+  font-size: max(9px, calc(10 * var(--rail-unit)));
+  letter-spacing: .08em;
+}
+
+.rail-surface .rail-note .rail-item {
+  background: var(--rail-note-paper, #f8f0cc) !important;
+}
+
+.rail-note .rail-paper-botanical {
+  width: 55%;
+  height: 65%;
+  opacity: .26;
+}
+
+.rail-note .rail-paper-edge {
+  display: none;
+}
+
+.rail-note .rail-paper-details {
+  background-image: repeating-linear-gradient(0deg, #fff0 0 calc(23 * var(--rail-unit)), #a5987716 calc(23 * var(--rail-unit)) calc(24 * var(--rail-unit)));
+}
+
+/* A tiny raised corner reveals the paper's reverse without moving the target. */
+.rail-surface .rail-item::after {
+  content: '';
+  position: absolute;
+  right: 1px;
+  bottom: 1px;
+  width: calc(var(--rail-paper-curl, 8) * var(--rail-unit));
+  height: calc(var(--rail-paper-curl, 8) * var(--rail-unit));
+  background: linear-gradient(135deg, #fff0 43%, #84714d42 48%, #fff9d8 53%, #e0d3b1 75%, #b39f765c);
+  border-radius: 0 0 3px 0;
+  pointer-events: none;
+  transition: width .2s, height .2s;
+}
+
+.rail-app { --rail-paper-curl: 6; }
+.rail-file { --rail-paper-curl: 11; }
+.rail-note { --rail-paper-curl: 10; }
+.rail-image { --rail-paper-curl: 4; }
+
+.rail-hanging:is(:hover, :focus-within) .rail-item::after {
+  width: calc(13 * var(--rail-unit));
+  height: calc(13 * var(--rail-unit));
+}
+
+.rail-surface .rail-hanging .rail-item:focus-visible {
+  outline: 2px solid #596c50;
+  outline-offset: 3px;
+}
+
+.rail-slot-ghost {
+  display: none;
+  position: absolute;
+  inset: calc(var(--rail-string-length) * var(--rail-unit)) 0 0;
+  border: 1px dashed var(--rail-string);
+  border-radius: 8px;
+  background: #fff9e714;
+  pointer-events: none;
+}
+
+.rail-hanging[data-dragging=true] .rail-slot-ghost {
+  display: block;
+}
+
+.rail-hanging[data-dragging=true] .rail-keepsake {
+  translate: 0 calc(-6 * var(--rail-unit));
+  scale: 1.025;
+}
+
+.rail-surface .rail-hanging[data-dragging=true] .rail-item {
+  opacity: .8;
+  box-shadow: 2px 9px 12px #252c2740;
+}
+
+.rail-hanging[data-dragging=true] .rail-tether {
+  opacity: .35;
+}
+
+.rail-hanging[data-dragging=true] .rail-item-menu {
+  visibility: hidden;
+}
+
+.rail-surface .rail-hanging[data-reorder-side]::after {
+  top: 0;
+  bottom: auto;
+  width: calc(12 * var(--rail-unit));
+  height: calc(51 * var(--rail-unit));
+  border-left: 1.5px dashed var(--rail-string);
+  border-bottom: calc(9 * var(--rail-unit)) solid var(--rail-keepsake-paper);
+  border-radius: 0 0 2px 2px;
+  background: none;
+  box-shadow: 0 1px #574b3433;
+}
+
+.rail-surface .rail-hanging[data-reorder-side=before]::after {
+  left: calc(-16 * var(--rail-unit));
+}
+
+.rail-surface .rail-hanging[data-reorder-side=after]::after {
+  right: calc(-16 * var(--rail-unit));
+}
+
+/* Both edges stay legible on a pale sky or a dark desktop. */
+.rail-cord .rail-cord-outline { stroke: #fffbd48c; stroke-width: var(--rail-outline-width); }
+.rail-cord .rail-cord-outline-shadow { stroke: #26382b8c; stroke-width: var(--rail-outline-width); }
+
+.rail-leaf-canopy { position: absolute; inset: 28px 0 auto; height: calc(300 * var(--rail-unit)); pointer-events: none; contain: layout paint; }
+.rail-leaf-anchor { position: absolute; pointer-events: none; }
+.rail-leaf-breeze, .rail-leaf-breeze>svg { display: block; width: 100%; height: 100%; }
+.rail-leaf-breeze { transform-origin: center; }
+.rail-leaf-tip { fill: var(--rail-leaf-light); stroke: var(--rail-leaf-light-edge); stroke-width: .8; }
+.rail-leaf-tip-vein { stroke: var(--rail-vein); stroke-width: .5; opacity: .7; }
+.rail-surface[data-rail-canopy=true] .rail-floral-leaf-motion { visibility: hidden; }
+.rail-surface[data-breeze-active=true] .rail-leaf-breeze { animation: rail-leaf-breeze 8s ease-in-out var(--rail-leaf-delay) infinite; will-change: transform; }
+.rail-surface[data-breeze-paused=true] .rail-leaf-breeze { animation-play-state: paused; }
+@keyframes rail-leaf-breeze { 0%, 100% { transform: rotate(-1deg); } 50% { transform: rotate(1.5deg); } }
+
+.rail-is-collapsed .rail-header {
+  justify-content: flex-start;
+  gap: 5px;
+  height: 36px;
+}
+
+.rail-is-collapsed .rail-drag {
+  max-width: calc(100% - 62px);
+  gap: 8px;
+  padding: 4px 9px 4px 4px;
+  color: var(--rail-tag-ink);
+  background: var(--rail-keepsake-paper);
+  border-radius: 3px 8px 8px 3px;
+  box-shadow: 0 2px 5px #252c2733, inset 0 0 0 1px #fff8;
+}
+
+.rail-is-collapsed .rail-drag>svg {
+  display: none;
+}
+
+.rail-drag .rail-folded-cord {
+  position: relative;
+  display: block;
+  flex: 0 0 52px;
+  height: 23px;
+  opacity: 1;
+}
+
+.rail-folded-cord .rail-cord {
+  position: static;
+  display: block;
+  width: 52px;
+  height: 23px;
+}
+
+.rail-is-collapsed .rail-header-actions>button {
+  color: var(--rail-tag-ink);
+  background: var(--rail-keepsake-paper);
+}
+
+.rail-is-collapsed .rail-drag strong {
+  min-width: 0;
+}
+
+.rail-surface .rail-empty {
+  padding: 20px 24px;
+  border: 1px dashed var(--rail-keepsake-edge);
+  border-radius: 3px 3px 12px 3px;
+  background: var(--rail-keepsake-paper);
+  box-shadow: 0 4px 8px #252c271c;
+  color: var(--rail-tag-ink);
+}
+
+.rail-empty::before {
+  content: '';
+  position: absolute;
+  width: 2px;
+  height: calc(36 * var(--rail-unit));
+  bottom: 100%;
+  left: 50%;
+  background: var(--rail-string);
+  box-shadow: 1px 0 #fff8;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .rail-keepsake { transition: none; }
+  .rail-surface .rail-item::after {
+    transition: none;
+  }
+
+  .rail-hanging[data-dragging=true] .rail-keepsake {
+    translate: none;
+    scale: none;
+  }
+
+}

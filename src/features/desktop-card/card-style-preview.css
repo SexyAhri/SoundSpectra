@@ -1,0 +1,26 @@
+.card-style-preview {
+  display: block;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+  pointer-events: none;
+}
+
+.card-style-preview .mc-transport {
+  pointer-events: none;
+}
+
+.card-style-preview .mc {
+  width: 432px;
+  height: 152px;
+  transform: translate(24px, 54px);
+}
+
+.card-style-preview .mc-progress-fill {
+  transform: scaleX(.305);
+}
+
+.card-style-preview .mc-arc-fill {
+  stroke-dasharray: 1;
+  stroke-dashoffset: .695;
+}

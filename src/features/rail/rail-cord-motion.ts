@@ -33,7 +33,10 @@ export function bindRailCordMotion(host: HTMLElement, geometry: ReturnType<typeo
     reset() {
       // React may have committed a new width/skin before the old layout effect
       // cleans up. Restoring its snapshot would truncate the freshly drawn cord.
-      for (const { node, rest } of paths) node.setAttribute('d', node.dataset.railRopePath ?? rest)
+      for (const { node, rest } of paths) {
+        const authored = node.dataset.railRopePath ?? rest
+        if (node.getAttribute('d') !== authored) node.setAttribute('d', authored)
+      }
       for (const { node } of decorations) node.style.removeProperty('translate')
       host.style.removeProperty('--rail-music-leaf-angle')
     },

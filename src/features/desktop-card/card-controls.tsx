@@ -4,6 +4,7 @@ import { Parameter } from '@/components/ui/parameter'
 import { defaultDesktopCard, type SpectrumSettings } from '../spectrum/model'
 import { CardColorControls } from './card-color-controls'
 import { StylePicker } from '@/components/ui/style-picker'
+import { CardStylePreview } from './card-style-preview'
 
 export function CardControls({ settings, update, disabled }: { settings: SpectrumSettings; update: (patch: Partial<SpectrumSettings>) => void; disabled: boolean }) {
   const card = settings.desktopCard
@@ -16,8 +17,8 @@ export function CardControls({ settings, update, disabled }: { settings: Spectru
   return <div className="inspector-content card-controls">
     <SettingToggle className="module-enable" label="显示音乐卡片" accessibleLabel="显示桌面音乐卡片" disabled={disabled} checked={card.enabled} onChange={enabled => update({ desktopCard: { ...card, enabled } })} />
     <StylePicker label="卡片样式" value={card.variant} disabled={disabled} onChange={variant => update({ desktopCard: { ...card, variant: variant as typeof card.variant } })}
-      options={[['record', '唱片'], ['compact', '简约'], ['afternoon', '午后 · 藏书票'], ['floating', '浮签']].map(([value, label]) => ({ value, label,
-        preview: <span className={`card-style-preview card-style-${value}`}><i /><span><b /><b /><em /></span></span> }))} />
+      options={([['record', '唱片'], ['compact', '简约'], ['afternoon', '午后 · 藏书票'], ['floating', '浮签']] as const).map(([value, label]) => ({ value, label,
+        preview: <CardStylePreview variant={value} /> }))} />
     <section className="module-section" aria-label="卡片配色"><h3>配色</h3>
     <CardColorControls settings={settings} update={update} disabled={disabled} />
     </section>

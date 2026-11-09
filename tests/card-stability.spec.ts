@@ -4,7 +4,7 @@ for (const variant of ['record', 'compact', 'afternoon', 'floating']) {
   test(`${variant} keeps text, artwork and controls vertically anchored through partial track metadata`, async ({ page }) => {
     await page.goto('/tests/fixtures/music-card.html')
     await page.evaluate(variant => (window as any).cardProbe.layout({ variant, sound: false }), variant)
-    await expect(page.locator('.mc')).toHaveClass(new RegExp(`mc-${variant}`))
+    await expect(page.locator('#card-frame .mc')).toHaveClass(new RegExp(`mc-${variant}`))
     const positions = await page.evaluate(async () => {
       const probe = (window as any).cardProbe
       const selectors = ['.mc-shell', '.mc-title', '.mc-control-primary', '.mc-record-art, .mc-square, .mc-paper-art, .mc-float-art']

@@ -23,7 +23,7 @@ test.beforeEach(async ({ page }) => {
       return valid;
     } };
     function Fixture() {
-      const [item, setItem] = React.useState({ id:'one', path:'C:/one.lnk', kind:'app', name:'App', crop:'contain' });
+      const [item, setItem] = React.useState({ id:'one', path:'C:/one.lnk', kind:new URLSearchParams(location.search).get('kind') ?? 'app', name:'App', crop:'contain' });
       const [visible, setVisible] = React.useState(true);
       window.replace = () => setItem({ ...item, id:'two', path:'C:/two.lnk' });
       window.unmount = () => setVisible(false);
@@ -46,6 +46,17 @@ test('unavailable references do not request media', async ({ page }) => {
   await page.goto('/?mode=unavailable')
   await expect(page.locator('main svg')).toBeVisible()
   expect(await page.evaluate(() => (window as any).calls)).toEqual([])
+})
+
+test('photo placeholder gives way to a decoded real preview', async ({ page }) => {
+  await page.goto('/?mode=pending&kind=image')
+  await expect(page.getByText('暂无预览', { exact: true })).toBeVisible()
+  await expect.poll(() => page.evaluate(() => (window as any).calls.length)).toBe(1)
+  await page.evaluate(() => (window as any).finish('data:image/svg+xml,' + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32"><rect width="32" height="32" fill="red"/></svg>')))
+  const image = page.getByRole('img', { name: 'App', exact: true })
+  await expect(image).toBeVisible()
+  expect(await image.evaluate((node: HTMLImageElement) => node.complete && node.naturalWidth > 0)).toBe(true)
+  await expect(page.locator('.rail-photo-placeholder')).toHaveCount(0)
 })
 
 test('failed media retries stop after a bounded startup window', async ({ page }) => {

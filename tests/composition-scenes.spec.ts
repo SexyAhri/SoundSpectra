@@ -4,21 +4,22 @@ import { compositionAudio } from '../src/features/spectrum/three/compositions/au
 import { SceneMotion } from '../src/features/spectrum/three/motion'
 import { compositionTime } from '../src/features/spectrum/three/compositions/clock'
 import { compositionDrawingSize } from '../src/features/spectrum/three/compositions/render-budget'
+import { recommendedMusic } from '../src/features/spectrum/effect-presets'
 
 test('composition transport never reverses under uneven frames, silence, speed and focus changes',()=>{
-  const motion=new SceneMotion();motion.transporting=true
+  const motion=new SceneMotion(),settings=recommendedMusic('tidal_knot')
   let previous=0
   for(let i=0;i<240;i++){
-    motion.stepIndex++;motion.stepSeconds=[1/120,1/60,.05,.1][i%4]
-    motion.energy=(i%17)/17;motion.musicalBands[0]=(i%11)/11
     const reduced=i>=80&&i<100
-    motion.transporting=!(i>=120&&i<145)
+    const rms=i>=120&&i<145?0:.02+(i%17)/100
+    motion.step({rms,bands:Array(6).fill(.4),spectrum:Array(48).fill(.4),skin:[]},[1/120,1/60,.05,.1][i%4],settings,reduced)
     const phase=compositionTime(motion,reduced,i%19<9,.5+(i%7)/2)
     expect(phase).toBeGreaterThanOrEqual(previous)
     if(reduced||!motion.transporting)expect(phase).toBe(previous)
     expect(compositionTime(motion,reduced)).toBe(phase)
     previous=phase
   }
+  expect(previous).toBeGreaterThan(1)
   expect(compositionDrawingSize(2560,1440,1,'smooth',1)).toEqual({width:2560,height:1440})
   expect(compositionDrawingSize(3840,2160,1.5,'smooth',1)).toEqual({width:2560,height:1440})
 })

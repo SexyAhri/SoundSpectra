@@ -1,0 +1,79 @@
+.drawer-content {
+  position: fixed;
+  inset: 0 0 0 auto;
+  z-index: 100;
+  display: flex;
+  flex-direction: column;
+  width: min(640px, 100vw);
+  height: 100dvh;
+  min-height: 0;
+  overflow: hidden;
+  border-left: 1px solid var(--border);
+  background: var(--card);
+  color: var(--foreground);
+  box-shadow: -16px 0 64px var(--shadow-strong);
+}
+
+.drawer-content[data-state=open] {
+  animation: drawer-enter 180ms ease-out;
+}
+
+.drawer-content[data-state=closed] {
+  animation: drawer-exit 140ms ease-in;
+}
+
+.drawer-backdrop[data-state=open] {
+  animation: drawer-backdrop-enter 180ms ease-out;
+}
+
+.drawer-backdrop[data-state=closed] {
+  animation: drawer-backdrop-exit 140ms ease-in;
+}
+
+@keyframes drawer-enter {
+  from {
+    transform: translateX(100%);
+  }
+
+  to {
+    transform: translateX(0);
+  }
+}
+
+@keyframes drawer-exit {
+  from {
+    transform: translateX(0);
+  }
+
+  to {
+    transform: translateX(100%);
+  }
+}
+
+@keyframes drawer-backdrop-enter {
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes drawer-backdrop-exit {
+  from {
+    opacity: 1;
+  }
+
+  to {
+    opacity: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+
+  .drawer-content[data-state],
+  .drawer-backdrop[data-state] {
+    animation: none;
+  }
+}

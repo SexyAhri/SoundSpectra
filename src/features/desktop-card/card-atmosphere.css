@@ -1,0 +1,181 @@
+/* Material movement stays inside the card, preserving native button geometry. */
+.mc-material-light {
+  position: absolute;
+  z-index: 4;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  opacity: 0;
+  background: linear-gradient(115deg, transparent 34%, #e5f5ef50 47%, #ffffff66 50%, transparent 62%) 180% 0 / 300% 100% no-repeat;
+}
+
+.mc-record .mc-material-light {
+  inset: 8px auto 8px 7px;
+  width: min(43cqw, 102cqh, 240px);
+  border-radius: 50%;
+  mask: radial-gradient(circle, transparent 22%, #000 28% 65%, transparent 72%);
+}
+
+.mc-compact .mc-material-light {
+  border-radius: 999px;
+}
+
+.mc-afternoon .mc-material-light {
+  background-image: linear-gradient(115deg, transparent 34%, #fff9e696 50%, transparent 65%);
+}
+
+.mc[data-ambient=true]:is([data-state=standby], [data-state=paused]) .mc-material-light {
+  animation: mc-material-pass 18s ease-in-out -12s infinite;
+}
+
+.mc[data-ambient=true][data-state=standby] .mc-artwork-glow {
+  animation: mc-quiet-light 6s ease-in-out infinite;
+  transform-box: fill-box;
+  transform-origin: center;
+}
+
+.mc-afternoon[data-ambient=true] .mc-material-light {
+  animation-duration: 22s;
+}
+
+.mc-record[data-ambient=true] .mc-material-light {
+  animation-duration: 20s;
+}
+
+.mc[data-state=standby] .mc-status-dot {
+  opacity: .45;
+}
+
+.mc[data-state=standby] .mc-title {
+  font-weight: 450;
+  letter-spacing: .045em;
+}
+
+.mc[data-state=standby] .mc-meter {
+  visibility: hidden;
+}
+
+.mc[data-state=standby] .mc-control {
+  opacity: .18;
+}
+
+.mc[data-state=standby] .mc-control-primary {
+  opacity: .26;
+}
+
+.mc[data-state=standby] .mc-artist {
+  opacity: .75;
+}
+
+.mc-control {
+  transition: opacity 220ms ease, border-color 180ms ease;
+}
+
+.mc:is(:hover, :focus-within) .mc-control:not(:disabled) {
+  opacity: 1;
+  border-color: #d3e5dc45;
+}
+
+.mc-afternoon:is(:hover, :focus-within) .mc-control:not(:disabled) {
+  border-color: #8c7b4844;
+}
+
+/* Paper grain, print registration and an engraved botanical cover. */
+.mc-afternoon .mc-shell::after {
+  content: '';
+  position: absolute;
+  inset: 9px calc(var(--mc-stub) + 9px) 9px 9px;
+  border: 1px solid #aa976c38;
+  pointer-events: none;
+}
+
+.mc-afternoon .mc-paper-photo {
+  box-shadow: inset 0 0 0 3px #f6eedb, 1px 2px 3px #75644324;
+  border-color: #9f8e6266;
+}
+
+.mc-afternoon .mc-ticket-mark {
+  box-shadow: inset 0 0 0 2px #fff7;
+}
+
+.mc-afternoon .mc-artwork-finish {
+  background: linear-gradient(130deg, #fff6, transparent 48%, #75644315);
+}
+
+/* Small reflections distinguish glass from the paper finish. */
+.mc-floating .mc-float-glass {
+  background: linear-gradient(125deg, #ffffff30, transparent 35% 72%, #bfd8dd0d);
+  box-shadow: inset 0 0 0 1px #ffffff24, inset 0 1px #ffffff20;
+}
+
+.mc-floating .mc-float-clip {
+  background: linear-gradient(90deg, transparent, #eef8f01a, transparent);
+}
+
+.mc-record .mc-sleeve {
+  border-color: #d5e0d67a;
+}
+
+.mc-compact .mc-square {
+  box-shadow: 0 0 0 2px #d3ddd829, 0 0 11px color-mix(in srgb, var(--mc-accent) 14%, transparent);
+}
+
+.mc[data-active=false] :is(.mc-material-light, .mc-artwork-glow),
+.mc[data-visible=false] :is(.mc-material-light, .mc-artwork-glow),
+.mc[data-hidden=true] :is(.mc-material-light, .mc-artwork-glow) {
+  animation-play-state: paused;
+}
+
+.mc-native-controls .mc-material-light,
+.card-style-preview .mc-material-light {
+  animation: none;
+}
+
+@keyframes mc-material-pass {
+
+  0%,
+  70% {
+    opacity: 0;
+    background-position: 180% 0;
+  }
+
+  76% {
+    opacity: .13;
+  }
+
+  88% {
+    opacity: 0;
+    background-position: -80% 0;
+  }
+
+  100% {
+    opacity: 0;
+    background-position: -80% 0;
+  }
+}
+
+@keyframes mc-quiet-light {
+
+  0%,
+  100% {
+    opacity: .65;
+    scale: .98;
+  }
+
+  50% {
+    opacity: .95;
+    scale: 1.025;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+
+  .mc .mc-material-light,
+  .mc .mc-artwork-glow {
+    animation: none !important;
+  }
+
+  .mc .mc-control {
+    transition: none;
+  }
+}

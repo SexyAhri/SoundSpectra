@@ -1,3 +1,4 @@
+import { setDemo } from './helpers/demo'
 import { settingsSection } from './helpers/module-settings'
 import { expect, test } from '@playwright/test'
 import { defaults, normalizeSettings } from '../src/features/spectrum/model'
@@ -121,7 +122,7 @@ test('lyric focus only changes its local pixels, repeats exactly, and suppresses
 })
 
 test('readable lyrics publish actual placement and clear when simulated playback ends',async({page})=>{
-  await page.goto('/')
+  await page.goto('/'); await setDemo(page)
   await page.getByRole('button',{name:'歌词',exact:true}).click()
   await page.getByRole('switch',{name:'显示桌面歌词',exact:true}).click()
   const canvas=page.locator('.preview-spectrum canvas').first(),layer=page.getByTestId('lyric-layer')

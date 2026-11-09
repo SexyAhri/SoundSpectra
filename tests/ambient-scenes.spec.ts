@@ -1,3 +1,4 @@
+import { setDemo } from './helpers/demo'
 import { chooseStyle } from './helpers/module-settings'
 import { settingsSection } from './helpers/module-settings'
 import { expect, test, type Locator } from '@playwright/test'
@@ -43,7 +44,7 @@ test('ambient scene controls are validated, exported and compatible with older s
 for (const [effect, label] of scenes) test(`${effect}: real geometry moves, persists controls, reacts to touch and fades at silence`, async ({ page }) => {
   test.setTimeout(60000)
   const errors: string[] = []; page.on('pageerror', error => errors.push(error.message))
-  await page.goto('/')
+  await page.goto('/'); await setDemo(page)
   await chooseStyle(page, '灯效', label)
   const canvas = page.locator('.ambient-scene-surface canvas')
   await expect(canvas).toHaveAttribute('data-scene', effect)
@@ -58,7 +59,7 @@ for (const [effect, label] of scenes) test(`${effect}: real geometry moves, pers
   await page.getByRole('slider', { name: '细节密度', exact: true }).focus(); await page.keyboard.press('Home')
   await expect.poll(async () => Number(await canvas.getAttribute('data-items'))).toBeLessThan(items)
   await expect(page.getByText('已保存到此浏览器')).toBeVisible()
-  await page.reload()
+  await page.reload(); await setDemo(page)
   await expect(canvas).toHaveAttribute('data-scene', effect)
   await expect.poll(() => page.evaluate(() => JSON.parse(localStorage.getItem('soundspectra.settings.v1')!))).toMatchObject({ effect, sceneMode: 'immersive', music: { ambientDensity: .5, fieldPalette: 'lake' } })
   await page.getByRole('switch', { name: '模拟预览', exact: true }).click()
@@ -84,7 +85,7 @@ test('switching 3D themes releases old buffers while retaining the context; a ha
   await page.addInitScript(settings => localStorage.setItem('soundspectra.settings.v1', JSON.stringify(settings)), {
     ...defaults, effect: 'petal_bloom', sceneMode: 'immersive', bounds: { x: 0, y: 0, width: 1, height: 1 }, masks: [{ id: 'all', bounds: { x: 0, y: 0, width: 1, height: 1 }, feather: 0 }],
   })
-  await page.goto('/')
+  await page.goto('/'); await setDemo(page)
   const canvas = page.locator('.three-scene-surface canvas')
   await expect(canvas).toHaveAttribute('data-preparing', 'false')
   await canvas.evaluate(node => {
@@ -109,7 +110,7 @@ test('switching 3D themes releases old buffers while retaining the context; a ha
 
 for (const effect of ['petal_bloom', 'star_flight', 'aurora_flow'] as const) test(`${effect}: live scene input expires and reduced motion remains still under a constant analysis frame`, async ({ page }) => {
   test.setTimeout(60000)
-  await page.emulateMedia({ reducedMotion: 'reduce' }); await page.goto('/')
+  await page.emulateMedia({ reducedMotion: 'reduce' }); await page.goto('/'); await setDemo(page)
   await page.evaluate(async effect => {
     const { mountSoundFieldProbe } = await import('/tests/fixtures/sound-field-probe.tsx')
     const probe = mountSoundFieldProbe({ effect, quality:'eco' })

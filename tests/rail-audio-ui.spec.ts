@@ -31,6 +31,7 @@ test('music settings save per group, survive reload and fit both themes on narro
     if (!localStorage.getItem('soundspectra.rail.v1')) localStorage.setItem('soundspectra.rail.v1', JSON.stringify(rail))
   }, { settings: { ...defaults, regionVisible: false }, rail: initial })
   await page.goto('/#rail')
+  await page.getByRole('tab', { name: '外观', exact: true }).click()
   const section = page.getByRole('region', { name: '拾光绳音乐联动' })
   const toggle = section.getByRole('switch', { name: '跟随音乐' })
   await expect(toggle).not.toBeChecked()
@@ -48,6 +49,7 @@ test('music settings save per group, survive reload and fit both themes on narro
   expect(saved.groups[0].items).toEqual(initial.groups[0].items)
   expect(saved.groups[1]).toEqual(initial.groups[1])
   await page.reload()
+  await page.getByRole('tab', { name: '外观', exact: true }).click()
   await expect(toggle).toBeChecked()
   await expect(slider).toHaveAttribute('aria-valuenow', '100')
   await expect(section.getByRole('combobox')).toContainText('节拍轻弹')
@@ -63,7 +65,7 @@ test('music settings save per group, survive reload and fit both themes on narro
     }
   }
   await page.getByRole('combobox', { name: '当前拾光绳', exact: true }).click()
-  await page.getByRole('option', { name: '工作资料 · 0 项' }).click()
+  await page.getByRole('option').filter({ hasText: '工作资料' }).click()
   await expect(toggle).not.toBeChecked()
   expect((await stored()).groups[0]).toEqual(saved.groups[0])
   expect(keyWarnings).toEqual([])
@@ -130,7 +132,7 @@ test('resizing a desktop rail keeps every drawn cord in sync with its authored f
         matches: path.getAttribute('d') === path.dataset.railRopePath,
         reachesEnd: Math.abs(path.getPointAtLength(path.getTotalLength()).x - (host.clientWidth - 4 * unit)) < .01,
       }))
-    })).toEqual(Array.from({ length: 4 }, () => ({ matches: true, reachesEnd: true })))
+    })).toEqual(Array.from({ length: 6 }, () => ({ matches: true, reachesEnd: true })))
   }
 })
 
@@ -165,7 +167,7 @@ for (const skin of ['woodland', 'floral', 'wisteria', 'autumn']) test(`${skin} m
     const box = host.getBoundingClientRect(), dpi = devicePixelRatio
     const regions = (window as any).regions.at(-1)
     const covered = (x: number, y: number) => regions.some((r: any) => x >= r.x && x <= r.x + r.width && y >= r.y && y <= r.y + r.height)
-    const missed = [...host.querySelectorAll('.rail-floral-sprig :is(path, ellipse, circle), .rail-botanical-cord > g, .rail-themed-thread')].flatMap(shape => {
+    const missed = [...host.querySelectorAll('.rail-floral-sprig :is(path, ellipse, circle, image), .rail-leaf-canopy :is(path, image), .rail-botanical-cord > g, .rail-themed-thread')].flatMap(shape => {
       const b = shape.getBoundingClientRect()
       let points = [[b.left, b.top], [b.right, b.top], [b.left, b.bottom], [b.right, b.bottom]]
       if (shape instanceof SVGGeometryElement) {
