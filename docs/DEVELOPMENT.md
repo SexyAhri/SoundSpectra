@@ -34,24 +34,26 @@ node scripts/desktop.mjs --cargo test --manifest-path src-tauri/Cargo.toml --loc
 
 ## 模块边界
 
-| 模块 | 职责 |
-| --- | --- |
-| `src/features/settings/` | 四类编辑入口、区域选择、检查器、全局底栏、保存队列 |
-| `src/features/preview/` | 桌面预览、布置、遮罩、自动搭配与场景库 |
-| `src/features/spectrum/model.ts`、`regions.ts` | 配置归一化、区域隔离与显示范围 |
-| `src/features/spectrum/music-engine/` | RMS、六频段、48 格频谱、起音及共享参数 |
-| `src/features/spectrum/three/` | 相机、视角、帧生命周期、预算与透明合成 |
-| `three/classic/immersive/` | 经典及自然意象场景的渲染实现 |
-| `three/terrain/`、`three/ambient/`、`three/compositions/` | 频谱地形、氛围层与空间构图 |
-| `src/features/performance/` | 歌曲时间编排、转场、音乐映射与临时演出覆盖 |
-| `src/features/lyrics/` | 文字编排、逐字高亮、歌词位置与同步 |
-| `src/features/desktop/`、`desktop-card/`、`wallpaper-depth/` | 桌面输出、音乐信息、静态壁纸、音乐微光与视差 |
-| `src/features/audio/`、`application/` | 音源、窗口、偏好、备份与更新 |
-| `src-tauri/src/audio*.rs`、`dsp.rs` | 音源发现、进程树捕获、FFT 与分析事件 |
-| `src-tauri/src/now_playing.rs`、`lyrics/`、`lyrics.rs` | Windows 媒体会话、缓存发现与联网歌词 |
-| `src-tauri/src/desktop.rs` | 桌面挂载、鼠标穿透、几何与宿主恢复 |
-| `src-tauri/src/settings.rs`、`application.rs` | 原生校验、持久化、导入导出与备份 |
-| `src-tauri/src/platform/macos/`、`src-tauri/macos/` | Mac 音频、桌面、媒体信息、壁纸和 Swift 原生辅助程序 |
+音乐平台接入、凭据与内置播放边界见 [音乐模块](MUSIC.md)。
+
+| 模块                                                         | 职责                                                |
+| ------------------------------------------------------------ | --------------------------------------------------- |
+| `src/features/settings/`                                     | 四类编辑入口、区域选择、检查器、全局底栏、保存队列  |
+| `src/features/preview/`                                      | 桌面预览、布置、遮罩、自动搭配与场景库              |
+| `src/features/spectrum/model.ts`、`regions.ts`               | 配置归一化、区域隔离与显示范围                      |
+| `src/features/spectrum/music-engine/`                        | RMS、六频段、48 格频谱、起音及共享参数              |
+| `src/features/spectrum/three/`                               | 相机、视角、帧生命周期、预算与透明合成              |
+| `three/classic/immersive/`                                   | 经典及自然意象场景的渲染实现                        |
+| `three/terrain/`、`three/ambient/`、`three/compositions/`    | 频谱地形、氛围层与空间构图                          |
+| `src/features/performance/`                                  | 歌曲时间编排、转场、音乐映射与临时演出覆盖          |
+| `src/features/lyrics/`                                       | 文字编排、逐字高亮、歌词位置与同步                  |
+| `src/features/desktop/`、`desktop-card/`、`wallpaper-depth/` | 桌面输出、音乐信息、静态壁纸、音乐微光与视差        |
+| `src/features/audio/`、`application/`                        | 音源、窗口、偏好、备份与更新                        |
+| `src-tauri/src/audio*.rs`、`dsp.rs`                          | 音源发现、进程树捕获、FFT 与分析事件                |
+| `src-tauri/src/now_playing.rs`、`lyrics/`、`lyrics.rs`       | Windows 媒体会话、缓存发现与联网歌词                |
+| `src-tauri/src/desktop.rs`                                   | 桌面挂载、鼠标穿透、几何与宿主恢复                  |
+| `src-tauri/src/settings.rs`、`application.rs`                | 原生校验、持久化、导入导出与备份                    |
+| `src-tauri/src/platform/macos/`、`src-tauri/macos/`          | Mac 音频、桌面、媒体信息、壁纸和 Swift 原生辅助程序 |
 
 ## 场景与区域约定
 
@@ -75,15 +77,15 @@ Mac 音频通过 ScreenCaptureKit 对预设播放器分别采样，再由共享�
 
 Mac 歌曲信息通过播放器的公开脚本接口读取。播放器没有脚本词典、没有时间线或未授权时明确报告不可用，不借用其他应用的歌曲。当前 Windows 实机记录不能作为 Mac 验收记录；Mac 编译、授权、播放器和双版本升级需独立验证。
 
-| 变化 | 重点回归 |
-| --- | --- |
-| 工作台、独立编辑入口 | `tests/workspace-layout.spec.ts`、`tests/application.spec.ts` |
-| 区域、视角、保存与遮罩 | `tests/regions-masks.spec.ts`、`tests/scene-view.spec.ts`、`tests/settings.spec.ts` |
-| 场景、分析、资源释放 | `tests/music-engine-contract.spec.ts`、`tests/scene-lifecycle.spec.ts`、对应场景测试 |
-| 歌词与音源 | `tests/lyrics.spec.ts`、`tests/audio-sources.spec.ts`、Rust `lyrics::tests` |
-| 静音、暂停与窗口恢复 | `tests/idle-rendering.spec.ts`、`tests/desktop-recovery.spec.ts` |
+| 变化                       | 重点回归                                                                                                             |
+| -------------------------- | -------------------------------------------------------------------------------------------------------------------- |
+| 工作台、独立编辑入口       | `tests/workspace-layout.spec.ts`、`tests/application.spec.ts`                                                        |
+| 区域、视角、保存与遮罩     | `tests/regions-masks.spec.ts`、`tests/scene-view.spec.ts`、`tests/settings.spec.ts`                                  |
+| 场景、分析、资源释放       | `tests/music-engine-contract.spec.ts`、`tests/scene-lifecycle.spec.ts`、对应场景测试                                 |
+| 歌词与音源                 | `tests/lyrics.spec.ts`、`tests/audio-sources.spec.ts`、Rust `lyrics::tests`                                          |
+| 静音、暂停与窗口恢复       | `tests/idle-rendering.spec.ts`、`tests/desktop-recovery.spec.ts`                                                     |
 | 拾光绳打开、排序与状态恢复 | `tests/rail-recovery.spec.ts`、`tests/rail-order.spec.ts`、`tests/rail-input.spec.ts`、`tests/rail-transfer.spec.ts` |
-| 打包与版本 | `npm run test:release`、`npm run version:check`、原生构建 |
+| 打包与版本                 | `npm run test:release`、`npm run version:check`、原生构建                                                            |
 
 Windows 实机脚本位于 `scripts/native-*-smoke.mjs`。以进程环境变量 `WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS=--remote-debugging-port=9223` 启动待测客户端；脚本可能临时调整配置，运行前阅读恢复逻辑，不要同时编辑设置。报告写入忽略的 `artifacts/`。
 
@@ -119,14 +121,14 @@ node scripts/capture-lyric-compositions.mjs
 
 ## 文档入口与维护
 
-| 文档 | 内容 |
-| --- | --- |
-| [开发与验证](DEVELOPMENT.md) | 环境、命令、模块边界与验证入口 |
-| [发布](RELEASING.md) | 版本、签名、双平台构建与升级 |
-| [视觉与音乐分析](VISUALS.md) | 渲染、连续运动、PCM、频段、起音与缩放排查 |
-| [桌面功能与工作台](DESKTOP.md) | 编辑、主题、音乐卡片、壁纸与拾光绳 |
-| [歌词](LYRICS.md) | 歌词获取、缓存、播放器兼容与同步时钟 |
-| [演出编排](PERFORMANCE.md) | 时间编排、转场、映射及状态恢复 |
+| 文档                           | 内容                                      |
+| ------------------------------ | ----------------------------------------- |
+| [开发与验证](DEVELOPMENT.md)   | 环境、命令、模块边界与验证入口            |
+| [发布](RELEASING.md)           | 版本、签名、双平台构建与升级              |
+| [视觉与音乐分析](VISUALS.md)   | 渲染、连续运动、PCM、频段、起音与缩放排查 |
+| [桌面功能与工作台](DESKTOP.md) | 编辑、主题、音乐卡片、壁纸与拾光绳        |
+| [歌词](LYRICS.md)              | 歌词获取、缓存、播放器兼容与同步时钟      |
+| [演出编排](PERFORMANCE.md)     | 时间编排、转场、映射及状态恢复            |
 
 同一模块的设计、行为与验证入口直接更新对应文档，使用当前行为描述，避免反复追加修改过程。单次任务过程、截图列表、测试计数、性能采样和旧方案放在本机忽略的 `artifacts/`，不再新增独立开发报告。历史产物已清理，仅保留 `artifacts/docs-archive/` 中的两份阶段记录；文档中的其他 `artifacts/` 路径表示脚本输出位置，需要运行后生成。精选展示素材仍按上节规则维护。源码、实验页、验证脚本、字体引用和许可证应正常提交。
 
