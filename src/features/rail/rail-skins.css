@@ -139,7 +139,12 @@
   stroke-width: .8;
   filter: drop-shadow(1px 2px 1px #3d352733);
 }
-.rail-skin-pin-wrap .rail-pin-art { width: 12px; height: 34px; filter: drop-shadow(1px 1px .5px #3d35274d); }
+
+.rail-skin-pin-wrap .rail-pin-art {
+  width: 12px;
+  height: 34px;
+  filter: drop-shadow(1px 1px .5px #3d35274d);
+}
 
 .rail-cord .rail-skin-icon {
   fill: none;
@@ -156,11 +161,32 @@
   fill: var(--rail-pin-color);
 }
 
-.rail-cord .rail-skin-tether { fill: none; stroke: var(--rail-pin-color); stroke-width: 1; }
-.rail-cord .rail-skin-pressed-flower { fill: var(--rail-print-ink, #7f9883); fill-opacity: .6; stroke: var(--rail-print-ink, #7f9883); stroke-opacity: .75; stroke-width: .65; }
-.rail-skin-photo { fill: #b2c2b0; }
-.rail-skin-photo-sun { fill: #f5e4ad; }
-.rail-cord .rail-skin-photo-hill { fill: #758c79; stroke: none; }
+.rail-cord .rail-skin-tether {
+  fill: none;
+  stroke: var(--rail-pin-color);
+  stroke-width: 1;
+}
+
+.rail-cord .rail-skin-pressed-flower {
+  fill: var(--rail-print-ink, #7f9883);
+  fill-opacity: .6;
+  stroke: var(--rail-print-ink, #7f9883);
+  stroke-opacity: .75;
+  stroke-width: .65;
+}
+
+.rail-skin-photo {
+  fill: #b2c2b0;
+}
+
+.rail-skin-photo-sun {
+  fill: #f5e4ad;
+}
+
+.rail-cord .rail-skin-photo-hill {
+  fill: #758c79;
+  stroke: none;
+}
 
 .rail-skin-entry .module-style-row {
   margin-top: 16px;

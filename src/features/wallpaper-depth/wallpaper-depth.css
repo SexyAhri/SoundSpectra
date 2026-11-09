@@ -1,25 +1,174 @@
-.wallpaper-depth-controls { display:flex; flex-direction:column; gap:20px; min-width:0; }
-.wallpaper-control-section { border-bottom:1px solid var(--border); padding-bottom:18px; min-width:0; }
-.wallpaper-control-section:last-child { border-bottom:0; }
-.wallpaper-control-section h3 { font-size:12px; font-weight:600; margin:0 0 12px; }
-.wallpaper-section-heading { display:flex; align-items:center; justify-content:space-between; gap:8px; }
-.wallpaper-section-heading h3 { margin:0; }
-.wallpaper-source-choices { display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-bottom:8px; }
-.wallpaper-source-choices button[aria-pressed=true],.wallpaper-area-choices button[aria-pressed=true] { border-color:var(--primary); background:var(--accent); color:var(--primary); }
-.wallpaper-image-action { width:100%; font-size:12px; }
-.wallpaper-depth-controls p { font-size:11px; line-height:1.7; color:var(--muted-foreground); margin:8px 0 0; }
-.wallpaper-depth-controls [role=alert] { color:var(--destructive); }
-.wallpaper-choice { display:flex; align-items:center; justify-content:space-between; gap:12px; font-size:12px; margin:14px 0; }
-.wallpaper-choice input[type=color] { width:38px; height:27px; border:1px solid var(--border); border-radius:5px; background:var(--background); padding:2px; }
-.wallpaper-area-choices { display:grid; grid-template-columns:1fr 1fr; gap:7px; margin-top:12px; }
-.wallpaper-depth-advanced > summary { cursor:pointer; font-size:12px; color:var(--muted-foreground); }
-.wallpaper-depth-advanced[open] > summary { margin-bottom:14px; }
-.wallpaper-surface,.depth-wallpaper { position:absolute; inset:0; overflow:hidden; pointer-events:none; }
-.wallpaper-surface { z-index:0; }
-.wallpaper-static { position:absolute; inset:0; background-repeat:no-repeat; }
-.wallpaper-ambience { position:absolute; inset:0; width:100%; height:100%; pointer-events:none; }
-.depth-wallpaper canvas,.depth-wallpaper img { position:absolute; width:100%; height:100%; inset:0; object-fit:cover; display:block; }
-.depth-wallpaper-error { position:absolute; bottom:8px; left:8px; z-index:3; background:var(--background); color:var(--destructive); font-size:11px; padding:5px 8px; }
-.wallpaper-area-editor { position:absolute; z-index:35; outline:1px dashed var(--primary); outline-offset:-1px; cursor:move; touch-action:none; }
-.wallpaper-area-editor:focus-visible { outline:2px solid var(--primary); }
-.wallpaper-area-label { position:absolute; top:4px; left:5px; max-width:calc(100% - 10px); overflow:hidden; white-space:nowrap; text-overflow:ellipsis; padding:3px 6px; border-radius:4px; background:var(--background); color:var(--primary); font-size:10px; pointer-events:none; }
+.wallpaper-depth-controls {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  min-width: 0;
+}
+
+.wallpaper-control-section {
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 18px;
+  min-width: 0;
+}
+
+.wallpaper-control-section:last-child {
+  border-bottom: 0;
+}
+
+.wallpaper-control-section h3 {
+  font-size: 12px;
+  font-weight: 600;
+  margin: 0 0 12px;
+}
+
+.wallpaper-section-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.wallpaper-section-heading h3 {
+  margin: 0;
+}
+
+.wallpaper-source-choices {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.wallpaper-source-choices button[aria-pressed=true],
+.wallpaper-area-choices button[aria-pressed=true] {
+  border-color: var(--primary);
+  background: var(--accent);
+  color: var(--primary);
+}
+
+.wallpaper-image-action {
+  width: 100%;
+  font-size: 12px;
+}
+
+.wallpaper-depth-controls p {
+  font-size: 11px;
+  line-height: 1.7;
+  color: var(--muted-foreground);
+  margin: 8px 0 0;
+}
+
+.wallpaper-depth-controls [role=alert] {
+  color: var(--destructive);
+}
+
+.wallpaper-choice {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: 12px;
+  margin: 14px 0;
+}
+
+.wallpaper-choice input[type=color] {
+  width: 38px;
+  height: 27px;
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  background: var(--background);
+  padding: 2px;
+}
+
+.wallpaper-area-choices {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 7px;
+  margin-top: 12px;
+}
+
+.wallpaper-depth-advanced>summary {
+  cursor: pointer;
+  font-size: 12px;
+  color: var(--muted-foreground);
+}
+
+.wallpaper-depth-advanced[open]>summary {
+  margin-bottom: 14px;
+}
+
+.wallpaper-surface,
+.depth-wallpaper {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.wallpaper-surface {
+  z-index: 0;
+}
+
+.wallpaper-static {
+  position: absolute;
+  inset: 0;
+  background-repeat: no-repeat;
+}
+
+.wallpaper-ambience {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+
+.depth-wallpaper canvas,
+.depth-wallpaper img {
+  position: absolute;
+  width: 100%;
+  height: 100%;
+  inset: 0;
+  object-fit: cover;
+  display: block;
+}
+
+.depth-wallpaper-error {
+  position: absolute;
+  bottom: 8px;
+  left: 8px;
+  z-index: 3;
+  background: var(--background);
+  color: var(--destructive);
+  font-size: 11px;
+  padding: 5px 8px;
+}
+
+.wallpaper-area-editor {
+  position: absolute;
+  z-index: 35;
+  outline: 1px dashed var(--primary);
+  outline-offset: -1px;
+  cursor: move;
+  touch-action: none;
+}
+
+.wallpaper-area-editor:focus-visible {
+  outline: 2px solid var(--primary);
+}
+
+.wallpaper-area-label {
+  position: absolute;
+  top: 4px;
+  left: 5px;
+  max-width: calc(100% - 10px);
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  padding: 3px 6px;
+  border-radius: 4px;
+  background: var(--background);
+  color: var(--primary);
+  font-size: 10px;
+  pointer-events: none;
+}

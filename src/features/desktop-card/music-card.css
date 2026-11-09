@@ -1,4 +1,24 @@
-.music-card-layer { position: absolute; z-index: 5; pointer-events: none; }
-.music-card-layer.arrange-card { pointer-events: auto; cursor: move; touch-action: none; outline: 1px dashed #ffb075; outline-offset: 3px; border-radius: 4%; }
-.music-card-layer.arrange-card:focus-visible { outline: 2px solid #ffb075; }
-.live-meter { display: block; width: 100%; height: 100%; }
+.music-card-layer {
+  position: absolute;
+  z-index: 5;
+  pointer-events: none;
+}
+
+.music-card-layer.arrange-card {
+  pointer-events: auto;
+  cursor: move;
+  touch-action: none;
+  outline: 1px dashed #ffb075;
+  outline-offset: 3px;
+  border-radius: 4%;
+}
+
+.music-card-layer.arrange-card:focus-visible {
+  outline: 2px solid #ffb075;
+}
+
+.live-meter {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
