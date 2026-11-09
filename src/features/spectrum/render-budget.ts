@@ -7,18 +7,42 @@ export const budgets = {
   unlimited: { fps: 0, scale: 2, pixels: 2_000_000 },
 } as const;
 
-export function drawingSize(width: number, height: number, dpr: number, quality: RenderQuality, regionCount = 1) {
+export function drawingSize(
+  width: number,
+  height: number,
+  dpr: number,
+  quality: RenderQuality,
+  regionCount = 1,
+) {
   const budget = budgets[quality];
-  const scale = Math.min(dpr || 1, budget.scale, Math.sqrt(budget.pixels / Math.max(1, regionCount) / Math.max(1, width * height)), 4096 / Math.max(1, width), 4096 / Math.max(1, height));
-  return { width: Math.max(1, Math.floor(width * scale)), height: Math.max(1, Math.floor(height * scale)) };
+  const scale = Math.min(
+    dpr || 1,
+    budget.scale,
+    Math.sqrt(
+      budget.pixels / Math.max(1, regionCount) / Math.max(1, width * height),
+    ),
+    4096 / Math.max(1, width),
+    4096 / Math.max(1, height),
+  );
+  return {
+    width: Math.max(1, Math.floor(width * scale)),
+    height: Math.max(1, Math.floor(height * scale)),
+  };
 }
 
 export class FrameBudget {
   private next = 0;
   private fps = 0;
   due(now: number, fps: number) {
-    if (fps === 0) { this.fps = fps; this.next = now; return true; }
-    if (this.fps !== fps) { this.fps = fps; this.next = now; }
+    if (fps === 0) {
+      this.fps = fps;
+      this.next = now;
+      return true;
+    }
+    if (this.fps !== fps) {
+      this.fps = fps;
+      this.next = now;
+    }
     if (now + 0.2 < this.next) return false;
     const interval = 1000 / fps;
     this.next = Math.max(this.next + interval, now - interval + 1);

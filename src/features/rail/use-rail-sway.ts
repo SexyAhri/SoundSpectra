@@ -82,7 +82,8 @@ export function useRailSway(
         paused,
       );
       const breezePaused = String(paused);
-      if (host.dataset.breezePaused !== breezePaused) host.dataset.breezePaused = breezePaused;
+      if (host.dataset.breezePaused !== breezePaused)
+        host.dataset.breezePaused = breezePaused;
       if (settings.enabled) cord.apply(music, settings);
       for (const { node, sway, state, x } of entries) {
         if (impulse > 0 && !paused)
@@ -111,7 +112,9 @@ export function useRailSway(
       cancelAnimationFrame(frame);
       previous = 0;
       reset();
-      host.dataset.breezeActive = String(enabled && !document.hidden && !reduced.matches);
+      host.dataset.breezeActive = String(
+        enabled && !document.hidden && !reduced.matches,
+      );
       if (
         enabled &&
         !document.hidden &&
@@ -146,8 +149,15 @@ export function useRailSway(
     host.addEventListener("pointermove", pointer, { passive: true });
     host.addEventListener("pointerleave", leave);
     host.addEventListener("rail-item-release", release);
-    host.dataset.breezeActive = String(enabled && !document.hidden && !reduced.matches);
-    if (enabled && !document.hidden && !reduced.matches && (entries.length || settings.enabled))
+    host.dataset.breezeActive = String(
+      enabled && !document.hidden && !reduced.matches,
+    );
+    if (
+      enabled &&
+      !document.hidden &&
+      !reduced.matches &&
+      (entries.length || settings.enabled)
+    )
       frame = requestAnimationFrame(tick);
     else reset();
     return () => {

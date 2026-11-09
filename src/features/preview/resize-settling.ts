@@ -10,17 +10,22 @@ export function settlePreviewResize(milliseconds = 160) {
 export function previewResizePending(now = performance.now()) {
   return nativeActions > 0 || now < quietUntil;
 }
-export async function withPreviewResize<T>(operation: () => Promise<T>): Promise<T> {
+export async function withPreviewResize<T>(
+  operation: () => Promise<T>,
+): Promise<T> {
   nativeActions++;
   previewResizeMetrics.pending = nativeActions;
   previewResizeMetrics.requests++;
   try {
     // Yield before the native request so the previous submitted frame can drain.
     // A timer also completes if the window becomes hidden between click and IPC.
-    await new Promise<void>(resolve => setTimeout(resolve, 32));
+    await new Promise<void>((resolve) => setTimeout(resolve, 32));
     const started = performance.now();
-    try { return await operation(); }
-    finally { previewResizeMetrics.nativeMs = performance.now() - started; }
+    try {
+      return await operation();
+    } finally {
+      previewResizeMetrics.nativeMs = performance.now() - started;
+    }
   } finally {
     nativeActions--;
     previewResizeMetrics.pending = nativeActions;

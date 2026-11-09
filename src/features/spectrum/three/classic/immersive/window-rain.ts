@@ -1,7 +1,19 @@
-import * as T from 'three'
-import { commonUniforms, flowDriver, material, mesh, randomStream, uniformSource, type FlowEffect } from '../flow/shared'
-import { reactiveSource, reactiveUniforms, updateReactiveUniforms } from '../../reactive-motion'
-import { seededGeometry } from './wet-shared'
+import * as T from "three";
+import {
+  commonUniforms,
+  flowDriver,
+  material,
+  mesh,
+  randomStream,
+  uniformSource,
+  type FlowEffect,
+} from "../flow/shared";
+import {
+  reactiveSource,
+  reactiveUniforms,
+  updateReactiveUniforms,
+} from "../../reactive-motion";
+import { seededGeometry } from "./wet-shared";
 
 const glassSource = /* glsl */ `${uniformSource}${reactiveSource}
 uniform float uGlassAspect,uGlassDensity,uGlassSize,uGlassImmersive,uRoomEnergy;
@@ -42,7 +54,7 @@ vec3 glassCenter(vec4 seed){
   float y=mix((seed.y-.5)*44.,27.-cycle*54.,moving);
   return vec3(glassPath(y,seed),y,.2+seed.w*.02);
 }
-`
+`;
 const dropVertex = /* glsl */ `${glassSource}
 attribute vec4 aSeed;
 varying vec2 vDrop,vGlass;varying float vCycle,vMoving,vAlpha,vSeed,vNote;
@@ -58,7 +70,7 @@ void main(){
   float enabled=1.-smoothstep(uGlassDensity-.025,uGlassDensity+.025,glassHash(aSeed.x*37.+aSeed.w*53.));
   vAlpha=enabled*mix(.65,1.,moving)*mix(1.,smoothstep(0.,.035,cycle)*(1.-smoothstep(.95,1.,cycle)),moving);
   gl_Position=projectionMatrix*modelViewMatrix*vec4(p,1.);
-}`
+}`;
 const dropFragment = /* glsl */ `${glassSource}
 varying vec2 vDrop,vGlass;varying float vCycle,vMoving,vAlpha,vSeed,vNote;
 float waterShape(vec2 p){
@@ -89,7 +101,7 @@ void main(){
   color=mix(color,uShade*.22,rim*.44);
   float alpha=coverage*vAlpha*mix(.32+rim*.32+glint*.28,.82,uGlassImmersive);
   gl_FragColor=vec4(color,alpha);
-}`
+}`;
 const trailVertex = /* glsl */ `${glassSource}
 attribute vec4 aSeed;varying vec2 vTrail;varying float vAlpha,vSeed;
 void main(){
@@ -101,7 +113,7 @@ void main(){
   vAlpha=step(.76,aSeed.z)*(1.-smoothstep(uGlassDensity-.025,uGlassDensity+.025,glassHash(aSeed.x*37.+aSeed.w*53.)))
     *smoothstep(0.,.035,cycle)*(1.-smoothstep(.94,1.,cycle));
   gl_Position=projectionMatrix*modelViewMatrix*vec4(p,1.);
-}`
+}`;
 const trailFragment = /* glsl */ `${uniformSource}
 varying vec2 vTrail;varying float vAlpha,vSeed;
 void main(){
@@ -112,51 +124,115 @@ void main(){
   float broken=.65+.35*sin(vTrail.y*37.+vSeed*8.);
   float alpha=(line*.05+edge*.10)*fade*broken*vAlpha;
   if(alpha<.002)discard;gl_FragColor=vec4(mix(uColor,uHighlight,.45),alpha);
-}`
+}`;
 
 /** Close glass beads, seeded local coalescence and fine runoff, independent of ground rain. */
 export function createWindowRain(detail: number): FlowEffect {
-  const group = new T.Group();group.name = 'rain-on-window'
-  const random=randomStream(61203)
-  const u = { ...commonUniforms(), ...reactiveUniforms(), uGlassAspect: { value: 16 / 9 },
-    uGlassDensity: { value: .8 }, uGlassSize: { value: 1 }, uGlassImmersive: { value: 0 }, uRoomEnergy: { value: 0 },
-    uWindowLights:{value:Array.from({length:18},()=>new T.Vector4((random()-.5)*2.6,-.27+random()*.49,.022+random()*.035,random()))} }
-  const drive = flowDriver(u), count = Math.round(760 * Math.max(.6, Math.min(1.2, detail)))
-  const exterior = mesh(group, new T.PlaneGeometry(1, 1), material(u, `${glassSource}
+  const group = new T.Group();
+  group.name = "rain-on-window";
+  const random = randomStream(61203);
+  const u = {
+    ...commonUniforms(),
+    ...reactiveUniforms(),
+    uGlassAspect: { value: 16 / 9 },
+    uGlassDensity: { value: 0.8 },
+    uGlassSize: { value: 1 },
+    uGlassImmersive: { value: 0 },
+    uRoomEnergy: { value: 0 },
+    uWindowLights: {
+      value: Array.from(
+        { length: 18 },
+        () =>
+          new T.Vector4(
+            (random() - 0.5) * 2.6,
+            -0.27 + random() * 0.49,
+            0.022 + random() * 0.035,
+            random(),
+          ),
+      ),
+    },
+  };
+  const drive = flowDriver(u),
+    count = Math.round(760 * Math.max(0.6, Math.min(1.2, detail)));
+  const exterior = mesh(
+    group,
+    new T.PlaneGeometry(1, 1),
+    material(
+      u,
+      `${glassSource}
     varying vec2 vGlass;void main(){vec3 p=vec3(position.x*60.*uGlassAspect,position.y*60.,-1.);
-      vGlass=p.xy/44.;gl_Position=projectionMatrix*modelViewMatrix*vec4(p,1.);}`, `${glassSource}
-    varying vec2 vGlass;void main(){if(uGlassImmersive<.5)discard;gl_FragColor=vec4(rainyBase(vGlass),1.);}`))
-  exterior.name = 'scene-backdrop';exterior.renderOrder = -10
+      vGlass=p.xy/44.;gl_Position=projectionMatrix*modelViewMatrix*vec4(p,1.);}`,
+      `${glassSource}
+    varying vec2 vGlass;void main(){if(uGlassImmersive<.5)discard;gl_FragColor=vec4(rainyBase(vGlass),1.);}`,
+    ),
+  );
+  exterior.name = "scene-backdrop";
+  exterior.renderOrder = -10;
   // Eighteen small instanced quads keep the exterior lights off the fullscreen
   // fragment loop; only covered water beads evaluate the refracted environment.
-  const lampGeometry=seededGeometry(18,61203,true)
-  lampGeometry.setAttribute('aLamp',new T.InstancedBufferAttribute(new Float32Array(u.uWindowLights.value.flatMap(lamp=>lamp.toArray())),4))
-  const lamps=mesh(group,lampGeometry,material(u,`${glassSource}
+  const lampGeometry = seededGeometry(18, 61203, true);
+  lampGeometry.setAttribute(
+    "aLamp",
+    new T.InstancedBufferAttribute(
+      new Float32Array(u.uWindowLights.value.flatMap((lamp) => lamp.toArray())),
+      4,
+    ),
+  );
+  const lamps = mesh(
+    group,
+    lampGeometry,
+    material(
+      u,
+      `${glassSource}
     attribute vec4 aLamp;varying vec2 vLamp;varying float vTint;
     void main(){vec3 p=vec3((aLamp.xy+(uv-.5)*aLamp.z*5.)*44.,-.8);
       vLamp=(uv-.5)*5.;vTint=aLamp.w;gl_Position=projectionMatrix*modelViewMatrix*vec4(p,1.);}`,
-    `${glassSource}varying vec2 vLamp;varying float vTint;
+      `${glassSource}varying vec2 vLamp;varying float vTint;
     void main(){if(uGlassImmersive<.5)discard;float r=length(vLamp);
       float light=(1.-smoothstep(.55,1.5,r))+exp(-r*r*.24)*.19;
       light*=1.-smoothstep(2.,2.5,r);
       vec3 color=mix(uColor,uAccent,step(.47,vTint));
-      gl_FragColor=vec4(color,light*(.10+vTint*.34)*(1.+uRoomEnergy*.06));}`,true))
-  lamps.name='scene-backdrop';lamps.renderOrder=-9
-  const trails = mesh(group, seededGeometry(count, 84193, true), material(u, trailVertex, trailFragment))
-  trails.name = 'window-runoff';trails.renderOrder = 1;trails.material.depthWrite = false
-  const drops = mesh(group, seededGeometry(count, 84193, true), material(u, dropVertex, dropFragment))
-  drops.name = 'window-water-beads';drops.renderOrder = 2;drops.material.depthWrite = false
+      gl_FragColor=vec4(color,light*(.10+vTint*.34)*(1.+uRoomEnergy*.06));}`,
+      true,
+    ),
+  );
+  lamps.name = "scene-backdrop";
+  lamps.renderOrder = -9;
+  const trails = mesh(
+    group,
+    seededGeometry(count, 84193, true),
+    material(u, trailVertex, trailFragment),
+  );
+  trails.name = "window-runoff";
+  trails.renderOrder = 1;
+  trails.material.depthWrite = false;
+  const drops = mesh(
+    group,
+    seededGeometry(count, 84193, true),
+    material(u, dropVertex, dropFragment),
+  );
+  drops.name = "window-water-beads";
+  drops.renderOrder = 2;
+  drops.material.depthWrite = false;
   return {
     group,
-    layout(aspect) { u.uGlassAspect.value = aspect },
-    update(motion, config, reduced) {
-      const dt = drive(motion, config, reduced, .66 + config.music.speed * .16)
-      updateReactiveUniforms(u, motion, 'window_rain', reduced)
-      u.uGlassImmersive.value = config.sceneMode === 'immersive' ? 1 : 0
-      u.uGlassDensity.value = Math.min(1, .65 * config.music.ambientDensity)
-      u.uGlassSize.value = .72 + config.music.rainRadiusMultiplier * .28
-      const target = motion.volume
-      u.uRoomEnergy.value += (target - u.uRoomEnergy.value) * (1 - Math.exp(-dt / 1.6))
+    layout(aspect) {
+      u.uGlassAspect.value = aspect;
     },
-  }
+    update(motion, config, reduced) {
+      const dt = drive(
+        motion,
+        config,
+        reduced,
+        0.66 + config.music.speed * 0.16,
+      );
+      updateReactiveUniforms(u, motion, "window_rain", reduced);
+      u.uGlassImmersive.value = config.sceneMode === "immersive" ? 1 : 0;
+      u.uGlassDensity.value = Math.min(1, 0.65 * config.music.ambientDensity);
+      u.uGlassSize.value = 0.72 + config.music.rainRadiusMultiplier * 0.28;
+      const target = motion.volume;
+      u.uRoomEnergy.value +=
+        (target - u.uRoomEnergy.value) * (1 - Math.exp(-dt / 1.6));
+    },
+  };
 }

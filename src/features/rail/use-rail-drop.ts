@@ -20,7 +20,8 @@ export function useRailDrop(
     // Registering OLE on the outer Tauri HWND cannot override a target owned
     // by the browser/GPU process. JS never guesses paths from file names.
     const fileDrag = (event: DragEvent) =>
-      !!event.dataTransfer && Array.from(event.dataTransfer.types).includes("Files");
+      !!event.dataTransfer &&
+      Array.from(event.dataTransfer.types).includes("Files");
     const dragover = (event: DragEvent) => {
       if (!fileDrag(event)) return;
       // Prevent file navigation even when the rail panel is inactive.
@@ -28,7 +29,10 @@ export function useRailDrop(
       const transfer = event.dataTransfer!;
       const allowed = current.current.active && !isRailDraggingOut();
       transfer.dropEffect = allowed
-        ? transfer.effectAllowed === "link" || transfer.effectAllowed === "linkMove" ? "link" : "copy"
+        ? transfer.effectAllowed === "link" ||
+          transfer.effectAllowed === "linkMove"
+          ? "link"
+          : "copy"
         : "none";
     };
     const domDrop = (event: DragEvent) => {
@@ -40,20 +44,32 @@ export function useRailDrop(
         setDropError("每次可拖入 1～48 个文件、文件夹或快捷方式");
         return;
       }
-      const webview = (window as Window & {
-        chrome?: { webview?: { postMessageWithAdditionalObjects?: (message: string, objects: File[]) => void } };
-      }).chrome?.webview;
+      const webview = (
+        window as Window & {
+          chrome?: {
+            webview?: {
+              postMessageWithAdditionalObjects?: (
+                message: string,
+                objects: File[],
+              ) => void;
+            };
+          };
+        }
+      ).chrome?.webview;
       if (!webview?.postMessageWithAdditionalObjects) {
         setDropError("当前 WebView2 不支持文件拖入，请更新 WebView2 后重试");
         return;
       }
       setDropError(null);
       try {
-        webview.postMessageWithAdditionalObjects(JSON.stringify({
-          kind: "soundspectra:rail-file-drop",
-          x: event.clientX * devicePixelRatio,
-          y: event.clientY * devicePixelRatio,
-        }), files);
+        webview.postMessageWithAdditionalObjects(
+          JSON.stringify({
+            kind: "soundspectra:rail-file-drop",
+            x: event.clientX * devicePixelRatio,
+            y: event.clientY * devicePixelRatio,
+          }),
+          files,
+        );
       } catch {
         setDropError("无法读取拖入的系统文件，请重新拖入");
       }
@@ -96,9 +112,11 @@ export function useRailDrop(
     )
       .then(keep)
       .catch(() => {});
-    void listen<string>("rail-drop-error", event => {
+    void listen<string>("rail-drop-error", (event) => {
       if (current.current.active) setDropError(event.payload);
-    }).then(keep).catch(() => {});
+    })
+      .then(keep)
+      .catch(() => {});
     return () => {
       disposed = true;
       window.removeEventListener("dragover", dragover, true);

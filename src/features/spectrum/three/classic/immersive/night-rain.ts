@@ -1,7 +1,18 @@
-import * as T from 'three'
-import { flowDriver, type FlowEffect } from '../flow/shared'
-import { wetUniforms, wetField, wetPalette, wetMaterial, wetMesh, seededGeometry } from './wet-shared'
-import { reactiveUniforms, reactiveSource, updateReactiveUniforms } from '../../reactive-motion'
+import * as T from "three";
+import { flowDriver, type FlowEffect } from "../flow/shared";
+import {
+  wetUniforms,
+  wetField,
+  wetPalette,
+  wetMaterial,
+  wetMesh,
+  seededGeometry,
+} from "./wet-shared";
+import {
+  reactiveUniforms,
+  reactiveSource,
+  updateReactiveUniforms,
+} from "../../reactive-motion";
 
 // Drops, impact rings and spray share seeds and transport. At the moment a
 // drop lands and restarts above the view, its impact begins on the surface.
@@ -17,7 +28,7 @@ vec3 rainLanding(vec4 seed){
   float spread=mix(115.,33.,smoothstep(-130.,12.,z));
   return vec3((seed.x-.5)*spread*2.,-9.,z);
 }
-`
+`;
 const rainVertex = `${rainSpace}
 attribute vec4 aSeed;varying vec2 vUv;varying vec3 vColor;varying float vAlpha,vNear;
 void main(){
@@ -38,7 +49,7 @@ void main(){
     *smoothstep(0.,.025,cycle)*(1.-smoothstep(.97,1.,cycle))
     *smoothstep(0.,1.3,height)*smoothstep(2.,7.,-mv.z)
     *rainEnabled(aSeed)*depthFade(p);
-}`
+}`;
 const rainFragment = `varying vec2 vUv;varying vec3 vColor;varying float vAlpha,vNear;
 void main(){
   float x=(vUv.x-.5)*2.,y=clamp(vUv.y,0.,1.);
@@ -46,7 +57,7 @@ void main(){
   float caps=smoothstep(0.,mix(.18,.06,vNear),y)*(1.-smoothstep(.70,1.,y));
   float a=core*caps*(.35+.65*pow(1.-y,.7))*vAlpha;
   if(a<.003)discard;gl_FragColor=vec4(vColor*a,a);
-}`
+}`;
 const impactVertex = `${rainSpace}
 attribute vec4 aSeed;varying vec2 vUv;varying vec3 vColor;varying float vAlpha;
 void main(){
@@ -61,10 +72,10 @@ void main(){
   vUv=uv;vColor=mix(mix(uColor,uHighlight,.58),uAccent,note*.18);
   vAlpha=(1.-exp(-age*45.))*exp(-age*5.)*(1.-smoothstep(.65,1.,life))
     *rainEnabled(aSeed)*depthFade(center)*(.95+note*.7);
-}`
+}`;
 const impactFragment = `varying vec2 vUv;varying vec3 vColor;varying float vAlpha;
 void main(){float y=clamp(vUv.y,0.,1.)*2.-1.;float a=exp(-y*y*5.)*vAlpha;
-  if(a<.002)discard;gl_FragColor=vec4(vColor*a,a);}`
+  if(a<.002)discard;gl_FragColor=vec4(vColor*a,a);}`;
 const sprayVertex = `${rainSpace}
 attribute vec4 aSeed;varying float vAlpha;varying vec3 vColor;
 void main(){
@@ -76,11 +87,11 @@ void main(){
   gl_PointSize=clamp(55./max(5.,-mv.z),.7,2.3)*uPixelRatio;
   vAlpha=sin(arc*3.14159265)*rainEnabled(aSeed)*depthFade(center)*.38;
   vColor=mix(uColor,uHighlight,.65);
-}`
-const sprayFragment=`varying float vAlpha;varying vec3 vColor;
+}`;
+const sprayFragment = `varying float vAlpha;varying vec3 vColor;
 void main(){vec2 p=(gl_PointCoord-.5)*2.;float a=exp(-dot(p,p)*5.)*vAlpha;
-  if(a<.003)discard;gl_FragColor=vec4(vColor*a,a);}`
-const lightsVertex=`${rainSpace}
+  if(a<.003)discard;gl_FragColor=vec4(vColor*a,a);}`;
+const lightsVertex = `${rainSpace}
 attribute vec4 aSeed;varying vec2 vUv;varying vec3 vColor;varying float vAlpha;
 void main(){
   vec3 center=vec3((aSeed.x-.5)*215.,-8.+aSeed.y*6.,-115.-aSeed.z*65.);
@@ -89,12 +100,12 @@ void main(){
   gl_Position=projectionMatrix*mv;vUv=uv;
   vColor=mix(uColor,uAccent,step(.36,aSeed.z));
   vAlpha=(.035+aSeed.w*.08)*mix(.16,1.,uImmersive)*(1.+uDragBands.y*.18);
-}`
-const lightsFragment=`varying vec2 vUv;varying vec3 vColor;varying float vAlpha;
+}`;
+const lightsFragment = `varying vec2 vUv;varying vec3 vColor;varying float vAlpha;
 void main(){vec2 p=(vUv-.5)*2.;float r=dot(p,p);
   float a=exp(-r*3.5)*(1.-smoothstep(.5,1.,r))*vAlpha;
-  gl_FragColor=vec4(vColor*a,a);}`
-const reflectionVertex=`${rainSpace}
+  gl_FragColor=vec4(vColor*a,a);}`;
+const reflectionVertex = `${rainSpace}
 attribute vec4 aSeed;varying vec2 vUv;varying vec3 vColor;varying float vAlpha;
 varying vec3 vWorld;
 void main(){
@@ -103,8 +114,8 @@ void main(){
   gl_Position=projectionMatrix*modelViewMatrix*vec4(p,1.);
   vUv=uv;vWorld=p;vColor=mix(uColor,uAccent,step(.36,aSeed.z));
   vAlpha=(.055+aSeed.w*.025)*mix(.18,1.,uImmersive);
-}`
-const reflectionFragment=`${wetField}
+}`;
+const reflectionFragment = `${wetField}
 varying vec2 vUv;varying vec3 vColor;varying float vAlpha;varying vec3 vWorld;
 void main(){
   vec2 uv=clamp(vUv,0.,1.);float x=(uv.x-.5)*2.;
@@ -112,37 +123,97 @@ void main(){
   float a=exp(-x*x*4.)*smoothstep(0.,.18,uv.y)*(1.-smoothstep(.45,1.,uv.y))
     *(.12+smoothstep(.25,.72,broken)*.88)*vAlpha;
   if(a<.001)discard;gl_FragColor=vec4(vColor*a,a);
-}`
+}`;
 
-function impactGeometry(seeds:T.BufferAttribute|T.InterleavedBufferAttribute,count:number){
-  const plane=new T.PlaneGeometry(1,1,36,1),g=new T.InstancedBufferGeometry();
-  g.setIndex(plane.getIndex());g.setAttribute('position',plane.getAttribute('position'));g.setAttribute('uv',plane.getAttribute('uv'));
-  g.setAttribute('aSeed',new T.InstancedBufferAttribute(new Float32Array(seeds.array.slice(0,count*4)),4));
-  g.instanceCount=count;plane.dispose();return g;
+function impactGeometry(
+  seeds: T.BufferAttribute | T.InterleavedBufferAttribute,
+  count: number,
+) {
+  const plane = new T.PlaneGeometry(1, 1, 36, 1),
+    g = new T.InstancedBufferGeometry();
+  g.setIndex(plane.getIndex());
+  g.setAttribute("position", plane.getAttribute("position"));
+  g.setAttribute("uv", plane.getAttribute("uv"));
+  g.setAttribute(
+    "aSeed",
+    new T.InstancedBufferAttribute(
+      new Float32Array(seeds.array.slice(0, count * 4)),
+      4,
+    ),
+  );
+  g.instanceCount = count;
+  plane.dispose();
+  return g;
 }
 
 /** Fine night rain, distant lamps and physically paired surface impacts. */
-export function createNightRain(detail:number):FlowEffect{
-  const group=new T.Group();group.name='night-rain';
-  const uniforms={...wetUniforms(),...reactiveUniforms(),uImmersive:{value:0}},drive=flowDriver(uniforms);
-  const capacity=Math.round(3400*Math.max(.55,Math.min(1.4,detail)));
-  const drops=seededGeometry(capacity,3195,true);
-  const lights=wetMesh(group,seededGeometry(38,684,true),wetMaterial(uniforms,lightsVertex,lightsFragment));
-  lights.name='rain-distant-lights';lights.renderOrder=-2;
-  const reflections=wetMesh(group,seededGeometry(38,684,true),wetMaterial(uniforms,reflectionVertex,reflectionFragment));
-  reflections.name='rain-water-reflections';reflections.renderOrder=-1;
-  const falling=wetMesh(group,drops,wetMaterial(uniforms,rainVertex,rainFragment));falling.name='rain-drops';
-  const count=Math.min(capacity,Math.round(1100*detail));
-  const impacts=wetMesh(group,impactGeometry(drops.getAttribute('aSeed'),count),wetMaterial(uniforms,impactVertex,impactFragment));
-  impacts.name='rain-impacts';
-  const spray=new T.Points(seededGeometry(count,3195),wetMaterial(uniforms,sprayVertex,sprayFragment));
-  spray.name='rain-spray';spray.frustumCulled=false;group.add(spray);
-  return {group,update(motion,config,reduced){
-    const m=config.music;
-    drive(motion,config,reduced,(.45+m.rainSpeedMultiplier*.55)*(.8+m.speed*.2));
-    updateReactiveUniforms(uniforms,motion,'rhythm_rain',reduced);wetPalette(uniforms,config);
-    uniforms.uWidth.value=m.rainRadiusMultiplier;uniforms.uCount.value=m.rainCount/20;
-    uniforms.uWind.value=m.rainDirection==='down'?0:m.rainDirection==='left'?.13:-.13;
-    uniforms.uReduced.value=Number(reduced);uniforms.uImmersive.value=Number(config.sceneMode==='immersive');
-  }};
+export function createNightRain(detail: number): FlowEffect {
+  const group = new T.Group();
+  group.name = "night-rain";
+  const uniforms = {
+      ...wetUniforms(),
+      ...reactiveUniforms(),
+      uImmersive: { value: 0 },
+    },
+    drive = flowDriver(uniforms);
+  const capacity = Math.round(3400 * Math.max(0.55, Math.min(1.4, detail)));
+  const drops = seededGeometry(capacity, 3195, true);
+  const lights = wetMesh(
+    group,
+    seededGeometry(38, 684, true),
+    wetMaterial(uniforms, lightsVertex, lightsFragment),
+  );
+  lights.name = "rain-distant-lights";
+  lights.renderOrder = -2;
+  const reflections = wetMesh(
+    group,
+    seededGeometry(38, 684, true),
+    wetMaterial(uniforms, reflectionVertex, reflectionFragment),
+  );
+  reflections.name = "rain-water-reflections";
+  reflections.renderOrder = -1;
+  const falling = wetMesh(
+    group,
+    drops,
+    wetMaterial(uniforms, rainVertex, rainFragment),
+  );
+  falling.name = "rain-drops";
+  const count = Math.min(capacity, Math.round(1100 * detail));
+  const impacts = wetMesh(
+    group,
+    impactGeometry(drops.getAttribute("aSeed"), count),
+    wetMaterial(uniforms, impactVertex, impactFragment),
+  );
+  impacts.name = "rain-impacts";
+  const spray = new T.Points(
+    seededGeometry(count, 3195),
+    wetMaterial(uniforms, sprayVertex, sprayFragment),
+  );
+  spray.name = "rain-spray";
+  spray.frustumCulled = false;
+  group.add(spray);
+  return {
+    group,
+    update(motion, config, reduced) {
+      const m = config.music;
+      drive(
+        motion,
+        config,
+        reduced,
+        (0.45 + m.rainSpeedMultiplier * 0.55) * (0.8 + m.speed * 0.2),
+      );
+      updateReactiveUniforms(uniforms, motion, "rhythm_rain", reduced);
+      wetPalette(uniforms, config);
+      uniforms.uWidth.value = m.rainRadiusMultiplier;
+      uniforms.uCount.value = m.rainCount / 20;
+      uniforms.uWind.value =
+        m.rainDirection === "down"
+          ? 0
+          : m.rainDirection === "left"
+            ? 0.13
+            : -0.13;
+      uniforms.uReduced.value = Number(reduced);
+      uniforms.uImmersive.value = Number(config.sceneMode === "immersive");
+    },
+  };
 }

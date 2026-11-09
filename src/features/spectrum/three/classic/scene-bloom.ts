@@ -5,14 +5,14 @@ import { visualQuality } from "../r3f/quality";
 
 const profiles: Partial<Record<SpectrumSettings["effect"], [number, number]>> =
   {
-    window_rain: [.9, .06],
+    window_rain: [0.9, 0.06],
     dream_stars: [0.55, 0.6],
     rhythm_balls: [0.6, 0.35],
-    butterfly_flock: [.8, .08],
+    butterfly_flock: [0.8, 0.08],
 
-    caustic_light: [.4, .3],
-    ginkgo_leaves: [.75, .1],
-    cosmic_web: [.45, .26],
+    caustic_light: [0.4, 0.3],
+    ginkgo_leaves: [0.75, 0.1],
+    cosmic_web: [0.45, 0.26],
   };
 export const bloomProfile = (
   effect: SpectrumSettings["effect"],
@@ -64,10 +64,14 @@ export class SceneBloom {
   constructor() {
     this.scene.add(new T.Mesh(this.geometry, this.material));
   }
-  prepare(renderer:T.WebGLRenderer){
-    const previous=renderer.getRenderTarget();
-    try{renderer.setRenderTarget(this.levels[0][0]);return renderer.compileAsync(this.scene,this.camera)}
-    finally{renderer.setRenderTarget(previous)}
+  prepare(renderer: T.WebGLRenderer) {
+    const previous = renderer.getRenderTarget();
+    try {
+      renderer.setRenderTarget(this.levels[0][0]);
+      return renderer.compileAsync(this.scene, this.camera);
+    } finally {
+      renderer.setRenderTarget(previous);
+    }
   }
   resize(
     width: number,

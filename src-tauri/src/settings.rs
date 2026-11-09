@@ -1091,10 +1091,10 @@ mod tests {
         // Read the actual frontend registry so adding an effect without its
         // native serde variant fails here, rather than at update_settings IPC.
         let catalog = include_str!("../../src/features/spectrum/music-engine/catalog.ts");
-        let effects: Vec<_> = catalog
-            .lines()
-            .filter_map(|line| line.trim().strip_prefix("{ value: '"))
-            .filter_map(|line| line.split('\'').next())
+        let registry = regex::Regex::new(r#"\bvalue\s*:\s*["']([a-z_]+)["']"#).unwrap();
+        let effects: Vec<_> = registry
+            .captures_iter(catalog)
+            .map(|capture| capture[1].to_string())
             .collect();
         assert!(
             !effects.is_empty(),

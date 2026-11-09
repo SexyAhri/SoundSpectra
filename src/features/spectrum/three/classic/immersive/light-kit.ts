@@ -1,4 +1,4 @@
-import { volumeGlow as basicGlow } from './volume-glow'
+import { volumeGlow as basicGlow } from "./volume-glow";
 
 /** Emission helpers; the curl is derived from a smooth vector potential. */
 export const volumeGlow = `${basicGlow}
@@ -11,4 +11,4 @@ float fresnelShell(vec3 n,vec3 view,float power){
   n/=max(length(n),.00001);view/=max(length(view),.00001);
   return pow(clamp(1.-abs(dot(n,view)),0.,1.),power);
 }
-`
+`;

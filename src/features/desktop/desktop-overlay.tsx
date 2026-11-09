@@ -4,20 +4,25 @@ import { Check, Move } from "lucide-react";
 import { SpectrumCanvas } from "../spectrum/spectrum-canvas";
 import { useSpectrum } from "../spectrum/use-spectrum";
 import { defaults } from "../spectrum/model";
-import { CardLayer } from '../desktop-card/card-layer';
-import { useNowPlaying } from '../desktop-card/use-now-playing';
-import { useCoverColors } from '../desktop-card/use-cover-colors';
-import { DesktopWallpaper } from '../wallpaper-depth/wallpaper-surface';
-import { wallpaperNeedsSurface } from '../wallpaper-depth/wallpaper-layout';
-import { useLyrics } from '../lyrics/use-lyrics';
-import { LyricLayer } from '../lyrics/lyric-layer';
-import { SceneFocusProvider } from '../spectrum/scene-focus';
-import { displayBounds, relativeBounds, sceneRegions, settingsForRegion } from '../spectrum/regions';
-import { layerIndex } from '../preview/scene-layers';
-import { useRail } from '../rail/use-rail';
-import { railObstacles } from '../lyrics/avoid-rail';
-import { PerformanceProvider } from '../performance/runtime';
-import { useDesktopOcclusion } from './use-desktop-occlusion';
+import { CardLayer } from "../desktop-card/card-layer";
+import { useNowPlaying } from "../desktop-card/use-now-playing";
+import { useCoverColors } from "../desktop-card/use-cover-colors";
+import { DesktopWallpaper } from "../wallpaper-depth/wallpaper-surface";
+import { wallpaperNeedsSurface } from "../wallpaper-depth/wallpaper-layout";
+import { useLyrics } from "../lyrics/use-lyrics";
+import { LyricLayer } from "../lyrics/lyric-layer";
+import { SceneFocusProvider } from "../spectrum/scene-focus";
+import {
+  displayBounds,
+  relativeBounds,
+  sceneRegions,
+  settingsForRegion,
+} from "../spectrum/regions";
+import { layerIndex } from "../preview/scene-layers";
+import { useRail } from "../rail/use-rail";
+import { railObstacles } from "../lyrics/avoid-rail";
+import { PerformanceProvider } from "../performance/runtime";
+import { useDesktopOcclusion } from "./use-desktop-occlusion";
 import {
   describeError,
   getStatus,
@@ -34,38 +39,58 @@ export function DesktopOverlay() {
   const suspended = occluded && !editing;
   const [error, setError] = useState<string | null>(null);
   const rail = useRail();
-  const [screen, setScreen] = useState({ width: window.innerWidth, height: window.innerHeight });
+  const [screen, setScreen] = useState({
+    width: window.innerWidth,
+    height: window.innerHeight,
+  });
   useEffect(() => {
-    const resize = () => setScreen({ width: window.innerWidth, height: window.innerHeight });
-    window.addEventListener('resize', resize);
-    return () => window.removeEventListener('resize', resize);
+    const resize = () =>
+      setScreen({ width: window.innerWidth, height: window.innerHeight });
+    window.addEventListener("resize", resize);
+    return () => window.removeEventListener("resize", resize);
   }, []);
   const { bands, receivedAt, analysis } = useSpectrum();
   const nowPlaying = useNowPlaying(settings.enabled, true);
-  const colors = useCoverColors(settings, nowPlaying, settings.enabled || editing);
-  const lyricDocument = useLyrics(settings.lyrics, nowPlaying, settings.enabled);
+  const colors = useCoverColors(
+    settings,
+    nowPlaying,
+    settings.enabled || editing,
+  );
+  const lyricDocument = useLyrics(
+    settings.lyrics,
+    nowPlaying,
+    settings.enabled,
+  );
   useEffect(() => {
     let disposed = false;
     let stop: (() => void) | undefined;
     let revision = 0;
-    subscribeSettings(value => {
-      if (!disposed) { revision++; setSettings(value); }
+    subscribeSettings((value) => {
+      if (!disposed) {
+        revision++;
+        setSettings(value);
+      }
     })
       .then((unsubscribe) => {
         if (disposed) unsubscribe();
         else stop = unsubscribe;
       })
-      .catch((reason) => { if (!disposed) setError(describeError(reason)); })
+      .catch((reason) => {
+        if (!disposed) setError(describeError(reason));
+      })
       .finally(() => {
         if (disposed) return;
         // A recreated desktop window must subscribe before its initial read.
         // Changes received during that read take precedence over the older snapshot.
         const startedAt = revision;
-        void loadSettings().then(value => {
-          if (!disposed && startedAt === revision) setSettings(value);
-        }).catch(reason => {
-          if (!disposed && startedAt === revision) setError(describeError(reason));
-        });
+        void loadSettings()
+          .then((value) => {
+            if (!disposed && startedAt === revision) setSettings(value);
+          })
+          .catch((reason) => {
+            if (!disposed && startedAt === revision)
+              setError(describeError(reason));
+          });
       });
     let timer: ReturnType<typeof setTimeout>;
     const poll = async () => {
@@ -117,48 +142,115 @@ export function DesktopOverlay() {
     }
   };
   return (
-    <PerformanceProvider info={nowPlaying}><SceneFocusProvider><div className={`desktop-overlay ${editing ? "editing" : ""}`}>
-      {wallpaperNeedsSurface(settings.wallpaperDepth)&&(settings.enabled||editing)&&<DesktopWallpaper settings={settings.wallpaperDepth} masks={settings.masks} analysis={analysis} active={(settings.enabled||editing)&&!suspended}/>}
-      {sceneRegions(settings).filter(region => region.visible).map(region => {
-        const bounds = relativeBounds(region.bounds, displayBounds(settings));
-        return <div key={region.id} className="desktop-region" data-region-id={region.id} style={{ position: 'absolute', zIndex: layerIndex(settings, `effect:${region.id}`), left: `${bounds.x * 100}%`, top: `${bounds.y * 100}%`, width: `${bounds.width * 100}%`, height: `${bounds.height * 100}%` }}><SpectrumCanvas
-        settings={settingsForRegion(colors.settings, region.id)}
-        regionId={region.id}
-        bands={bands}
-        receivedAt={receivedAt}
-        analysis={analysis}
-        demo={false}
-        desktop
-        active={settings.enabled || editing}
-        suspended={suspended}
-        regionCount={sceneRegions(settings).filter(region => region.visible).length}
-      /></div>})}
-      {settings.desktopCard.enabled && <CardLayer zIndex={layerIndex(settings, 'card')} settings={settings.desktopCard} info={nowPlaying} color={colors.cardColor} bands={bands} receivedAt={receivedAt} host={displayBounds(settings)} desktop active={settings.enabled&&!suspended} />}
-      {settings.lyrics.enabled && <LyricLayer analysis={analysis} appearance={colors.settings} cardAccent={settings.desktopCard.enabled ? settings.desktopCard.accentColor : undefined} obstacles={railObstacles(rail.settings, screen)} zIndex={layerIndex(settings, 'lyrics')} settings={settings.lyrics} document={lyricDocument} info={nowPlaying} host={displayBounds(settings)} desktop active={settings.enabled&&!suspended} />}
-      {editing && (
-        <>
-          <div className="overlay-toolbar">
-            <button onPointerDown={drag}>
-              <Move size={16} />
-              拖动位置
-            </button>
-            <button onClick={finish}>
-              <Check size={16} />
-              完成 · Esc
-            </button>
-          </div>
-          <button
-            aria-label="拖动调整大小"
-            className="resize-handle"
-            onPointerDown={resize}
-          />
-        </>
-      )}
-      {error && editing && (
-        <div className="overlay-error" role="alert">
-          {error}
+    <PerformanceProvider info={nowPlaying}>
+      <SceneFocusProvider>
+        <div className={`desktop-overlay ${editing ? "editing" : ""}`}>
+          {wallpaperNeedsSurface(settings.wallpaperDepth) &&
+            (settings.enabled || editing) && (
+              <DesktopWallpaper
+                settings={settings.wallpaperDepth}
+                masks={settings.masks}
+                analysis={analysis}
+                active={(settings.enabled || editing) && !suspended}
+              />
+            )}
+          {sceneRegions(settings)
+            .filter((region) => region.visible)
+            .map((region) => {
+              const bounds = relativeBounds(
+                region.bounds,
+                displayBounds(settings),
+              );
+              return (
+                <div
+                  key={region.id}
+                  className="desktop-region"
+                  data-region-id={region.id}
+                  style={{
+                    position: "absolute",
+                    zIndex: layerIndex(settings, `effect:${region.id}`),
+                    left: `${bounds.x * 100}%`,
+                    top: `${bounds.y * 100}%`,
+                    width: `${bounds.width * 100}%`,
+                    height: `${bounds.height * 100}%`,
+                  }}
+                >
+                  <SpectrumCanvas
+                    settings={settingsForRegion(colors.settings, region.id)}
+                    regionId={region.id}
+                    bands={bands}
+                    receivedAt={receivedAt}
+                    analysis={analysis}
+                    demo={false}
+                    desktop
+                    active={settings.enabled || editing}
+                    suspended={suspended}
+                    regionCount={
+                      sceneRegions(settings).filter((region) => region.visible)
+                        .length
+                    }
+                  />
+                </div>
+              );
+            })}
+          {settings.desktopCard.enabled && (
+            <CardLayer
+              zIndex={layerIndex(settings, "card")}
+              settings={settings.desktopCard}
+              info={nowPlaying}
+              color={colors.cardColor}
+              bands={bands}
+              receivedAt={receivedAt}
+              host={displayBounds(settings)}
+              desktop
+              active={settings.enabled && !suspended}
+            />
+          )}
+          {settings.lyrics.enabled && (
+            <LyricLayer
+              analysis={analysis}
+              appearance={colors.settings}
+              cardAccent={
+                settings.desktopCard.enabled
+                  ? settings.desktopCard.accentColor
+                  : undefined
+              }
+              obstacles={railObstacles(rail.settings, screen)}
+              zIndex={layerIndex(settings, "lyrics")}
+              settings={settings.lyrics}
+              document={lyricDocument}
+              info={nowPlaying}
+              host={displayBounds(settings)}
+              desktop
+              active={settings.enabled && !suspended}
+            />
+          )}
+          {editing && (
+            <>
+              <div className="overlay-toolbar">
+                <button onPointerDown={drag}>
+                  <Move size={16} />
+                  拖动位置
+                </button>
+                <button onClick={finish}>
+                  <Check size={16} />
+                  完成 · Esc
+                </button>
+              </div>
+              <button
+                aria-label="拖动调整大小"
+                className="resize-handle"
+                onPointerDown={resize}
+              />
+            </>
+          )}
+          {error && editing && (
+            <div className="overlay-error" role="alert">
+              {error}
+            </div>
+          )}
         </div>
-      )}
-    </div></SceneFocusProvider></PerformanceProvider>
+      </SceneFocusProvider>
+    </PerformanceProvider>
   );
 }

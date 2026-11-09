@@ -41,8 +41,13 @@ export function railWheel(
   // One curve sampler for drawing, decorations, previews and native clipping.
   const atX = (x: number) => {
     const t = (x - left.x) / (right.x - left.x);
-    const slope = 4 * sag * (1 - 2 * t) / (right.x - left.x);
-    return { x, y: endY + 4 * sag * t * (1 - t), slope, angle: Math.atan(slope) * 180 / Math.PI };
+    const slope = (4 * sag * (1 - 2 * t)) / (right.x - left.x);
+    return {
+      x,
+      y: endY + 4 * sag * t * (1 - t),
+      slope,
+      angle: (Math.atan(slope) * 180) / Math.PI,
+    };
   };
   const slot = (index: number, active: number) => {
     // Rotate the ordered sequence around the selected item without mutating it.

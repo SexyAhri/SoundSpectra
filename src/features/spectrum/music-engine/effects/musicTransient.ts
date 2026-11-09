@@ -87,9 +87,16 @@ export function createMusicTransientDetector() {
         if (flux[group] < threshold * 0.65) armed[group] = true;
         // A note ending also spreads energy. A falling overall signal needs
         // substantial new regional energy before it can qualify as an onset.
-        const supported = rms >= previousRms * 0.98 ||
-          power[group] > previousPower[group] * 1.1 && power[group] / totalPower > 0.15;
-        if (armed[group] && supported && sinceOnset >= 65 && flux[group] > threshold)
+        const supported =
+          rms >= previousRms * 0.98 ||
+          (power[group] > previousPower[group] * 1.1 &&
+            power[group] / totalPower > 0.15);
+        if (
+          armed[group] &&
+          supported &&
+          sinceOnset >= 65 &&
+          flux[group] > threshold
+        )
           events[group] = true;
         average[group] +=
           (flux[group] - average[group]) * (1 - Math.exp(-dt / 400));
@@ -108,11 +115,15 @@ export function createMusicTransientDetector() {
           // The same event can reach its strength as the window fills, without
           // emitting another onset. Absolute RMS bounds the visual impulse.
           const groupRms = rms * Math.sqrt(power[group] / totalPower);
-          pulses[group] = Math.max(pulses[group],
-            clamp((groupRms / 0.18) ** 0.4) * clamp(flux[group] / 0.12));
+          pulses[group] = Math.max(
+            pulses[group],
+            clamp((groupRms / 0.18) ** 0.4) * clamp(flux[group] / 0.12),
+          );
         }
       }
-      previous = spectrum.map(value => Number.isFinite(value) ? Math.max(0, value) : 0);
+      previous = spectrum.map((value) =>
+        Number.isFinite(value) ? Math.max(0, value) : 0,
+      );
       previousRms = rms;
       previousPower = power;
       if (!audible) pulses.fill(0);

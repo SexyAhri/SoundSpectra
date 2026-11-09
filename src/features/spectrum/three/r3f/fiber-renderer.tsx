@@ -12,17 +12,20 @@ import { threeDrawingSize, previewDrawingSize } from "../render-budget";
 import { isAmbientEffect } from "../../music-engine/catalog";
 import { VisualScene, VisualErrorBoundary } from "./visual-scene";
 import type { VisualRuntime, VisualDiagnostics } from "./runtime";
-import type { SceneFocus } from '../../scene-focus';
-import { compositionForEffect, type CompositionId } from '../compositions/presets';
-import { compositionDrawingSize } from '../compositions/render-budget';
-import { SceneTransition } from '../../../performance/transition';
-import { mappingValues } from '../../../performance/mapping';
-import type { FrameOptions } from '../../../performance/runtime';
-import { originalMapping } from '../../../performance/model';
-import { native } from '../../bridge';
-import { budgets } from '../../render-budget';
-import { AdaptiveResolution } from './adaptive-resolution';
-import { GpuFrameTimer } from './gpu-frame-timer';
+import type { SceneFocus } from "../../scene-focus";
+import {
+  compositionForEffect,
+  type CompositionId,
+} from "../compositions/presets";
+import { compositionDrawingSize } from "../compositions/render-budget";
+import { SceneTransition } from "../../../performance/transition";
+import { mappingValues } from "../../../performance/mapping";
+import type { FrameOptions } from "../../../performance/runtime";
+import { originalMapping } from "../../../performance/model";
+import { native } from "../../bridge";
+import { budgets } from "../../render-budget";
+import { AdaptiveResolution } from "./adaptive-resolution";
+import { GpuFrameTimer } from "./gpu-frame-timer";
 
 extend({
   Mesh: T.Mesh,
@@ -58,26 +61,43 @@ export class FiberSceneRenderer {
   private adaptiveEnabled = false;
   private readonly resolution = new AdaptiveResolution();
   private gpuTimer?: GpuFrameTimer;
-  private timingStamp = '';
+  private timingStamp = "";
   private lastFrameAt = 0;
-  readonly diagnostics: VisualDiagnostics = {preparations:new Set()};
+  readonly diagnostics: VisualDiagnostics = { preparations: new Set() };
   private composition: CompositionId | undefined;
   private readonly transition = new SceneTransition();
   private lastGoodConfig?: SpectrumSettings;
-  private failedEffect?: SpectrumSettings['effect'];
-  private recover = (error:unknown) => {
-    const previous=this.lastGoodConfig;
-    if(!previous||previous.effect===this.config?.effect){this.onError(error);return}
-    this.failedEffect=this.config?.effect;this.config=previous;this.transition.cancel();this.stamp='';this.shadersReady=false;
-    if(this.runtime)Object.assign(this.runtime,{settings:previous,composition:this.composition??compositionForEffect(previous.effect),transition:this.transition.frame});
-    this.canvas.dataset.transitionError=error instanceof Error?error.message:String(error);
-    queueMicrotask(()=>{if(!this.stopped)void this.prepareScene().catch(this.onError)});
+  private failedEffect?: SpectrumSettings["effect"];
+  private recover = (error: unknown) => {
+    const previous = this.lastGoodConfig;
+    if (!previous || previous.effect === this.config?.effect) {
+      this.onError(error);
+      return;
+    }
+    this.failedEffect = this.config?.effect;
+    this.config = previous;
+    this.transition.cancel();
+    this.stamp = "";
+    this.shadersReady = false;
+    if (this.runtime)
+      Object.assign(this.runtime, {
+        settings: previous,
+        composition: this.composition ?? compositionForEffect(previous.effect),
+        transition: this.transition.frame,
+      });
+    this.canvas.dataset.transitionError =
+      error instanceof Error ? error.message : String(error);
+    queueMicrotask(() => {
+      if (!this.stopped) void this.prepareScene().catch(this.onError);
+    });
   };
 
   /** Opt-in review composition; never changes persisted effect IDs or settings. */
   setComposition(id?: CompositionId) {
     this.composition = id;
-    if (this.runtime) this.runtime.composition = id ?? compositionForEffect(this.runtime.settings.effect);
+    if (this.runtime)
+      this.runtime.composition =
+        id ?? compositionForEffect(this.runtime.settings.effect);
   }
 
   constructor(
@@ -97,14 +117,19 @@ export class FiberSceneRenderer {
     // The parent owns CSS layout. R3F otherwise writes the first measured size
     // inline, preventing a percentage-sized canvas from following maximization.
     const setSize = this.renderer.setSize.bind(this.renderer);
-    const logicalSize = new T.Vector2(), setPixelRatio = this.renderer.setPixelRatio.bind(this.renderer);
+    const logicalSize = new T.Vector2(),
+      setPixelRatio = this.renderer.setPixelRatio.bind(this.renderer);
     this.renderer.setSize = (width, height) => {
       this.renderer.getSize(logicalSize);
-      if (logicalSize.x !== width || logicalSize.y !== height ||
+      if (
+        logicalSize.x !== width ||
+        logicalSize.y !== height ||
         canvas.width !== Math.floor(width * this.renderer.getPixelRatio()) ||
-        canvas.height !== Math.floor(height * this.renderer.getPixelRatio())) setSize(width, height, false);
+        canvas.height !== Math.floor(height * this.renderer.getPixelRatio())
+      )
+        setSize(width, height, false);
     };
-    this.renderer.setPixelRatio = value => {
+    this.renderer.setPixelRatio = (value) => {
       if (value !== this.renderer.getPixelRatio()) setPixelRatio(value);
     };
     this.renderer.toneMapping = T.ACESFilmicToneMapping;
@@ -125,12 +150,18 @@ export class FiberSceneRenderer {
       // WebView2/ANGLE can leave KHR completion polling pending indefinitely
       // while this desktop surface holds its last frame. Finish linking during
       // preparation; the old presented image remains until the scene is ready.
-      this.renderer.compileAsync = async (scene, camera, targetScene = null) => {
+      this.renderer.compileAsync = async (
+        scene,
+        camera,
+        targetScene = null,
+      ) => {
         this.renderer.compile(scene, camera, targetScene);
         const gl = this.renderer.getContext();
         for (const item of this.renderer.info.programs ?? []) {
           if (!gl.getProgramParameter(item.program, gl.LINK_STATUS)) {
-            throw new Error(gl.getProgramInfoLog(item.program) || '三维场景着色器链接失败。');
+            throw new Error(
+              gl.getProgramInfoLog(item.program) || "三维场景着色器链接失败。",
+            );
           }
         }
         return scene;
@@ -159,7 +190,7 @@ export class FiberSceneRenderer {
       .catch(onError);
     canvas.dataset.renderer = "three";
     canvas.dataset.contextId = String(performance.now());
-    canvas.dataset.preparations = '0';
+    canvas.dataset.preparations = "0";
     canvas.dataset.framework = "r3f";
     canvas.dataset.engine = `R3F 9 / three.js r${T.REVISION}`;
     canvas.dataset.geometry = "spatial";
@@ -178,69 +209,90 @@ export class FiberSceneRenderer {
       );
     });
   }
-  private sceneStamp(config:SpectrumSettings){
-    return `${config.effect}:${config.quality}:${config.music.ambientDensity}:${this.regions}:${this.composition??compositionForEffect(config.effect)??''}`;
+  private sceneStamp(config: SpectrumSettings) {
+    return `${config.effect}:${config.quality}:${config.music.ambientDensity}:${this.regions}:${this.composition ?? compositionForEffect(config.effect) ?? ""}`;
   }
   private prepareScene() {
-    const stamp=this.sceneStamp(this.config!);
-    if(this.stamp===stamp)return this.preparation;
-    this.stamp=stamp;this.shadersReady=false;
-    this.canvas.dataset.preparations = String(Number(this.canvas.dataset.preparations) + 1);
-    this.canvas.dataset.preparing='true';
+    const stamp = this.sceneStamp(this.config!);
+    if (this.stamp === stamp) return this.preparation;
+    this.stamp = stamp;
+    this.shadersReady = false;
+    this.canvas.dataset.preparations = String(
+      Number(this.canvas.dataset.preparations) + 1,
+    );
+    this.canvas.dataset.preparing = "true";
     // A new scene waits for the previous compilation before disposing its
     // materials. Repeated sizes share this promise and never recompile shaders.
-    this.preparation=this.preparation.catch(()=>{}).then(async()=>{
-      await this.configured;
-      if(this.stopped||this.stamp!==stamp)return;
-      this.mount();
-      // Main layers render into a linear offscreen target. Compiling against
-      // the sRGB canvas would prepare another shader variant and still stall
-      // when the real offscreen draw begins.
-      this.compiling = true;
-      try {
-        const previous=this.renderer.getRenderTarget();
-        let main:Promise<unknown>;
-        try{
-          this.renderer.setRenderTarget(this.diagnostics.image??null);
-          main=this.renderer.compileAsync(this.scene,this.camera);
-        }finally{this.renderer.setRenderTarget(previous)}
-        const pending = [
-          main,
-          ...Array.from(this.diagnostics.preparations??[],prepare=>prepare()),
-        ];
-        // Preparation deliberately holds the last frame instead of rendering.
-        // Submit shader work even while a paused/desktop canvas has no presents.
-        this.renderer.getContext().flush();
-        await Promise.all(pending);
-      } finally {
-        this.compiling = false;
-      }
-      if(!this.stopped&&this.stamp===stamp){
-        this.shadersReady=true;this.canvas.dataset.preparing='false';
-      }
-    });
+    this.preparation = this.preparation
+      .catch(() => {})
+      .then(async () => {
+        await this.configured;
+        if (this.stopped || this.stamp !== stamp) return;
+        this.mount();
+        // Main layers render into a linear offscreen target. Compiling against
+        // the sRGB canvas would prepare another shader variant and still stall
+        // when the real offscreen draw begins.
+        this.compiling = true;
+        try {
+          const previous = this.renderer.getRenderTarget();
+          let main: Promise<unknown>;
+          try {
+            this.renderer.setRenderTarget(this.diagnostics.image ?? null);
+            main = this.renderer.compileAsync(this.scene, this.camera);
+          } finally {
+            this.renderer.setRenderTarget(previous);
+          }
+          const pending = [
+            main,
+            ...Array.from(this.diagnostics.preparations ?? [], (prepare) =>
+              prepare(),
+            ),
+          ];
+          // Preparation deliberately holds the last frame instead of rendering.
+          // Submit shader work even while a paused/desktop canvas has no presents.
+          this.renderer.getContext().flush();
+          await Promise.all(pending);
+        } finally {
+          this.compiling = false;
+        }
+        if (!this.stopped && this.stamp === stamp) {
+          this.shadersReady = true;
+          this.canvas.dataset.preparing = "false";
+        }
+      });
     return this.preparation;
   }
-  async resize(config: SpectrumSettings, regions: number, options: {preview?:boolean;deferSceneChange?:boolean;adaptive?:boolean} = {}) {
+  async resize(
+    config: SpectrumSettings,
+    regions: number,
+    options: {
+      preview?: boolean;
+      deferSceneChange?: boolean;
+      adaptive?: boolean;
+    } = {},
+  ) {
     this.adaptiveEnabled = options.adaptive === true;
     const resizeStarted = performance.now();
     const revision = ++this.resizeRevision;
     this.regions = regions;
     const width = Math.max(1, this.canvas.clientWidth),
       height = Math.max(1, this.canvas.clientHeight);
-    const desired = (this.composition || compositionForEffect(config.effect) ? compositionDrawingSize : threeDrawingSize)(
-      width,
-      height,
-      devicePixelRatio,
-      config.quality,
-      regions,
-    );
-    const size=options.preview?previewDrawingSize(desired,regions):desired;
+    const desired = (
+      this.composition || compositionForEffect(config.effect)
+        ? compositionDrawingSize
+        : threeDrawingSize
+    )(width, height, devicePixelRatio, config.quality, regions);
+    const size = options.preview
+      ? previewDrawingSize(desired, regions)
+      : desired;
     try {
       await this.configured;
       if (this.stopped || revision !== this.resizeRevision) return;
       this.ready = true;
-      if(!this.config||!options.deferSceneChange){this.config=config;this.transition.cancel()}
+      if (!this.config || !options.deferSceneChange) {
+        this.config = config;
+        this.transition.cancel();
+      }
       if (!this.runtime)
         this.runtime = {
           composition: this.composition ?? compositionForEffect(config.effect),
@@ -252,22 +304,44 @@ export class FiberSceneRenderer {
           pointer: this.pointer,
           diagnostics: this.diagnostics,
         };
-      Object.assign(this.runtime,{regions,settings:this.config,composition:this.composition??compositionForEffect(this.config.effect)});
+      Object.assign(this.runtime, {
+        regions,
+        settings: this.config,
+        composition:
+          this.composition ?? compositionForEffect(this.config.effect),
+      });
       await this.prepareScene();
-      if(this.stopped||revision!==this.resizeRevision)return;
-      const state = this.store!.getState(), dpr = Math.min(size.width / width, size.height / height);
-      if (state.size.width !== width || state.size.height !== height || state.viewport.dpr !== dpr) {
+      if (this.stopped || revision !== this.resizeRevision) return;
+      const state = this.store!.getState(),
+        dpr = Math.min(size.width / width, size.height / height);
+      if (
+        state.size.width !== width ||
+        state.size.height !== height ||
+        state.viewport.dpr !== dpr
+      ) {
         const logicalSize = { width, height, top: 0, left: 0 };
         // R3F sets DPR and size separately. Allocate the final drawing buffer
         // atomically so its following setters do not clear/reallocate it twice.
         this.renderer.setDrawingBufferSize(width, height, dpr);
         // Publish size and DPR together. Pure resizes retain the existing scene,
         // materials and manual frame loop instead of reconfiguring/remounting.
-        this.store!.setState({ size: logicalSize, viewport: { ...state.viewport,
-          ...state.viewport.getCurrentViewport(state.camera, undefined, logicalSize), dpr } });
+        this.store!.setState({
+          size: logicalSize,
+          viewport: {
+            ...state.viewport,
+            ...state.viewport.getCurrentViewport(
+              state.camera,
+              undefined,
+              logicalSize,
+            ),
+            dpr,
+          },
+        });
         this.resizedAt = performance.now();
       }
-      this.canvas.dataset.resizeMs = (performance.now() - resizeStarted).toFixed(2);
+      this.canvas.dataset.resizeMs = (
+        performance.now() - resizeStarted
+      ).toFixed(2);
     } catch (error) {
       this.recover(error);
     }
@@ -311,8 +385,14 @@ export class FiberSceneRenderer {
     );
     this.ray.setFromCamera(pointer, camera);
     this.localRay.copy(this.ray.ray);
-    const composition=this.store!.getState().scene.getObjectByName('scene-composition');
-    if(composition){composition.updateMatrixWorld(true);this.localRay.applyMatrix4(this.inverseLayout.copy(composition.matrixWorld).invert())}
+    const composition =
+      this.store!.getState().scene.getObjectByName("scene-composition");
+    if (composition) {
+      composition.updateMatrixWorld(true);
+      this.localRay.applyMatrix4(
+        this.inverseLayout.copy(composition.matrixWorld).invert(),
+      );
+    }
     const ambient = this.config && isAmbientEffect(this.config.effect);
     this.plane.set(
       ambient ? new T.Vector3(0, 0, 1) : new T.Vector3(0, 1, 0),
@@ -333,12 +413,29 @@ export class FiberSceneRenderer {
     dt = 1 / 60,
     focus?: SceneFocus,
     presentationPaused = false,
-    options: FrameOptions = { transition: {kind:'dissolve',durationMs:1400}, animate:true, mapping:originalMapping },
+    options: FrameOptions = {
+      transition: { kind: "dissolve", durationMs: 1400 },
+      animate: true,
+      mapping: originalMapping,
+    },
   ) {
     if (this.stopped) return false;
-    if(this.failedEffect===config.effect)config=this.lastGoodConfig??config;
-    else if(this.failedEffect){this.failedEffect=undefined;delete this.canvas.dataset.transitionError}
-    config = this.transition.step(this.config??config,config,options.transition,options.animate,reduced,presentationPaused?0:dt,this.shadersReady,()=>this.diagnostics.capture?.());
+    if (this.failedEffect === config.effect)
+      config = this.lastGoodConfig ?? config;
+    else if (this.failedEffect) {
+      this.failedEffect = undefined;
+      delete this.canvas.dataset.transitionError;
+    }
+    config = this.transition.step(
+      this.config ?? config,
+      config,
+      options.transition,
+      options.animate,
+      reduced,
+      presentationPaused ? 0 : dt,
+      this.shadersReady,
+      () => this.diagnostics.capture?.(),
+    );
     this.config = config;
     if (!this.runtime)
       this.runtime = {
@@ -361,10 +458,15 @@ export class FiberSceneRenderer {
       focus,
       presentationPaused,
       transition: this.transition.frame,
-      mapping: mappingValues(config.effect,options.mapping,motion,reduced),
+      mapping: mappingValues(config.effect, options.mapping, motion, reduced),
     });
-    if(this.stamp!==this.sceneStamp(config)||!this.store)void this.prepareScene().catch(this.recover);
-    if(!this.shadersReady){this.timingStamp='';this.gpuTimer?.discard();return false}
+    if (this.stamp !== this.sceneStamp(config) || !this.store)
+      void this.prepareScene().catch(this.recover);
+    if (!this.shadersReady) {
+      this.timingStamp = "";
+      this.gpuTimer?.discard();
+      return false;
+    }
     this.time += dt;
     if (this.store) {
       this.renderer.info.reset();
@@ -377,35 +479,64 @@ export class FiberSceneRenderer {
         this.gpuTimer?.discard();
       }
       this.lastFrameAt = start;
-      const measure = this.adaptiveEnabled && !presentationPaused && !this.transition.active;
+      const measure =
+        this.adaptiveEnabled && !presentationPaused && !this.transition.active;
       if (measure) {
-        this.gpuTimer ??= new GpuFrameTimer(this.renderer.getContext() as WebGL2RenderingContext);
+        this.gpuTimer ??= new GpuFrameTimer(
+          this.renderer.getContext() as WebGL2RenderingContext,
+        );
         const timerRevision = this.gpuTimer.revision;
         const gpuMs = this.gpuTimer.poll();
-        if (timerRevision !== this.gpuTimer.revision) this.resolution.settle(start);
-        this.canvas.dataset.gpuTiming = this.gpuTimer.supported ? 'asynchronous' : 'unavailable';
+        if (timerRevision !== this.gpuTimer.revision)
+          this.resolution.settle(start);
+        this.canvas.dataset.gpuTiming = this.gpuTimer.supported
+          ? "asynchronous"
+          : "unavailable";
         if (gpuMs !== undefined) {
           this.canvas.dataset.gpuMs = gpuMs.toFixed(2);
-          this.resolution.sample(gpuMs, start, reduced ? 15 : budgets[config.quality].fps);
+          this.resolution.sample(
+            gpuMs,
+            start,
+            reduced ? 15 : budgets[config.quality].fps,
+          );
         }
         this.gpuTimer.begin();
       }
-      this.runtime.renderScale = this.adaptiveEnabled ? this.resolution.scale : 1;
-      try{this.store.getState().advance(this.time, false)}catch(error){this.recover(error);return false}
-      finally { this.gpuTimer?.end(); }
+      this.runtime.renderScale = this.adaptiveEnabled
+        ? this.resolution.scale
+        : 1;
+      try {
+        this.store.getState().advance(this.time, false);
+      } catch (error) {
+        this.recover(error);
+        return false;
+      } finally {
+        this.gpuTimer?.end();
+      }
       this.canvas.dataset.frameMs = (performance.now() - start).toFixed(2);
-      if (this.resizedAt !== undefined && this.canvas.dataset.frames !== frames) {
+      if (
+        this.resizedAt !== undefined &&
+        this.canvas.dataset.frames !== frames
+      ) {
         this.canvas.dataset.resizeFirstFrameMs = this.canvas.dataset.frameMs;
-        this.canvas.dataset.resizeResumeMs = (performance.now() - this.resizedAt).toFixed(2);
+        this.canvas.dataset.resizeResumeMs = (
+          performance.now() - this.resizedAt
+        ).toFixed(2);
         this.resizedAt = undefined;
       }
-      this.canvas.dataset.programs = String(this.renderer.info.programs?.length ?? 0);
+      this.canvas.dataset.programs = String(
+        this.renderer.info.programs?.length ?? 0,
+      );
     }
     this.canvas.dataset.scene = config.effect;
-    this.canvas.dataset.transition = this.transition.active?this.transition.frame.kind:'idle';
-    this.canvas.dataset.transitionProgress = String(this.transition.frame.blend);
+    this.canvas.dataset.transition = this.transition.active
+      ? this.transition.frame.kind
+      : "idle";
+    this.canvas.dataset.transitionProgress = String(
+      this.transition.frame.blend,
+    );
     this.canvas.dataset.mapping = JSON.stringify(this.runtime.mapping);
-    if(!this.transition.active)this.lastGoodConfig=config;
+    if (!this.transition.active) this.lastGoodConfig = config;
     return true;
   }
   clear() {

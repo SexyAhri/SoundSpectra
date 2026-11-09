@@ -29,7 +29,7 @@ export function RailLeafCanopy({
               top: geometry.atX(x).y,
               width: 24 * unit,
               height: 24 * unit,
-              transform: `translate(-50%, -50%) rotate(${geometry.atX(x).angle + (index % 3) * 7 - 7}deg) scale(${.78 + (index % 3) * .09}, ${index % 2 ? -.86 : .86})`,
+              transform: `translate(-50%, -50%) rotate(${geometry.atX(x).angle + (index % 3) * 7 - 7}deg) scale(${0.78 + (index % 3) * 0.09}, ${index % 2 ? -0.86 : 0.86})`,
               "--rail-leaf-delay": `${(index % 3) * -2.5}s`,
             } as CSSProperties
           }

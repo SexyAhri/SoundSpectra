@@ -17,7 +17,10 @@ export const getMusicIntensitySpeed = (normalized: number) =>
   Math.max(0, Math.min(1, normalized)) * MUSIC_INTENSITY_MAX_SPEED;
 
 /** 无状态采样：相同音量始终得到相同强度，不受之前的音乐、时间或峰谷影响。 */
-export function sampleMusicIntensity(value: number, now: number): MusicIntensitySample {
+export function sampleMusicIntensity(
+  value: number,
+  now: number,
+): MusicIntensitySample {
   return {
     sampledAt: now,
     current: Number.isFinite(value) ? Math.max(0, Math.min(1, value)) : 0,

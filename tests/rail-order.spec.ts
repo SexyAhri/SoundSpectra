@@ -18,9 +18,14 @@ test.beforeEach(async ({ page }) => {
 const storedOrder = (page: Page) => page.evaluate(() => JSON.parse(localStorage.getItem('soundspectra.rail.v1')!).groups[0].items.map((item: { id: string }) => item.id))
 const openList = async (page: Page) => {
   await page.getByRole('button', { name: '点击绳子添加挂件', exact: true }).press('Shift+Enter')
-  return page.getByRole('region', { name: '更多挂件', exact: true })
+  const panel = page.getByRole('region', { name: '更多挂件', exact: true })
+  // Opening focuses the search field on the next frame, which can scroll and
+  // reposition the popover. Measure drag coordinates only after that handoff.
+  await expect(panel.getByRole('searchbox', { name: '搜索挂件' })).toBeFocused()
+  return panel
 }
 async function drag(page: Page, source: Locator, target: Locator, side: 'before' | 'after', gap = false) {
+  await source.hover()
   const a = (await source.boundingBox())!, b = (await target.boundingBox())!
   await page.mouse.move(a.x + a.width / 2, a.y + a.height / 2)
   await page.mouse.down()

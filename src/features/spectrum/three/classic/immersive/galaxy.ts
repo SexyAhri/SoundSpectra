@@ -1,12 +1,20 @@
-import * as T from 'three'
-import { randomStream, uniformSource, type FlowEffect } from '../flow/shared'
-import { luminousDriver, luminousSource, luminousUniforms } from './luminous-motion'
-import { volumeGlow } from './volume-glow'
-import { reactiveUniforms, reactiveSource, updateReactiveUniforms } from '../../reactive-motion'
+import * as T from "three";
+import { randomStream, uniformSource, type FlowEffect } from "../flow/shared";
+import {
+  luminousDriver,
+  luminousSource,
+  luminousUniforms,
+} from "./luminous-motion";
+import { volumeGlow } from "./volume-glow";
+import {
+  reactiveUniforms,
+  reactiveSource,
+  updateReactiveUniforms,
+} from "../../reactive-motion";
 
 // One angular field for the gas and its stars. Orbiting the camera cannot
 // expose a carrier-plane edge or rotate the river away from its star band.
-const galaxySpace=`
+const galaxySpace = `
 float galaxyTurn(){return uPhase*.018*(.3+uTrail);}
 vec2 galaxyCoordinates(vec3 direction){
   vec3 d=normalize(direction);
@@ -19,14 +27,29 @@ vec3 galaxyDirection(vec2 p){
   p.y+=p.x*.28;p*=uDepth/3.;
   return vec3(sin(p.x)*cos(p.y),sin(p.y),-cos(p.x)*cos(p.y));
 }
-`
+`;
 
 /** A sky-spanning star river: moving emission, independent dust and depth-layered stars. */
 export function createGalaxy(detail: number): FlowEffect {
-  const group = new T.Group(), uniforms = { ...luminousUniforms(), ...reactiveUniforms(), uSpan: { value: 100 },uDust:{value:.65},uDesktop:{value:0} }, drive = luminousDriver(uniforms)
-  const sky = new T.Mesh(new T.SphereGeometry(240,64,40), new T.ShaderMaterial({ uniforms, side:T.BackSide, transparent: true, depthWrite: false, toneMapped: false,
-    vertexShader: `varying vec3 vDirection;void main(){vDirection=position;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.);}`,
-    fragmentShader: `${uniformSource}${luminousSource}${volumeGlow}${galaxySpace}${reactiveSource}
+  const group = new T.Group(),
+    uniforms = {
+      ...luminousUniforms(),
+      ...reactiveUniforms(),
+      uSpan: { value: 100 },
+      uDust: { value: 0.65 },
+      uDesktop: { value: 0 },
+    },
+    drive = luminousDriver(uniforms);
+  const sky = new T.Mesh(
+    new T.SphereGeometry(240, 64, 40),
+    new T.ShaderMaterial({
+      uniforms,
+      side: T.BackSide,
+      transparent: true,
+      depthWrite: false,
+      toneMapped: false,
+      vertexShader: `varying vec3 vDirection;void main(){vDirection=position;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.);}`,
+      fragmentShader: `${uniformSource}${luminousSource}${volumeGlow}${galaxySpace}${reactiveSource}
       uniform float uDust,uDesktop;varying vec3 vDirection;
       void main(){
         vec2 p=galaxyCoordinates(vDirection);
@@ -70,20 +93,41 @@ export function createGalaxy(detail: number): FlowEffect {
         float alpha=clamp(band*(.45+clouds*.4)+absorb*band*.14,0.,.9);
         if(alpha<.002)discard;
         gl_FragColor=vec4(darkness+emission,alpha);
-      }` }))
-  sky.name='galaxy-gas';sky.frustumCulled=false;sky.renderOrder = -2; group.add(sky)
-  const random = randomStream(542981), count = Math.round(6000 * Math.max(.5, Math.min(1.25, detail)))
-  const positions = new Float32Array(count * 3), seeds = new Float32Array(count * 4)
+      }`,
+    }),
+  );
+  sky.name = "galaxy-gas";
+  sky.frustumCulled = false;
+  sky.renderOrder = -2;
+  group.add(sky);
+  const random = randomStream(542981),
+    count = Math.round(6000 * Math.max(0.5, Math.min(1.25, detail)));
+  const positions = new Float32Array(count * 3),
+    seeds = new Float32Array(count * 4);
   for (let i = 0; i < count; i++) {
-    const x = random() - .5, dense = random() < .76
-    const gaussian = Math.sqrt(-2 * Math.log(Math.max(.0001, random()))) * Math.cos(random() * Math.PI * 2)
-    const y = dense ? gaussian * (.05 + Math.abs(x) * .025) : (random() - .5) * 1.3
-    positions.set([x, y, random()], i * 3)
-    seeds.set([random(), random(), random(), dense ? 1 : 0], i * 4)
+    const x = random() - 0.5,
+      dense = random() < 0.76;
+    const gaussian =
+      Math.sqrt(-2 * Math.log(Math.max(0.0001, random()))) *
+      Math.cos(random() * Math.PI * 2);
+    const y = dense
+      ? gaussian * (0.05 + Math.abs(x) * 0.025)
+      : (random() - 0.5) * 1.3;
+    positions.set([x, y, random()], i * 3);
+    seeds.set([random(), random(), random(), dense ? 1 : 0], i * 4);
   }
-  const geometry = new T.BufferGeometry().setAttribute('position', new T.BufferAttribute(positions, 3)).setAttribute('aSeed', new T.BufferAttribute(seeds, 4))
-  const stars = new T.Points(geometry, new T.ShaderMaterial({ uniforms, transparent: true, depthWrite: false, blending: T.AdditiveBlending, toneMapped: false,
-    vertexShader: `${uniformSource}${luminousSource}${galaxySpace}attribute vec4 aSeed;varying float vAlpha,vTint,vBright;varying vec2 vBand;
+  const geometry = new T.BufferGeometry()
+    .setAttribute("position", new T.BufferAttribute(positions, 3))
+    .setAttribute("aSeed", new T.BufferAttribute(seeds, 4));
+  const stars = new T.Points(
+    geometry,
+    new T.ShaderMaterial({
+      uniforms,
+      transparent: true,
+      depthWrite: false,
+      blending: T.AdditiveBlending,
+      toneMapped: false,
+      vertexShader: `${uniformSource}${luminousSource}${galaxySpace}attribute vec4 aSeed;varying float vAlpha,vTint,vBright;varying vec2 vBand;
       void main(){
         vec2 field=vec2(position.x*7.5,position.y*4.6);
         field+=vec2(sin(uPhase*.18+aSeed.x*6.),cos(uPhase*.13+aSeed.y*6.))*.012*(.4+position.z);
@@ -96,7 +140,7 @@ export function createGalaxy(detail: number): FlowEffect {
         vAlpha=(.13+aSeed.y*.5)*(1.+bright*(uAccents.z*(.5+note)*2.4+uBeatGlow*.45));
         vTint=aSeed.x;vBand=field;
       }`,
-    fragmentShader: `${uniformSource}${volumeGlow}varying float vAlpha,vTint,vBright;varying vec2 vBand;
+      fragmentShader: `${uniformSource}${volumeGlow}varying float vAlpha,vTint,vBright;varying vec2 vBand;
       void main(){vec2 q=gl_PointCoord-.5;float r=length(q)*2.;if(r>1.)discard;
         float dust=fbm(vBand*4.8+11.);float slitDistance=(vBand.y+.04)/(.075+dust*.19);
         float slit=exp(-slitDistance*slitDistance);
@@ -104,14 +148,24 @@ export function createGalaxy(detail: number): FlowEffect {
         vec3 tint=mix(uColor,uAccent,step(.78,vTint));tint=mix(tint,uHighlight,.55+vBright*.35);
         float spike=vBright*(exp(-abs(q.x)*80.)*exp(-abs(q.y)*12.)+exp(-abs(q.y)*80.)*exp(-abs(q.x)*12.))*.15;
         gl_FragColor=vec4(tint*(1.+vBright*1.2),a+spike*vAlpha);
-      }` }))
-  stars.frustumCulled = false; group.add(stars)
-  return { group, update(motion, config, reduced) {
-    drive(motion, config, reduced, .65 + config.music.speed * .18)
-    updateReactiveUniforms(uniforms,motion,'dream_stars',reduced)
-    uniforms.uDepth.value = config.music.nebulaScale; uniforms.uTrail.value = config.music.spinSpeed
-    uniforms.uDust.value=config.music.dustOpacity
-    uniforms.uDesktop.value=Number(config.sceneMode==='daily')
-    geometry.setDrawRange(0, Math.round(count * config.music.starDensity / 6000))
-  } }
+      }`,
+    }),
+  );
+  stars.frustumCulled = false;
+  group.add(stars);
+  return {
+    group,
+    update(motion, config, reduced) {
+      drive(motion, config, reduced, 0.65 + config.music.speed * 0.18);
+      updateReactiveUniforms(uniforms, motion, "dream_stars", reduced);
+      uniforms.uDepth.value = config.music.nebulaScale;
+      uniforms.uTrail.value = config.music.spinSpeed;
+      uniforms.uDust.value = config.music.dustOpacity;
+      uniforms.uDesktop.value = Number(config.sceneMode === "daily");
+      geometry.setDrawRange(
+        0,
+        Math.round((count * config.music.starDensity) / 6000),
+      );
+    },
+  };
 }

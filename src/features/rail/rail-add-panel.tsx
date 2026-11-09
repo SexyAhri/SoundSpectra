@@ -127,12 +127,16 @@ export function RailAddPanel({
     <div
       ref={panel}
       className={`rail-add-panel rail-add-mode-${mode}`}
-      onKeyDown={event => {
+      onKeyDown={(event) => {
         if (event.key !== "Escape" || mode === "choices" || saving) return;
         event.stopPropagation();
         const source = mode;
         setMode("choices");
-        requestAnimationFrame(() => panel.current?.querySelector<HTMLButtonElement>(`[data-add-mode="${source}"]`)?.focus({ preventScroll: true }));
+        requestAnimationFrame(() =>
+          panel.current
+            ?.querySelector<HTMLButtonElement>(`[data-add-mode="${source}"]`)
+            ?.focus({ preventScroll: true }),
+        );
       }}
     >
       {mode !== "choices" && (
@@ -151,21 +155,24 @@ export function RailAddPanel({
       )}
       {mode === "choices" && (
         <div className="rail-add-choices">
-          <button type="button" data-add-mode="desktop" disabled={saving || controller.pending > 0 || remaining <= 0} onClick={() => setMode("desktop")}>
+          <button
+            type="button"
+            data-add-mode="desktop"
+            disabled={saving || controller.pending > 0 || remaining <= 0}
+            onClick={() => setMode("desktop")}
+          >
             <Monitor />
-            <span>
-              从桌面添加
-            </span>
+            <span>从桌面添加</span>
           </button>
           <button
             type="button"
-            disabled={!native || saving || controller.pending > 0 || remaining <= 0}
+            disabled={
+              !native || saving || controller.pending > 0 || remaining <= 0
+            }
             onClick={() => void perform(() => pick())}
           >
             <AppWindow />
-            <span>
-              软件 / 文件 / 照片
-            </span>
+            <span>软件 / 文件 / 照片</span>
           </button>
           <button
             type="button"
@@ -190,9 +197,7 @@ export function RailAddPanel({
             }
           >
             <ClipboardPaste />
-            <span>
-              粘贴图片
-            </span>
+            <span>粘贴图片</span>
           </button>
           <button
             type="button"
@@ -204,13 +209,13 @@ export function RailAddPanel({
             }}
           >
             <StickyNote />
-            <span>
-              写便签
-            </span>
+            <span>写便签</span>
           </button>
           <button
             type="button"
-            disabled={!native || saving || controller.pending > 0 || remaining <= 0}
+            disabled={
+              !native || saving || controller.pending > 0 || remaining <= 0
+            }
             onClick={() => void perform(() => pick(true))}
           >
             <FolderPlus />

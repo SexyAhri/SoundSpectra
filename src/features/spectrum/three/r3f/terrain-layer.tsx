@@ -79,10 +79,14 @@ export function TerrainLayer({ grid }: { grid: number }) {
     };
   }, [grid]);
   useEffect(() => {
-    const prepare=()=>{
-      const previous=gl.getRenderTarget();
-      try{gl.setRenderTarget(resources.target);return gl.compileAsync(resources.scene,resources.camera)}
-      finally{gl.setRenderTarget(previous)}
+    const prepare = () => {
+      const previous = gl.getRenderTarget();
+      try {
+        gl.setRenderTarget(resources.target);
+        return gl.compileAsync(resources.scene, resources.camera);
+      } finally {
+        gl.setRenderTarget(previous);
+      }
     };
     runtime.diagnostics.preparations?.add(prepare);
     Object.assign(runtime.diagnostics, {
@@ -133,7 +137,9 @@ export function TerrainLayer({ grid }: { grid: number }) {
         ripple.z,
         ripple.age,
         ripple.strength *
-          (ripple.source === 'music' ? (1 - Math.exp(-ripple.lifetime * 10)) ** 2 : 1) *
+          (ripple.source === "music"
+            ? (1 - Math.exp(-ripple.lifetime * 10)) ** 2
+            : 1) *
           Math.exp(-Math.max(0, ripple.lifetime - ripple.age) * 0.36),
       );
       h.uPointer.value[i] = ripple.source === "pointer" ? 1 : 0;

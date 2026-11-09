@@ -166,7 +166,12 @@ test('compact font range changes actual pixels and wallpaper controls work while
   const widths: number[] = []
   for (const fontSize of [18, 36, 54, 72]) {
     await set({ fontSize }); await expect(canvas).toHaveAttribute('data-font-size', String(fontSize))
-    widths.push((await pixels()).width)
+    // Changing the lyric text loads Unicode font shards and remounts the scene.
+    // Wait for painted glyphs before measuring; a matching attribute can precede
+    // that font-loading gap and an empty WebGL screenshot has a negative width.
+    let width = 0
+    await expect.poll(async () => (width = (await pixels()).width)).toBeGreaterThan(0)
+    widths.push(width)
   }
   expect(widths[3] / widths[0]).toBeGreaterThan(1.4)
   for (let i = 1; i < widths.length; i++) expect(widths[i]).toBeGreaterThan(widths[i - 1] * 1.08)

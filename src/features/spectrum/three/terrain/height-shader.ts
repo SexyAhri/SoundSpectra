@@ -50,4 +50,4 @@ void main() {
   height = max(0., mix(height,terraced,.32*smoothstep(1.2,5.,height)));
   float heat = clamp((height / 10. * .8 + footprint * uLevels.x * .32 + spectrum * .15) * (.36 + footprint * .64), 0., 1.);
   gl_FragColor = vec4(height, footprint, min(1., crest * .65), heat);
-}`
+}`;

@@ -1,10 +1,15 @@
-import { validateRailAudio, type RailAudioConfig } from './audio-config';
+import { validateRailAudio, type RailAudioConfig } from "./audio-config";
 export type RailKind = "app" | "file" | "folder" | "image" | "note";
 export const railSkins = ["woodland", "floral", "wisteria", "autumn"] as const;
 export type RailSkin = (typeof railSkins)[number];
 export const railSkin = (value: unknown): RailSkin =>
-  value === 'galaxy' ? 'wisteria' : value === 'vinyl' ? 'autumn' :
-  railSkins.includes(value as RailSkin) ? (value as RailSkin) : "floral";
+  value === "galaxy"
+    ? "wisteria"
+    : value === "vinyl"
+      ? "autumn"
+      : railSkins.includes(value as RailSkin)
+        ? (value as RailSkin)
+        : "floral";
 export interface RailItem {
   id: string;
   name: string;

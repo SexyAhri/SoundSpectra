@@ -1,73 +1,142 @@
-import * as T from 'three'
-import { commonUniforms, flowDriver, material, mesh, surfaceGeometry, surfaceVertex, uniformSource, type FlowEffect } from '../flow/shared'
-import { reactiveUniforms, reactiveSource, updateReactiveUniforms } from '../../reactive-motion'
+import * as T from "three";
+import {
+  commonUniforms,
+  flowDriver,
+  material,
+  mesh,
+  surfaceGeometry,
+  surfaceVertex,
+  uniformSource,
+  type FlowEffect,
+} from "../flow/shared";
+import {
+  reactiveUniforms,
+  reactiveSource,
+  updateReactiveUniforms,
+} from "../../reactive-motion";
 
 /** Clip the contour triangles against a regular lattice. Long, thin fans from
  * ear clipping otherwise interpolate the dark wing edge across the hinge. */
-function clipWingCell(input: T.Vector3[], axis: 'x'|'y', bound: number, keepAbove: boolean) {
-  const out:T.Vector3[]=[]
-  for(let i=0;i<input.length;i++) {
-    const a=input[i],b=input[(i+1)%input.length]
-    const insideA=keepAbove?a[axis]>=bound:a[axis]<=bound,insideB=keepAbove?b[axis]>=bound:b[axis]<=bound
-    if(insideA)out.push(a)
-    if(insideA!==insideB)out.push(a.clone().lerp(b,(bound-a[axis])/(b[axis]-a[axis])))
+function clipWingCell(
+  input: T.Vector3[],
+  axis: "x" | "y",
+  bound: number,
+  keepAbove: boolean,
+) {
+  const out: T.Vector3[] = [];
+  for (let i = 0; i < input.length; i++) {
+    const a = input[i],
+      b = input[(i + 1) % input.length];
+    const insideA = keepAbove ? a[axis] >= bound : a[axis] <= bound,
+      insideB = keepAbove ? b[axis] >= bound : b[axis] <= bound;
+    if (insideA) out.push(a);
+    if (insideA !== insideB)
+      out.push(a.clone().lerp(b, (bound - a[axis]) / (b[axis] - a[axis])));
   }
-  return out
+  return out;
 }
 
 /** Authored fore/hind contours meet at a short thoracic hinge. */
 export function butterflyWingGeometry() {
-  const fore=new T.Shape()
-  fore.moveTo(.09,.35)
-  fore.bezierCurveTo(.55,1.,2.85,4.15,4.25,3.8)
-  fore.bezierCurveTo(5.1,3.35,4.8,1.4,3.9,.45)
-  fore.bezierCurveTo(3.3,-.12,2.,-.35,1.25,-.05)
-  fore.bezierCurveTo(.72,-.15,.22,.02,.09,.35)
-  const hind=new T.Shape()
-  hind.moveTo(.12,.35)
-  hind.bezierCurveTo(.8,.48,2.2,.7,2.94,.15)
-  hind.bezierCurveTo(3.35,-.2,3.1,-.82,2.68,-1.02)
-  hind.bezierCurveTo(2.9,-1.55,2.42,-1.85,2.02,-1.75)
-  hind.bezierCurveTo(1.95,-2.3,1.42,-2.55,1.1,-2.16)
-  hind.bezierCurveTo(.6,-2.32,.12,-1.25,.12,.35)
-  const positions:number[]=[],uvs:number[]=[],lanes:number[]=[],edges:number[]=[]
-  for(let part=0;part<4;part++) {
-    const shape=part%2?hind:fore,outline=shape.getPoints(16)
-    const base=new T.ShapeGeometry(shape,16),plain=base.toNonIndexed(),p=plain.getAttribute('position')
-    const edgeDistance=(x:number,y:number)=>{
-      let distance=Infinity
-      for(let i=0;i<outline.length-1;i++) {
-        const a=outline[i],b=outline[i+1],dx=b.x-a.x,dy=b.y-a.y
-        const t=T.MathUtils.clamp(((x-a.x)*dx+(y-a.y)*dy)/Math.max(1e-8,dx*dx+dy*dy),0,1)
-        distance=Math.min(distance,Math.hypot(x-a.x-dx*t,y-a.y-dy*t))
+  const fore = new T.Shape();
+  fore.moveTo(0.09, 0.35);
+  fore.bezierCurveTo(0.55, 1, 2.85, 4.15, 4.25, 3.8);
+  fore.bezierCurveTo(5.1, 3.35, 4.8, 1.4, 3.9, 0.45);
+  fore.bezierCurveTo(3.3, -0.12, 2, -0.35, 1.25, -0.05);
+  fore.bezierCurveTo(0.72, -0.15, 0.22, 0.02, 0.09, 0.35);
+  const hind = new T.Shape();
+  hind.moveTo(0.12, 0.35);
+  hind.bezierCurveTo(0.8, 0.48, 2.2, 0.7, 2.94, 0.15);
+  hind.bezierCurveTo(3.35, -0.2, 3.1, -0.82, 2.68, -1.02);
+  hind.bezierCurveTo(2.9, -1.55, 2.42, -1.85, 2.02, -1.75);
+  hind.bezierCurveTo(1.95, -2.3, 1.42, -2.55, 1.1, -2.16);
+  hind.bezierCurveTo(0.6, -2.32, 0.12, -1.25, 0.12, 0.35);
+  const positions: number[] = [],
+    uvs: number[] = [],
+    lanes: number[] = [],
+    edges: number[] = [];
+  for (let part = 0; part < 4; part++) {
+    const shape = part % 2 ? hind : fore,
+      outline = shape.getPoints(16);
+    const base = new T.ShapeGeometry(shape, 16),
+      plain = base.toNonIndexed(),
+      p = plain.getAttribute("position");
+    const edgeDistance = (x: number, y: number) => {
+      let distance = Infinity;
+      for (let i = 0; i < outline.length - 1; i++) {
+        const a = outline[i],
+          b = outline[i + 1],
+          dx = b.x - a.x,
+          dy = b.y - a.y;
+        const t = T.MathUtils.clamp(
+          ((x - a.x) * dx + (y - a.y) * dy) / Math.max(1e-8, dx * dx + dy * dy),
+          0,
+          1,
+        );
+        distance = Math.min(
+          distance,
+          Math.hypot(x - a.x - dx * t, y - a.y - dy * t),
+        );
       }
-      return distance
-    }
-    for(let triangle=0;triangle<p.count;triangle+=3) {
-      const a=new T.Vector3().fromBufferAttribute(p,triangle),b=new T.Vector3().fromBufferAttribute(p,triangle+1),c=new T.Vector3().fromBufferAttribute(p,triangle+2)
-      const add=(v:T.Vector3)=>{positions.push(v.x,v.y,v.z);uvs.push(v.x/4.9,(v.y+2.55)/6.7);lanes.push(part);edges.push(edgeDistance(v.x,v.y))}
-      const spacing=.36
-      const minX=Math.floor(Math.min(a.x,b.x,c.x)/spacing),maxX=Math.floor(Math.max(a.x,b.x,c.x)/spacing)
-      const minY=Math.floor(Math.min(a.y,b.y,c.y)/spacing),maxY=Math.floor(Math.max(a.y,b.y,c.y)/spacing)
-      for(let x=minX;x<=maxX;x++)for(let y=minY;y<=maxY;y++) {
-        let polygon=[a,b,c]
-        for(const [axis,bound,above] of [['x',x*spacing,true],['x',(x+1)*spacing,false],['y',y*spacing,true],['y',(y+1)*spacing,false]] as const)
-          polygon=clipWingCell(polygon,axis,bound,above)
-        for(let i=1;i<polygon.length-1;i++) {
-          const area=new T.Vector3().subVectors(polygon[i],polygon[0]).cross(new T.Vector3().subVectors(polygon[i+1],polygon[0])).lengthSq()
-          if(area>1e-14){add(polygon[0]);add(polygon[i]);add(polygon[i+1])}
+      return distance;
+    };
+    for (let triangle = 0; triangle < p.count; triangle += 3) {
+      const a = new T.Vector3().fromBufferAttribute(p, triangle),
+        b = new T.Vector3().fromBufferAttribute(p, triangle + 1),
+        c = new T.Vector3().fromBufferAttribute(p, triangle + 2);
+      const add = (v: T.Vector3) => {
+        positions.push(v.x, v.y, v.z);
+        uvs.push(v.x / 4.9, (v.y + 2.55) / 6.7);
+        lanes.push(part);
+        edges.push(edgeDistance(v.x, v.y));
+      };
+      const spacing = 0.36;
+      const minX = Math.floor(Math.min(a.x, b.x, c.x) / spacing),
+        maxX = Math.floor(Math.max(a.x, b.x, c.x) / spacing);
+      const minY = Math.floor(Math.min(a.y, b.y, c.y) / spacing),
+        maxY = Math.floor(Math.max(a.y, b.y, c.y) / spacing);
+      for (let x = minX; x <= maxX; x++)
+        for (let y = minY; y <= maxY; y++) {
+          let polygon = [a, b, c];
+          for (const [axis, bound, above] of [
+            ["x", x * spacing, true],
+            ["x", (x + 1) * spacing, false],
+            ["y", y * spacing, true],
+            ["y", (y + 1) * spacing, false],
+          ] as const)
+            polygon = clipWingCell(polygon, axis, bound, above);
+          for (let i = 1; i < polygon.length - 1; i++) {
+            const area = new T.Vector3()
+              .subVectors(polygon[i], polygon[0])
+              .cross(new T.Vector3().subVectors(polygon[i + 1], polygon[0]))
+              .lengthSq();
+            if (area > 1e-14) {
+              add(polygon[0]);
+              add(polygon[i]);
+              add(polygon[i + 1]);
+            }
+          }
         }
-      }
     }
-    plain.dispose();base.dispose()
+    plain.dispose();
+    base.dispose();
   }
-  const g=new T.InstancedBufferGeometry()
-  g.setAttribute('position',new T.Float32BufferAttribute(positions,3));g.setAttribute('uv',new T.Float32BufferAttribute(uvs,2))
-  g.setAttribute('aPart',new T.Float32BufferAttribute(lanes,1));g.setAttribute('aEdge',new T.Float32BufferAttribute(edges,1))
-  g.setAttribute('aInsect',new T.InstancedBufferAttribute(Float32Array.from({length:7},(_,i)=>i),1))
-  g.instanceCount=7;return g
+  const g = new T.InstancedBufferGeometry();
+  g.setAttribute("position", new T.Float32BufferAttribute(positions, 3));
+  g.setAttribute("uv", new T.Float32BufferAttribute(uvs, 2));
+  g.setAttribute("aPart", new T.Float32BufferAttribute(lanes, 1));
+  g.setAttribute("aEdge", new T.Float32BufferAttribute(edges, 1));
+  g.setAttribute(
+    "aInsect",
+    new T.InstancedBufferAttribute(
+      Float32Array.from({ length: 7 }, (_, i) => i),
+      1,
+    ),
+  );
+  g.instanceCount = 7;
+  return g;
 }
-const flight=`${reactiveSource}
+const flight = `${reactiveSource}
 vec3 butterflyFlight(vec3 p,float id){
   float q=uPhase*.27-id*.62;
   float local=musicFront(fract(id*.173),.45,.12);
@@ -83,8 +152,8 @@ vec3 butterflyFlight(vec3 p,float id){
   center.y+=sin(uPhase*4.4+id)*.1*uBodyBands.x+local*.55;
   return center+p*size;
 }
-`
-const wingVertex=`${uniformSource}${flight}
+`;
+const wingVertex = `${uniformSource}${flight}
 attribute float aPart,aEdge,aInsect;
 varying vec3 vWorld,vWing,vNormal;varying float vEdge,vHind;
 vec3 flapPoint(vec3 source,float side,float hind){
@@ -106,8 +175,8 @@ void main(){
   vNormal=mat3(modelMatrix)*normalize(cross(dx,dy));
   vWorld=(modelMatrix*vec4(p,1.)).xyz;vWing=position;vEdge=aEdge;vHind=hind;
   gl_Position=projectionMatrix*viewMatrix*vec4(vWorld,1.);
-}`
-const wingFragment=`${uniformSource}
+}`;
+const wingFragment = `${uniformSource}
 varying vec3 vWorld,vWing,vNormal;varying float vEdge,vHind;
 void main(){
   vec3 n=vNormal/max(length(vNormal),.00001);
@@ -139,8 +208,9 @@ void main(){
   color=mix(color,uShade*.22,border*.98);
   color+=uHighlight*flecks*(.30+uAccents.z*.15)+uColor*sheen*.16*(1.-border);
   gl_FragColor=vec4(color,1.);
-}`
-const bodyVertex=surfaceVertex(`
+}`;
+const bodyVertex = surfaceVertex(
+  `
   float id=floor(lane/5.),kind=mod(lane,5.);
   float r=kind<.5?.17:kind<1.5?.24:kind<2.5?.14:.095;
   float center=kind<.5?1.12:kind<1.5?.47:kind<2.5?-.85:1.15;
@@ -148,15 +218,20 @@ const bodyVertex=surfaceVertex(`
   p=vec3(cos(a)*sin(t*PI)*r,center+(t-.5)*extent,sin(a)*sin(t*PI)*r+.19);
   if(kind>2.5)p+=vec3(kind<3.5?-.14:.14,0.,.07);
   p=butterflyFlight(p,id);
-`,flight)
-const antennaVertex=surfaceVertex(`
+`,
+  flight,
+);
+const antennaVertex = surfaceVertex(
+  `
   float id=floor(lane/2.),side=mod(lane,2.)*2.-1.;
   vec3 center=vec3(side*(.07+t*.43),1.24+t*.95,.18+sin(t*PI)*.12);
   float r=.013+pow(t,18.)*.03;
   p=center+vec3(cos(a)*r,0.,sin(a)*r);
   p=butterflyFlight(p,id);
-`,flight)
-const bodyFragment=`${uniformSource}
+`,
+  flight,
+);
+const bodyFragment = `${uniformSource}
 varying vec3 vWorld;varying vec2 vUv;varying float vLane,vAlpha,vLight;
 void main(){
   vec3 n=cross(dFdx(vWorld),dFdy(vWorld));n/=max(length(n),.00001);
@@ -164,17 +239,32 @@ void main(){
   float shine=pow(max(0.,dot(n,normalize(view+light))),28.);
   vec3 color=mix(uShade*.25,uColor*.12,.4)+uHighlight*shine*.16;
   gl_FragColor=vec4(color,1.);
-}`
-export function createButterflyFlock(_detail:number):FlowEffect {
-  const group=new T.Group();group.name='anatomical-morpho-flock'
-  const u={...commonUniforms(),...reactiveUniforms()},drive=flowDriver(u)
-  const wings=material(u,wingVertex,wingFragment);wings.transparent=false
-  mesh(group,butterflyWingGeometry(),wings)
-  mesh(group,surfaceGeometry(20,8,7*5),material(u,bodyVertex,bodyFragment)).name='butterfly-body'
-  mesh(group,surfaceGeometry(18,5,7*2),material(u,antennaVertex,bodyFragment))
-  return {group,update(motion,config,reduced){
-    drive(motion,config,reduced,.65+config.music.speed*.25)
-    updateReactiveUniforms(u,motion,'butterfly_flock',reduced)
-    u.uRange.value=config.music.ambientSpread;u.uDepth.value=config.music.fieldHeight
-  }}
+}`;
+export function createButterflyFlock(_detail: number): FlowEffect {
+  const group = new T.Group();
+  group.name = "anatomical-morpho-flock";
+  const u = { ...commonUniforms(), ...reactiveUniforms() },
+    drive = flowDriver(u);
+  const wings = material(u, wingVertex, wingFragment);
+  wings.transparent = false;
+  mesh(group, butterflyWingGeometry(), wings);
+  mesh(
+    group,
+    surfaceGeometry(20, 8, 7 * 5),
+    material(u, bodyVertex, bodyFragment),
+  ).name = "butterfly-body";
+  mesh(
+    group,
+    surfaceGeometry(18, 5, 7 * 2),
+    material(u, antennaVertex, bodyFragment),
+  );
+  return {
+    group,
+    update(motion, config, reduced) {
+      drive(motion, config, reduced, 0.65 + config.music.speed * 0.25);
+      updateReactiveUniforms(u, motion, "butterfly_flock", reduced);
+      u.uRange.value = config.music.ambientSpread;
+      u.uDepth.value = config.music.fieldHeight;
+    },
+  };
 }

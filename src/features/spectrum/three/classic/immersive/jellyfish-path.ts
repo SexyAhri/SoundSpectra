@@ -1,13 +1,30 @@
 /** Matching CPU/GLSL paths keep the bell, wake and volume lights together. */
-export function jellyfishCenter(phase: number, id: number, count: number, range: number, wide: number, depth: number) {
-  const q=phase*(.32+(id*.137%1)*.075)+id*2.399963;
-  const flatX=(id/Math.max(1,count-1)-.5)*range;
-  const deepX=id===0?-2.5:Math.sin(id*2.399963)*range*.62;
-  const deepY=id===0?2:5+Math.cos(id*1.73)*7;
-  const deepZ=id===0?3:-5-(id%3)*8*depth-Math.floor(id/3)*5;
-  return [deepX*(1-wide)+flatX*wide+Math.sin(q)*2.6+Math.sin(q*.43+id)*.45,
-    deepY*(1-wide)+(2+Math.sin(id*2.4)*3)*wide+Math.sin(q*.71+id*.37)*1.8,
-    deepZ*(1-wide)+(-1+Math.sin(id*5)*3)*wide+Math.cos(q)*1.35];
+export function jellyfishCenter(
+  phase: number,
+  id: number,
+  count: number,
+  range: number,
+  wide: number,
+  depth: number,
+) {
+  const q = phase * (0.32 + ((id * 0.137) % 1) * 0.075) + id * 2.399963;
+  const flatX = (id / Math.max(1, count - 1) - 0.5) * range;
+  const deepX = id === 0 ? -2.5 : Math.sin(id * 2.399963) * range * 0.62;
+  const deepY = id === 0 ? 2 : 5 + Math.cos(id * 1.73) * 7;
+  const deepZ =
+    id === 0 ? 3 : -5 - (id % 3) * 8 * depth - Math.floor(id / 3) * 5;
+  return [
+    deepX * (1 - wide) +
+      flatX * wide +
+      Math.sin(q) * 2.6 +
+      Math.sin(q * 0.43 + id) * 0.45,
+    deepY * (1 - wide) +
+      (2 + Math.sin(id * 2.4) * 3) * wide +
+      Math.sin(q * 0.71 + id * 0.37) * 1.8,
+    deepZ * (1 - wide) +
+      (-1 + Math.sin(id * 5) * 3) * wide +
+      Math.cos(q) * 1.35,
+  ];
 }
 
 export const jellyfishPathSource = `

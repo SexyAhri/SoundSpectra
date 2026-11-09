@@ -34,8 +34,10 @@ export function useRail() {
   const refresh = useCallback(async () => {
     const request = ++refreshRequest.current;
     const startedAt = revision.current;
-    const current = () => alive.current && request === refreshRequest.current
-      && startedAt === revision.current;
+    const current = () =>
+      alive.current &&
+      request === refreshRequest.current &&
+      startedAt === revision.current;
     try {
       const value = await loadRail();
       if (!current()) return;
@@ -51,8 +53,11 @@ export function useRail() {
       stop: (() => void) | undefined;
     // Subscribe before reading so a change between startup and the first
     // snapshot cannot be missed or replaced by an older request.
-    void subscribeRail(value => {
-      if (!disposed) { eventRevision.current++; accept(value); }
+    void subscribeRail((value) => {
+      if (!disposed) {
+        eventRevision.current++;
+        accept(value);
+      }
     })
       .then((unsubscribe) => {
         if (disposed) unsubscribe();
@@ -61,7 +66,9 @@ export function useRail() {
       .catch((error) => {
         if (!disposed) setError(String(error));
       })
-      .finally(() => { if (!disposed) void refresh() });
+      .finally(() => {
+        if (!disposed) void refresh();
+      });
     return () => {
       alive.current = false;
       revision.current++;
@@ -114,7 +121,10 @@ export function useRail() {
     (groupId: string) => run(() => pasteRailImage(groupId)),
     [run],
   );
-  const detach = useCallback((id: string) => run(() => detachRailItem(id)), [run]);
+  const detach = useCallback(
+    (id: string) => run(() => detachRailItem(id)),
+    [run],
+  );
   const pick = useCallback(
     async (groupId: string, folder: boolean, replaceId?: string) => {
       try {
@@ -129,18 +139,33 @@ export function useRail() {
   const flush = useCallback(async () => {
     await queue.current;
   }, []);
-  return useMemo(() => ({
-    ...snapshot,
-    loaded,
-    pending,
-    error,
-    change,
-    add,
-    pasteImage,
-    detach,
-    pick,
-    refresh,
-    flush,
-  }), [snapshot, loaded, pending, error, change, add, pasteImage, detach, pick, refresh, flush]);
+  return useMemo(
+    () => ({
+      ...snapshot,
+      loaded,
+      pending,
+      error,
+      change,
+      add,
+      pasteImage,
+      detach,
+      pick,
+      refresh,
+      flush,
+    }),
+    [
+      snapshot,
+      loaded,
+      pending,
+      error,
+      change,
+      add,
+      pasteImage,
+      detach,
+      pick,
+      refresh,
+      flush,
+    ],
+  );
 }
 export type RailController = ReturnType<typeof useRail>;

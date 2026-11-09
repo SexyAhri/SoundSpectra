@@ -50,7 +50,12 @@ export const RailFloralCord = memo(function RailFloralCord({
     }
     return { back, front, light };
   });
-  const { flowers, leaves } = railFloralLayout(unit, geometry, attachments, theme);
+  const { flowers, leaves } = railFloralLayout(
+    unit,
+    geometry,
+    attachments,
+    theme,
+  );
 
   return (
     <g className="rail-floral-cord" aria-hidden="true">
@@ -98,10 +103,13 @@ export const RailFloralCord = memo(function RailFloralCord({
         >
           <g
             className="rail-floral-leaf-motion"
-            transform={`rotate(${(index % 3) * 7 - 7}) scale(${.78 + (index % 3) * .09} ${index % 2 ? -.86 : .86})`}
+            transform={`rotate(${(index % 3) * 7 - 7}) scale(${0.78 + (index % 3) * 0.09} ${index % 2 ? -0.86 : 0.86})`}
           >
             <g className="rail-leaf-drift">
-              <path className="rail-vine-leaf rail-vine-leaf-light" d="M-7 0Q-3-11 7-8Q5-1-7 0Z" />
+              <path
+                className="rail-vine-leaf rail-vine-leaf-light"
+                d="M-7 0Q-3-11 7-8Q5-1-7 0Z"
+              />
               <path className="rail-vine-vein" d="M-5 0 4-6" />
             </g>
           </g>
@@ -116,18 +124,30 @@ export const RailFloralCord = memo(function RailFloralCord({
         >
           <g
             className="rail-vine-leaves"
-            transform={`scale(${(index % 2 ? -1 : 1) * (.78 + (index % 3) * .08)} ${.8 + (index % 3) * .07})`}
+            transform={`scale(${(index % 2 ? -1 : 1) * (0.78 + (index % 3) * 0.08)} ${0.8 + (index % 3) * 0.07})`}
           >
             <g className="rail-leaf-drift">
-              <path className="rail-vine-leaf" d="M-5-1Q-13-12-21-7Q-19 0-5-1Z" />
-              <path className="rail-vine-leaf rail-vine-leaf-light" d="M8 1Q16-6 23-2Q19 5 8 1Z" />
-              <path className="rail-vine-leaf" d="M12 3Q19 1 24 8Q16 10 12 3Z" />
-              <path className="rail-vine-vein" d="M-7-1-18-6 M10 1 20-1 M15 5 21 7" />
+              <path
+                className="rail-vine-leaf"
+                d="M-5-1Q-13-12-21-7Q-19 0-5-1Z"
+              />
+              <path
+                className="rail-vine-leaf rail-vine-leaf-light"
+                d="M8 1Q16-6 23-2Q19 5 8 1Z"
+              />
+              <path
+                className="rail-vine-leaf"
+                d="M12 3Q19 1 24 8Q16 10 12 3Z"
+              />
+              <path
+                className="rail-vine-vein"
+                d="M-7-1-18-6 M10 1 20-1 M15 5 21 7"
+              />
             </g>
           </g>
           <g
             className="rail-vine-flower"
-            transform={`translate(-1 -1) rotate(${index % 2 ? 22 : -8}) scale(${.8 + (index % 3) * .08})`}
+            transform={`translate(-1 -1) rotate(${index % 2 ? 22 : -8}) scale(${0.8 + (index % 3) * 0.08})`}
           >
             {[0, 72, 144, 216, 288].map((rotation) => (
               <ellipse

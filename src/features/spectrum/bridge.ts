@@ -62,7 +62,11 @@ export function describeError(error: unknown) {
   return error instanceof Error ? error.message : String(error);
 }
 
-export async function subscribeGeometry(onSettings: (settings: SpectrumSettings) => void) {
+export async function subscribeGeometry(
+  onSettings: (settings: SpectrumSettings) => void,
+) {
   if (!native) return () => {};
-  return listen<SpectrumSettings>("geometry-changed", (event) => onSettings(normalizeSettings(event.payload)));
+  return listen<SpectrumSettings>("geometry-changed", (event) =>
+    onSettings(normalizeSettings(event.payload)),
+  );
 }

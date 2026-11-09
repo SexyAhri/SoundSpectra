@@ -5,7 +5,12 @@ import { CardFace } from "./card-face";
 import { CardArtwork } from "./card-artwork";
 import "./card-style-preview.css";
 
-const info = { title: "沿着海岸慢慢走", album: "海风手记", source: "音乐", duration: 236 };
+const info = {
+  title: "沿着海岸慢慢走",
+  album: "海风手记",
+  source: "音乐",
+  duration: 236,
+};
 const levels = [5, 11, 17, 9, 21, 14, 7, 16, 11, 5];
 
 export function CardStylePreview({

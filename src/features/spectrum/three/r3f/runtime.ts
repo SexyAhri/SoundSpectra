@@ -4,10 +4,10 @@ import type { Vector2, WebGLRenderTarget } from "three";
 import type { SpectrumSettings } from "../../model";
 import type { SceneMotion } from "../motion";
 import type { SceneBloom } from "../classic/scene-bloom";
-import type { SceneFocus } from '../../scene-focus';
-import type { CompositionId } from '../compositions/presets';
-import type { TransitionFrame } from '../../../performance/transition';
-import type { MappingValues } from '../../../performance/mapping';
+import type { SceneFocus } from "../../scene-focus";
+import type { CompositionId } from "../compositions/presets";
+import type { TransitionFrame } from "../../../performance/transition";
+import type { MappingValues } from "../../../performance/mapping";
 
 /** Mutable frame state: audio and animation never cause React reconciliation. */
 export interface VisualRuntime {

@@ -12,7 +12,11 @@ import {
   reactiveSource,
   updateReactiveUniforms,
 } from "../../reactive-motion";
-import { addDaylight, daylightUniforms, updateDaylight } from './daylight-field';
+import {
+  addDaylight,
+  daylightUniforms,
+  updateDaylight,
+} from "./daylight-field";
 
 // Project a tessellated water surface onto the floor. Overlapping folds add
 // light; their projected area controls intensity, rather than drawing contours.
@@ -56,7 +60,11 @@ void main(){
 export function createCausticLight(detail: number): FlowEffect {
   const group = new T.Group();
   group.name = "refracted-water-light";
-  const u = { ...commonUniforms(), ...reactiveUniforms(), ...daylightUniforms('water') },
+  const u = {
+      ...commonUniforms(),
+      ...reactiveUniforms(),
+      ...daylightUniforms("water"),
+    },
     drive = flowDriver(u);
   const floor = material(u, vertex, fragment, true);
   floor.depthWrite = false;
@@ -66,13 +74,13 @@ export function createCausticLight(detail: number): FlowEffect {
     new T.PlaneGeometry(64, 80, segments, Math.round(segments * 1.25)),
     floor,
   );
-  addDaylight(group,u,Math.round(320*detail));
+  addDaylight(group, u, Math.round(320 * detail));
   return {
     group,
     update(motion, config, reduced) {
-      const dt=drive(motion, config, reduced, 0.5 + config.music.speed * 0.2);
+      const dt = drive(motion, config, reduced, 0.5 + config.music.speed * 0.2);
       updateReactiveUniforms(u, motion, config.effect, reduced);
-      updateDaylight(u,config,motion.volume,dt,u.uDragBands.value.x);
+      updateDaylight(u, config, motion.volume, dt, u.uDragBands.value.x);
       u.uDepth.value = 0.65 + config.music.fieldHeight * 0.35;
       u.uRange.value = 0.8 + config.music.ambientSpread * 0.2;
     },

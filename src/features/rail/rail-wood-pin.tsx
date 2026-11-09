@@ -13,14 +13,16 @@ export function RailWoodPin({ materialId }: { materialId?: string }) {
       fill="none"
       aria-hidden="true"
     >
-      {!materialId && <defs>
-        <linearGradient id={id} x1="0" x2="1">
-          <stop stopColor="#f8eac6" />
-          <stop offset=".2" stopColor="#e8d3aa" />
-          <stop offset=".55" stopColor="var(--rail-pin-color, #cfb083)" />
-          <stop offset="1" stopColor="#a28759" />
-        </linearGradient>
-      </defs>}
+      {!materialId && (
+        <defs>
+          <linearGradient id={id} x1="0" x2="1">
+            <stop stopColor="#f8eac6" />
+            <stop offset=".2" stopColor="#e8d3aa" />
+            <stop offset=".55" stopColor="var(--rail-pin-color, #cfb083)" />
+            <stop offset="1" stopColor="#a28759" />
+          </linearGradient>
+        </defs>
+      )}
       <path d="m3 1 7 1 1 30-6 1Z" fill="#79623d" />
       <path
         d="M1 .5 9 0 8.5 15 9 32 2 33 1.5 17Z"

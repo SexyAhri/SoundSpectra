@@ -1,5 +1,5 @@
 // Shared appearance settings for the spatial music scenes.
-import type { LuminousAppearance } from './luminous-appearance'
+import type { LuminousAppearance } from "./luminous-appearance";
 export type MusicEffectAppearance = LuminousAppearance & {
   ambientDensity: number;
   ambientSpread: number;
@@ -8,19 +8,19 @@ export type MusicEffectAppearance = LuminousAppearance & {
   fieldBrightness: number;
   fieldSpread: number;
   fieldDrops: number;
-  fieldPalette: 'iris' | 'ember' | 'lake';
-  fieldRippleMode: 'rain' | 'center';
+  fieldPalette: "iris" | "ember" | "lake";
+  fieldRippleMode: "rain" | "center";
   ballSpeedMultiplier: number;
   rainSpeedMultiplier: number;
   skinFlowSpeedMultiplier: number;
   sensitivity: number;
-  response: 'soft' | 'balanced' | 'responsive';
+  response: "soft" | "balanced" | "responsive";
   ballRadiusMultiplier: number;
   ballCount: number;
   ballTrail: number;
   rainRadiusMultiplier: number;
   rainCount: number;
-  rainDirection: 'left' | 'down' | 'right';
+  rainDirection: "left" | "down" | "right";
   dragonWidth: number;
   dragonTrail: number;
   dragonBurst: number;

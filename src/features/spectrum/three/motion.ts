@@ -71,12 +71,18 @@ export class SceneMotion {
   simulationTime = 0;
   /** Event caches must follow source resets even when the new clock is later. */
   resetRevision = 0;
-  private readonly flows = new Map<string, { phase: number; speed: number; target: number; step: number }>();
+  private readonly flows = new Map<
+    string,
+    { phase: number; speed: number; target: number; step: number }
+  >();
 
   /** Layer recreation and effect changes reuse their last path instead of replaying it. */
   flowPhase(key: string, speed: number, sustainFlow: number, reduced: boolean) {
     let state = this.flows.get(key);
-    if (!state) { state = { phase: 0, speed: 0, target: 0, step: -1 }; this.flows.set(key, state); }
+    if (!state) {
+      state = { phase: 0, speed: 0, target: 0, step: -1 };
+      this.flows.set(key, state);
+    }
     if (state.step !== this.stepIndex) {
       state.step = this.stepIndex;
       if (!reduced && this.transporting && this.frame) {
@@ -84,17 +90,37 @@ export class SceneMotion {
         // brightness. No baseline speed: a quiet note must travel less than a
         // loud one, and captured attacks must change movement as well as light.
         const level = Math.min(2, Math.max(0, this.frame.intensity) * 10);
-        const accentWeight = Math.sqrt(unit(this.frame.intensitySample.current / .18) * this.frame.sensitivity);
-        const attack = Math.max(0, this.frame.transients[0] * 1.25 + this.frame.transients[1] * .65 + this.frame.transients[2] * .25) * accentWeight;
-        const target = (level + attack) * speed * (1 + this.frame.sustain * sustainFlow * .15);
-        const dt = this.stepSeconds, tau = .06;
+        const accentWeight = Math.sqrt(
+          unit(this.frame.intensitySample.current / 0.18) *
+            this.frame.sensitivity,
+        );
+        const attack =
+          Math.max(
+            0,
+            this.frame.transients[0] * 1.25 +
+              this.frame.transients[1] * 0.65 +
+              this.frame.transients[2] * 0.25,
+          ) * accentWeight;
+        const target =
+          (level + attack) *
+          speed *
+          (1 + this.frame.sustain * sustainFlow * 0.15);
+        const dt = this.stepSeconds,
+          tau = 0.06;
         if (dt > 0) {
           // Integrate the line between accepted audio samples analytically.
           // Holding the new endpoint for the whole frame overcounts each attack
           // at 30Hz compared with 120Hz.
-          const slope = (target - state.target) / dt, decay = Math.exp(-dt / tau);
-          const next = target - slope * tau + (state.speed - state.target + slope * tau) * decay;
-          state.phase += Math.max(0, (state.target + target) * .5 * dt - tau * (next - state.speed));
+          const slope = (target - state.target) / dt,
+            decay = Math.exp(-dt / tau);
+          const next =
+            target -
+            slope * tau +
+            (state.speed - state.target + slope * tau) * decay;
+          state.phase += Math.max(
+            0,
+            (state.target + target) * 0.5 * dt - tau * (next - state.speed),
+          );
           state.speed = Math.max(0, next);
         }
         state.target = target;
@@ -125,12 +151,14 @@ export class SceneMotion {
     this.middle = 0;
     this.treble = 0;
     this.energy = this.onsetStrength = 0;
-    this.musicalBands.fill(0); this.accents.fill(0);
+    this.musicalBands.fill(0);
+    this.accents.fill(0);
     if (!preservePath) {
       this.phase = 0;
       this.auroraPhase = 0;
       this.flows.clear();
-    } else for (const state of this.flows.values()) state.speed = state.target = 0;
+    } else
+      for (const state of this.flows.values()) state.speed = state.target = 0;
     this.sharedBeat = -1;
   }
 
@@ -203,31 +231,57 @@ export class SceneMotion {
     this.treble = unit((frame.levels[4] + frame.levels[5]) / 2) * this.volume;
     // Bands already carry the captured absolute energy. Multiplying every
     // response by the small raw RMS again made local musical gestures vanish.
-    this.energy = Math.sqrt(unit((frame.displayIntensity ?? frame.intensity) / .25));
-    const weight = Math.sqrt(unit(frame.intensitySample.current / .18));
+    this.energy = Math.sqrt(
+      unit((frame.displayIntensity ?? frame.intensity) / 0.25),
+    );
+    const weight = Math.sqrt(unit(frame.intensitySample.current / 0.18));
     const participation = Math.sqrt(settings.sensitivity);
     for (let i = 0; i < 3; i++) {
-      this.musicalBands[i] = unit((frame.levels[i*2] + frame.levels[i*2+1]) / 2) * weight;
-      const target = !reduced && audible ? unit((frame.transients[i] ?? 0) * weight * participation) : 0;
-      const tau = target > this.accents[i] ? .018 : .10;
-      this.accents[i] += (target - this.accents[i]) * (1 - Math.exp(-elapsed / tau));
+      this.musicalBands[i] =
+        unit((frame.levels[i * 2] + frame.levels[i * 2 + 1]) / 2) * weight;
+      const target =
+        !reduced && audible
+          ? unit((frame.transients[i] ?? 0) * weight * participation)
+          : 0;
+      const tau = target > this.accents[i] ? 0.018 : 0.1;
+      this.accents[i] +=
+        (target - this.accents[i]) * (1 - Math.exp(-elapsed / tau));
       if (reduced) this.accents[i] = 0;
     }
-    this.onsetStrength = !reduced && audible ? unit(frame.beatStrength * weight * participation) : 0;
+    this.onsetStrength =
+      !reduced && audible
+        ? unit(frame.beatStrength * weight * participation)
+        : 0;
     [this.volume, this.bass].forEach((target, i) => {
-      const value = this.terrainMass[i], tau = target > value ? .22 : .65;
+      const value = this.terrainMass[i],
+        tau = target > value ? 0.22 : 0.65;
       this.terrainMass[i] += (target - value) * (1 - Math.exp(-elapsed / tau));
     });
     for (let i = 0; i < 48; i++) {
-      const target = audible ? unit(frame.spectrum[i]) : 0, value = this.terrainSpectrum[i];
-      this.terrainSpectrum[i] += (target - value) * (1 - Math.exp(-elapsed / (target > value ? .085 : .30)));
+      const target = audible ? unit(frame.spectrum[i]) : 0,
+        value = this.terrainSpectrum[i];
+      this.terrainSpectrum[i] +=
+        (target - value) *
+        (1 - Math.exp(-elapsed / (target > value ? 0.085 : 0.3)));
     }
     [this.middle, this.treble].forEach((target, i) => {
       const value = this.terrainPeaks[i];
-      this.terrainPeaks[i] += (target - value) * (1 - Math.exp(-elapsed / (target > value ? .10 : .38)));
+      this.terrainPeaks[i] +=
+        (target - value) *
+        (1 - Math.exp(-elapsed / (target > value ? 0.1 : 0.38)));
     });
-    this.phase = this.flowPhase('terrain-transport', .8 + settings.speed * .5, 0, reduced);
-    this.auroraPhase = this.flowPhase('aurora-transport', .45 + settings.speed * .2, .2, reduced);
+    this.phase = this.flowPhase(
+      "terrain-transport",
+      0.8 + settings.speed * 0.5,
+      0,
+      reduced,
+    );
+    this.auroraPhase = this.flowPhase(
+      "aurora-transport",
+      0.45 + settings.speed * 0.2,
+      0.2,
+      reduced,
+    );
     for (let i = this.ripples.length - 1; i >= 0; i--) {
       this.ripples[i].lifetime += elapsed;
       if (!reduced) this.ripples[i].age += elapsed;
@@ -285,10 +339,15 @@ export class SceneMotion {
     // Causal attacks may use current absolute RMS immediately; sustained shape
     // keeps the existing envelope. The pulse cannot increase energy past PCM RMS.
     const fastEnergy = unit(audio.rms) * unit(frame.pulse * 4);
-    const energyVisibility = .2 + .8 * Math.sqrt(unit(Math.max(visible.intensity, fastEnergy) / .12));
+    const energyVisibility =
+      0.2 +
+      0.8 * Math.sqrt(unit(Math.max(visible.intensity, fastEnergy) / 0.12));
     // One final transparent presentation lets every canvas sleep immediately.
     // Pointer feedback remains an explicit interaction, not background music.
-    this.presence = Math.max(this.transporting ? visible.presence * energyVisibility : 0, touch);
+    this.presence = Math.max(
+      this.transporting ? visible.presence * energyVisibility : 0,
+      touch,
+    );
     return frame;
   }
 
@@ -296,30 +355,47 @@ export class SceneMotion {
   sample(x: number, z: number, seed: number, settings: MusicSettings) {
     const frame = this.frame;
     const { volume, phase } = this;
-    const position = Math.max(0, Math.min(47,
-      ((x + FIELD_SIZE / 2) / FIELD_SIZE) * 39 + Math.sin(z * .09 - phase * .3) * 4 + 3));
+    const position = Math.max(
+      0,
+      Math.min(
+        47,
+        ((x + FIELD_SIZE / 2) / FIELD_SIZE) * 39 +
+          Math.sin(z * 0.09 - phase * 0.3) * 4 +
+          3,
+      ),
+    );
     const bin = Math.min(46, Math.floor(position)),
       f = position - bin;
     const spectrum = frame
-      ? unit(this.terrainSpectrum[bin] * (1 - f) + this.terrainSpectrum[bin + 1] * f) *
-        volume
+      ? unit(
+          this.terrainSpectrum[bin] * (1 - f) +
+            this.terrainSpectrum[bin + 1] * f,
+        ) * volume
       : 0;
     const footprint = Math.exp(
       -(
-        ((x + 2 - Math.sin(phase * 0.1) * .8) / 23) ** 2 +
+        ((x + 2 - Math.sin(phase * 0.1) * 0.8) / 23) ** 2 +
         ((z + 5) / 17) ** 2
       ) * 1.4,
     );
-    const ridgeAxis = x * .23 + z * .17 - phase + Math.sin(z * .15) * .38;
-    const ridges = 1 - Math.abs(Math.sin((ridgeAxis - Math.PI / 2) * .5));
-    const crossing = .5 + .5 * Math.sin(z * .3 - x * .12 - phase * .65);
-    const relief = .14 + ridges ** 2.4 * 1.85 + crossing ** 4 * .2 + (seed - .5) * .008;
+    const ridgeAxis = x * 0.23 + z * 0.17 - phase + Math.sin(z * 0.15) * 0.38;
+    const ridges = 1 - Math.abs(Math.sin((ridgeAxis - Math.PI / 2) * 0.5));
+    const crossing = 0.5 + 0.5 * Math.sin(z * 0.3 - x * 0.12 - phase * 0.65);
+    const relief =
+      0.14 + ridges ** 2.4 * 1.85 + crossing ** 4 * 0.2 + (seed - 0.5) * 0.008;
     // The footprint distributes the captured spectrum across an uneven terrain;
     // volume controls its scale, while individual bins lift connected ridges.
     const shoulders = Math.exp(-((x / 27) ** 2 + ((z + 1) / 25) ** 2));
     let height =
-      footprint * (this.terrainMass[0] * 2.5 + spectrum * 5.2 + this.terrainMass[1] * 3.8) * relief * 1.8 +
-        shoulders * (this.terrainPeaks[0] * 3.8 + this.terrainPeaks[1] * 4) * (ridges * crossing) ** 3;
+      footprint *
+        (this.terrainMass[0] * 2.5 +
+          spectrum * 5.2 +
+          this.terrainMass[1] * 3.8) *
+        relief *
+        1.8 +
+      shoulders *
+        (this.terrainPeaks[0] * 3.8 + this.terrainPeaks[1] * 4) *
+        (ridges * crossing) ** 3;
     let crest = 0;
     const speed = (2.9 + settings.speed * 0.35) * settings.fieldSpread;
     for (const ripple of this.ripples) {
@@ -327,8 +403,12 @@ export class SceneMotion {
       const front = distance - ripple.age * speed;
       const width = 1.1 + ripple.age * 0.22;
       if (Math.abs(front) > width * 4) continue;
-      const attack = ripple.source === 'music' ? (1 - Math.exp(-ripple.lifetime * 10)) ** 2 : 1;
-      const falloff = Math.exp(-ripple.lifetime * 0.36) * ripple.strength * attack;
+      const attack =
+        ripple.source === "music"
+          ? (1 - Math.exp(-ripple.lifetime * 10)) ** 2
+          : 1;
+      const falloff =
+        Math.exp(-ripple.lifetime * 0.36) * ripple.strength * attack;
       // A damped wave train gives a main crest and smaller following rings.
       const wave =
         Math.cos(front * 1.45) *
@@ -337,17 +417,20 @@ export class SceneMotion {
       height += wave * (ripple.source === "pointer" ? 0.8 : 0.24);
       crest += Math.max(0, wave);
     }
-    height = Math.max(footprint * volume * .65, height) * settings.fieldHeight * 2.2;
+    height =
+      Math.max(footprint * volume * 0.65, height) * settings.fieldHeight * 2.2;
     // Leave headroom for individual peaks instead of flattening a whole ridge
     // against the ceiling. Warmth follows height, so low cells remain cool.
     height = 16 * Math.tanh(height / 16);
-    const layerWarp = Math.sin(x * .15 + z * .19) * .11;
+    const layerWarp = Math.sin(x * 0.15 + z * 0.19) * 0.11;
     const layer = height / 3 + layerWarp;
     const fraction = layer - Math.floor(layer);
-    const transition = unit((fraction - .2) / .6);
-    const terraced = (Math.floor(layer) + transition ** 2 * (3 - 2 * transition) - layerWarp) * 3;
+    const transition = unit((fraction - 0.2) / 0.6);
+    const terraced =
+      (Math.floor(layer) + transition ** 2 * (3 - 2 * transition) - layerWarp) *
+      3;
     const exposed = unit((height - 1.2) / 3.8);
-    const ledge = .32 * exposed ** 2 * (3 - 2 * exposed);
+    const ledge = 0.32 * exposed ** 2 * (3 - 2 * exposed);
     height = Math.max(0, height * (1 - ledge) + terraced * ledge);
     const heat = unit(
       ((height / 10) * 0.8 + footprint * volume * 0.32 + spectrum * 0.15) *

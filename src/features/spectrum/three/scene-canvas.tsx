@@ -17,10 +17,13 @@ import {
   type SceneView,
 } from "./view";
 import { demoFeatures } from "../audio-feature-timeline";
-import { useSceneFocus } from '../scene-focus';
-import { regionStyle } from '../regions';
-import { previewResizePending, settlePreviewResize } from '../../preview/resize-settling';
-import { PerformanceFrame, usePerformance } from '../../performance/runtime';
+import { useSceneFocus } from "../scene-focus";
+import { regionStyle } from "../regions";
+import {
+  previewResizePending,
+  settlePreviewResize,
+} from "../../preview/resize-settling";
+import { PerformanceFrame, usePerformance } from "../../performance/runtime";
 
 export function ThreeSceneCanvas({
   settings,
@@ -33,17 +36,25 @@ export function ThreeSceneCanvas({
   className,
   interactive = !desktop,
   onViewChange,
-  regionId = 'primary',
+  regionId = "primary",
 }: SpectrumCanvasProps) {
-  const performanceController=usePerformance();
-  const performanceCurrent=useRef(performanceController);performanceCurrent.current=performanceController;
-  const regionCurrent=useRef(regionId);regionCurrent.current=regionId;
-  const focus=useSceneFocus();
+  const performanceController = usePerformance();
+  const performanceCurrent = useRef(performanceController);
+  performanceCurrent.current = performanceController;
+  const regionCurrent = useRef(regionId);
+  regionCurrent.current = regionId;
+  const focus = useSceneFocus();
   // Media/status polling can recreate settings without changing the scene.
   // Compare visual values on prop updates, never serialize inside the RAF loop.
-  const visualSignature = useMemo(() => JSON.stringify({
-    ...regionStyle(settings), quality: settings.quality, masks: settings.masks,
-  }), [settings]);
+  const visualSignature = useMemo(
+    () =>
+      JSON.stringify({
+        ...regionStyle(settings),
+        quality: settings.quality,
+        masks: settings.masks,
+      }),
+    [settings],
+  );
   const ref = useRef<HTMLCanvasElement>(null);
   const wake = useRef<(() => void) | undefined>(undefined);
   const current = useRef({
@@ -58,9 +69,14 @@ export function ThreeSceneCanvas({
   });
   const view = useRef(settings.view);
   const [error, setError] = useState<string | null>(null);
-  const fatalEffect=useRef<string|null>(null);
-  const [restart,setRestart]=useState(0);
-  useEffect(()=>{if(fatalEffect.current&&fatalEffect.current!==settings.effect){fatalEffect.current=null;setRestart(value=>value+1)}},[settings.effect]);
+  const fatalEffect = useRef<string | null>(null);
+  const [restart, setRestart] = useState(0);
+  useEffect(() => {
+    if (fatalEffect.current && fatalEffect.current !== settings.effect) {
+      fatalEffect.current = null;
+      setRestart((value) => value + 1);
+    }
+  }, [settings.effect]);
   useEffect(() => {
     const wasSuspended = current.current.suspended;
     current.current = {
@@ -74,7 +90,16 @@ export function ThreeSceneCanvas({
       onViewChange,
     };
     if (wasSuspended !== suspended) wake.current?.();
-  }, [settings, visualSignature, demo, active, suspended, regionCount, interactive, onViewChange]);
+  }, [
+    settings,
+    visualSignature,
+    demo,
+    active,
+    suspended,
+    regionCount,
+    interactive,
+    onViewChange,
+  ]);
   useEffect(() => {
     view.current = settings.view;
   }, [settings.view]);
@@ -97,11 +122,14 @@ export function ThreeSceneCanvas({
       dirty = true,
       wasSilent = false;
     let resizePaused = false;
-    let resizePending = false, resizeVersion = 0;
-    let recoveryNotice = '';
+    let resizePending = false,
+      resizeVersion = 0;
+    let recoveryNotice = "";
     let occlusionDormant = false;
-    const windowResizing = () => { if (!desktop) settlePreviewResize(); };
-    if (!desktop) window.addEventListener('resize', windowResizing);
+    const windowResizing = () => {
+      if (!desktop) settlePreviewResize();
+    };
+    if (!desktop) window.addEventListener("resize", windowResizing);
     let viewRaf = 0;
     let drag: {
       x: number;
@@ -126,7 +154,7 @@ export function ThreeSceneCanvas({
       if (!viewRaf) viewRaf = requestAnimationFrame(flushView);
     };
     const fail = (reason: unknown) => {
-      fatalEffect.current=current.current.settings.effect;
+      fatalEffect.current = current.current.settings.effect;
       stopped = true;
       cancelAnimationFrame(raf);
       clearTimeout(timer);
@@ -309,16 +337,21 @@ export function ThreeSceneCanvas({
           }
           const version = ++resizeVersion;
           try {
-            void world?.resize(
-              desired,
-              current.current.regionCount,
-              {preview:!desktop,deferSceneChange:true,adaptive:desktop},
-            ).catch(error => { if (!stopped) fail(error); }).finally(() => {
-              if (!stopped && version === resizeVersion) {
-                resizePending = false;
-                dirty = true;
-              }
-            });
+            void world
+              ?.resize(desired, current.current.regionCount, {
+                preview: !desktop,
+                deferSceneChange: true,
+                adaptive: desktop,
+              })
+              .catch((error) => {
+                if (!stopped) fail(error);
+              })
+              .finally(() => {
+                if (!stopped && version === resizeVersion) {
+                  resizePending = false;
+                  dirty = true;
+                }
+              });
             dirty = true;
           } catch (error) {
             if (version === resizeVersion) resizePending = false;
@@ -365,7 +398,8 @@ export function ThreeSceneCanvas({
           signature = current.current.visualSignature,
           count = current.current.regionCount,
           simulate = current.current.demo;
-        let sourceGeneration = -1, focusRevision=-1;
+        let sourceGeneration = -1,
+          focusRevision = -1;
         const later = (delay: number) => {
           timer = window.setTimeout(() => {
             if (!stopped) raf = requestAnimationFrame(draw);
@@ -417,8 +451,13 @@ export function ThreeSceneCanvas({
               ? Math.min(0.1, (now - previous) / 1000)
               : 1 / 60;
             previous = now;
-            const performanceResult=performanceFrame.resolve(performanceCurrent.current,next.settings,regionCurrent.current,reduced.matches);
-            const effective=performanceResult.settings;
+            const performanceResult = performanceFrame.resolve(
+              performanceCurrent.current,
+              next.settings,
+              regionCurrent.current,
+              reduced.matches,
+            );
+            const effective = performanceResult.settings;
             if (
               config.quality !== effective.quality ||
               config.effect !== effective.effect ||
@@ -436,9 +475,9 @@ export function ThreeSceneCanvas({
               signature = next.visualSignature;
               dirty = true;
             }
-            if(focusRevision!==(focus?.current.revision??0)) {
-              focusRevision=focus?.current.revision??0;
-              dirty=true;
+            if (focusRevision !== (focus?.current.revision ?? 0)) {
+              focusRevision = focus?.current.revision ?? 0;
+              dirty = true;
             }
             config = performanceResult.settings;
             const audio = next.demo
@@ -468,16 +507,24 @@ export function ThreeSceneCanvas({
             canvas.dataset.transporting = String(motion.transporting);
             // Do not clear or reset the scene: CSS retains the last frame while
             // native presentation changes size, and transport still follows audio.
-            const paused = !desktop && (previewResizePending(now) || resizePending);
+            const paused =
+              !desktop && (previewResizePending(now) || resizePending);
             if (resizePaused !== paused) dirty = true;
             resizePaused = paused;
             canvas.dataset.resizePaused = String(paused);
             const silent = motion.presence < 0.0001;
-            let rendered=true;
-            if (!silent || !wasSilent || dirty || canvas.dataset.transition !== 'idle' || performanceResult.changed) {
-              rendered=world!.draw(
+            let rendered = true;
+            if (
+              !silent ||
+              !wasSilent ||
+              dirty ||
+              canvas.dataset.transition !== "idle" ||
+              performanceResult.changed
+            ) {
+              rendered = world!.draw(
                 motion,
-                performanceResult.settings !== next.settings || view.current === config.view
+                performanceResult.settings !== next.settings ||
+                  view.current === config.view
                   ? config
                   : { ...config, view: view.current },
                 reduced.matches,
@@ -486,8 +533,13 @@ export function ThreeSceneCanvas({
                 paused,
                 performanceResult,
               );
-              const notice=canvas.dataset.transitionError??'';
-              if(notice!==recoveryNotice){recoveryNotice=notice;setError(notice?`目标场景准备失败，已保留上一场景：${notice}`:null)}
+              const notice = canvas.dataset.transitionError ?? "";
+              if (notice !== recoveryNotice) {
+                recoveryNotice = notice;
+                setError(
+                  notice ? `目标场景准备失败，已保留上一场景：${notice}` : null,
+                );
+              }
               const signature = JSON.stringify(view.current);
               if (canvas.dataset.view !== signature)
                 canvas.dataset.view = signature;
@@ -527,7 +579,7 @@ export function ThreeSceneCanvas({
       clearTimeout(timer);
       clearTimeout(resizeTimer);
       clearTimeout(visibilityTimer);
-      window.removeEventListener('resize', windowResizing);
+      window.removeEventListener("resize", windowResizing);
       observer?.disconnect();
       intersection?.disconnect();
       motion.reset();
@@ -557,7 +609,11 @@ export function ThreeSceneCanvas({
       <canvas
         ref={ref}
         tabIndex={interactive ? 0 : undefined}
-        style={{ width: '100%', height: '100%', touchAction: interactive ? "none" : undefined }}
+        style={{
+          width: "100%",
+          height: "100%",
+          touchAction: interactive ? "none" : undefined,
+        }}
         aria-label={`${label} · ${demo ? "模拟音频预览" : "真实音乐声场"}`}
       />
       {error && (

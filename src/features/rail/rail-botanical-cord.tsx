@@ -18,11 +18,20 @@ export function RailBotanicalCord({
     <g className={`rail-botanical-cord rail-cord-${skin}`} aria-hidden="true">
       <path
         className="rail-branch-shadow"
-        data-rail-rope-path={geometry.path} d={geometry.path}
+        data-rail-rope-path={geometry.path}
+        d={geometry.path}
         transform={`translate(0 ${unit})`}
       />
-      <path className="rail-branch-main" data-rail-rope-path={geometry.path} d={geometry.path} />
-      <path className="rail-branch-grain" data-rail-rope-path={geometry.path} d={geometry.path} />
+      <path
+        className="rail-branch-main"
+        data-rail-rope-path={geometry.path}
+        d={geometry.path}
+      />
+      <path
+        className="rail-branch-grain"
+        data-rail-rope-path={geometry.path}
+        d={geometry.path}
+      />
       {sprigs.map(({ x, y, angle, flip }, index) => (
         <g
           key={index}

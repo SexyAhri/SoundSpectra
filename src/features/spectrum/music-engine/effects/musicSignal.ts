@@ -1,4 +1,4 @@
-import { createMusicMotionRhythm } from './musicMotion';
+import { createMusicMotionRhythm } from "./musicMotion";
 
 export interface MusicAudioFeatures {
   rms: number;
@@ -14,7 +14,11 @@ const clamp = (value: number) => Math.max(0, Math.min(1, value));
 const edges = [40, 120, 300, 750, 1800, 4500, 12000];
 
 /** 统一时域音量、六个语义频段与细分频谱，所有画面使用相同的音频尺度。 */
-export function readMusicAudio(frequency: Float32Array, waveform: Uint8Array, sampleRate: number) {
+export function readMusicAudio(
+  frequency: Float32Array,
+  waveform: Uint8Array,
+  sampleRate: number,
+) {
   let rms = 0;
   for (const value of waveform) rms += ((value - 128) / 128) ** 2;
   rms = Math.sqrt(rms / Math.max(1, waveform.length));
@@ -27,13 +31,19 @@ export function readMusicAudio(frequency: Float32Array, waveform: Uint8Array, sa
     }
     // Browser compatibility path: integrate linear spectral power before display
     // compression. Native calibrated RMS remains the authoritative input.
-    return Math.min(1, (Math.sqrt(sum) / .5) ** .4);
+    return Math.min(1, (Math.sqrt(sum) / 0.5) ** 0.4);
   };
   const bands = edges.slice(0, -1).map((low, i) => {
-    const start = Math.max(1, Math.floor((low * frequency.length * 2) / sampleRate));
+    const start = Math.max(
+      1,
+      Math.floor((low * frequency.length * 2) / sampleRate),
+    );
     const end = Math.min(
       frequency.length,
-      Math.max(start + 1, Math.ceil((edges[i + 1] * frequency.length * 2) / sampleRate))
+      Math.max(
+        start + 1,
+        Math.ceil((edges[i + 1] * frequency.length * 2) / sampleRate),
+      ),
     );
     return readRange(start, end);
   });
@@ -42,7 +52,10 @@ export function readMusicAudio(frequency: Float32Array, waveform: Uint8Array, sa
     const start = Math.floor((i / 48) ** 1.9 * frequency.length * 0.75);
     const end = Math.min(
       frequency.length,
-      Math.max(start + 1, Math.floor(((i + 1) / 48) ** 1.9 * frequency.length * 0.75))
+      Math.max(
+        start + 1,
+        Math.floor(((i + 1) / 48) ** 1.9 * frequency.length * 0.75),
+      ),
     );
     return readRange(start, end);
   });
@@ -64,7 +77,11 @@ export function createBandNormalizer(minimumSpan = 0.08) {
     while (history.length && history[0].time <= now - 4000) history.shift();
     let bucket = history.at(-1);
     if (!bucket || now - bucket.time >= 100) {
-      bucket = { time: now, min: values.map(() => Infinity), max: values.map(() => 0) };
+      bucket = {
+        time: now,
+        min: values.map(() => Infinity),
+        max: values.map(() => 0),
+      };
       history.push(bucket);
     }
     return values.map((value, i) => {
@@ -76,11 +93,13 @@ export function createBandNormalizer(minimumSpan = 0.08) {
       // 新极值立即容纳，旧极值过期后缓慢收缩，防止窗口滚动引起跳变。
       lower[i] = Math.min(
         value,
-        (lower[i] ?? min) + (min - (lower[i] ?? min)) * (1 - Math.exp(-dt / 600))
+        (lower[i] ?? min) +
+          (min - (lower[i] ?? min)) * (1 - Math.exp(-dt / 600)),
       );
       upper[i] = Math.max(
         value,
-        (upper[i] ?? max) + (max - (upper[i] ?? max)) * (1 - Math.exp(-dt / 600))
+        (upper[i] ?? max) +
+          (max - (upper[i] ?? max)) * (1 - Math.exp(-dt / 600)),
       );
       const span = Math.max(minimumSpan, upper[i] - lower[i]);
       const center = (upper[i] + lower[i]) / 2;
@@ -101,16 +120,34 @@ export function createMusicMotionSignal() {
       normalizer.reset();
       rhythm.reset();
     },
-    update(audio: MusicAudioFeatures & { audible: boolean }, now: number, dt: number, sensitivity: number) {
+    update(
+      audio: MusicAudioFeatures & { audible: boolean },
+      now: number,
+      dt: number,
+      sensitivity: number,
+    ) {
       const gain = Math.max(0.5, Math.min(2, sensitivity));
       const relativeVolume = normalizer.update(
-        [audio.audible ? Math.max(0, (20 * Math.log10(audio.rms) + 70) / 70) : 0],
+        [
+          audio.audible
+            ? Math.max(0, (20 * Math.log10(audio.rms) + 70) / 70)
+            : 0,
+        ],
         now,
         dt,
-        gain
+        gain,
       )[0];
-      const absoluteVolume = Math.min(1, (Math.max(0, audio.rms) / .5) ** .4);
-      return rhythm.update(dt, absoluteVolume * (.85 + relativeVolume * .3), audio.rms, audio.bands, gain, audio.spectrum, audio.audible, audio.spectrumRms);
+      const absoluteVolume = Math.min(1, (Math.max(0, audio.rms) / 0.5) ** 0.4);
+      return rhythm.update(
+        dt,
+        absoluteVolume * (0.85 + relativeVolume * 0.3),
+        audio.rms,
+        audio.bands,
+        gain,
+        audio.spectrum,
+        audio.audible,
+        audio.spectrumRms,
+      );
     },
   };
 }

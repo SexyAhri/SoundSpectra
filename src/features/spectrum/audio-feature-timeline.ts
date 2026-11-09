@@ -51,10 +51,22 @@ export class AudioFeatureTimeline {
   processed = 0;
 
   push(audio: MusicAnalysis, receivedAt: number): boolean {
-    if ([audio.sourceRevision, audio.streamId, audio.sequence].some(value =>
-      value !== undefined && (!Number.isSafeInteger(value) || value < 0))) return false;
-    if (audio.samplePosition !== undefined && (!Number.isFinite(audio.samplePosition) ||
-      audio.samplePosition < 0 || !audio.sampleRate || !Number.isFinite(audio.sampleRate) || audio.sampleRate <= 0)) return false;
+    if (
+      [audio.sourceRevision, audio.streamId, audio.sequence].some(
+        (value) =>
+          value !== undefined && (!Number.isSafeInteger(value) || value < 0),
+      )
+    )
+      return false;
+    if (
+      audio.samplePosition !== undefined &&
+      (!Number.isFinite(audio.samplePosition) ||
+        audio.samplePosition < 0 ||
+        !audio.sampleRate ||
+        !Number.isFinite(audio.sampleRate) ||
+        audio.sampleRate <= 0)
+    )
+      return false;
     const revision = audio.sourceRevision ?? 0,
       source = `${revision}:${audio.streamId ?? 0}`;
     if (
@@ -75,7 +87,8 @@ export class AudioFeatureTimeline {
       audio.sampleRate > 0
         ? (audio.samplePosition / audio.sampleRate) * 1000
         : receivedAt;
-    if (!Number.isFinite(sampleTime) || !Number.isFinite(receivedAt)) return false;
+    if (!Number.isFinite(sampleTime) || !Number.isFinite(receivedAt))
+      return false;
     // A busy UI can receive a continuous backlog late; only a gap in the sample
     // clock signals a discontinuity. Arrival jitter must not reset onset history.
     if (
@@ -114,12 +127,7 @@ export class AudioFeatureTimeline {
     this.clockOffset = offset;
     const rms = Number.isFinite(audio.rms) ? Math.max(0, audio.rms) : 0;
     const input = { ...audio, rms, audible: this.gate.update(rms, dt) };
-    const onset = this.rhythm.update(
-      input,
-      sampleTime,
-      dt,
-      1,
-    );
+    const onset = this.rhythm.update(input, sampleTime, dt, 1);
     if (onset.onset) {
       const interval = sampleTime - this.beatTime;
       if (interval >= 65 && interval <= 1500)
@@ -202,31 +210,51 @@ export class AudioFeatureTimeline {
     const frame = cache.frame!;
     const hop = Math.max(1, frame.dt);
     const desired = now - this.clockOffset - hop;
-    if (!Number.isFinite(this.displayTime)) this.displayTime = Math.min(packet.time, desired);
+    if (!Number.isFinite(this.displayTime))
+      this.displayTime = Math.min(packet.time, desired);
     else if (now > this.sampledAt) {
       const dt = now - this.sampledAt;
       const next = this.displayTime + dt;
       // Correct clock drift by changing rate, never by jumping position. Hold at
       // the newest captured endpoint during a late delivery, without extrapolation.
-      const correction = Math.max(-dt * .03, Math.min(dt * .03, desired - next));
-      this.displayTime = Math.max(this.displayTime, Math.min(packet.time, next + correction));
+      const correction = Math.max(
+        -dt * 0.03,
+        Math.min(dt * 0.03, desired - next),
+      );
+      this.displayTime = Math.max(
+        this.displayTime,
+        Math.min(packet.time, next + correction),
+      );
     }
-    this.sampledAt = Math.max(Number.isFinite(this.sampledAt) ? this.sampledAt : now, now);
+    this.sampledAt = Math.max(
+      Number.isFinite(this.sampledAt) ? this.sampledAt : now,
+      now,
+    );
     // Events may decay between arrivals, but never get more than one capture
     // hop ahead of available audio. Clock drift must not erase a fresh attack.
-    const eventLimit = packet.time + Math.min(hop, Math.max(0, now - packet.receivedAt));
-    this.eventTime = Math.max(this.eventTime, Math.min(eventLimit, Math.max(packet.time, now - this.clockOffset)));
-    let previous = cache.history[0], current = previous;
+    const eventLimit =
+      packet.time + Math.min(hop, Math.max(0, now - packet.receivedAt));
+    this.eventTime = Math.max(
+      this.eventTime,
+      Math.min(eventLimit, Math.max(packet.time, now - this.clockOffset)),
+    );
+    let previous = cache.history[0],
+      current = previous;
     for (const candidate of cache.history) {
       current = candidate;
       if (candidate.now >= this.displayTime) break;
       previous = candidate;
     }
-    const blend = clamp((this.displayTime - previous.now) / Math.max(1e-6, current.now - previous.now));
+    const blend = clamp(
+      (this.displayTime - previous.now) /
+        Math.max(1e-6, current.now - previous.now),
+    );
     const mix = (a: number, b: number) => a + (b - a) * blend;
     const elapsed = Math.max(0, this.eventTime - packet.time),
       age = this.eventTime - packet.beatTime;
-    const transients = packet.transients.map(value => value * Math.exp(-elapsed / 80));
+    const transients = packet.transients.map(
+      (value) => value * Math.exp(-elapsed / 80),
+    );
     return {
       ...frame,
       now: this.eventTime,
@@ -236,18 +264,20 @@ export class AudioFeatureTimeline {
       beatStrength: packet.beatStrength,
       period: packet.period,
       intensity: mix(previous.intensity, current.intensity),
-      displayIntensity: mix(previous.displayIntensity ?? previous.intensity, current.displayIntensity ?? current.intensity),
-      sustain: mix(previous.sustain, current.sustain),
-      levels: current.levels.map(
-        (value, i) => mix(previous.levels[i], value),
+      displayIntensity: mix(
+        previous.displayIntensity ?? previous.intensity,
+        current.displayIntensity ?? current.intensity,
       ),
-      spectrum: current.spectrum.map(
-        (value, i) =>
-          mix(previous.spectrum[i], value),
+      sustain: mix(previous.sustain, current.sustain),
+      levels: current.levels.map((value, i) => mix(previous.levels[i], value)),
+      spectrum: current.spectrum.map((value, i) =>
+        mix(previous.spectrum[i], value),
       ),
       transients,
       bandOnsets: packet.bandOnsets,
-      pulse: frame.audible ? Math.max(transients[0], transients[1] * .65, transients[2] * .3) : 0,
+      pulse: frame.audible
+        ? Math.max(transients[0], transients[1] * 0.65, transients[2] * 0.3)
+        : 0,
     };
   }
 }

@@ -1,6 +1,6 @@
-import { audioShader } from './audio'
+import { audioShader } from "./audio";
 
-export const surfaceVertex = /* glsl */`
+export const surfaceVertex = /* glsl */ `
 ${audioShader}
 uniform float uTime,uKind,uLayer,uBass,uMiddle,uTreble,uReduced,uShape;
 uniform float uMapBend,uMapUnfold;
@@ -46,8 +46,8 @@ void main(){
   vWorld=(modelMatrix*vec4(p,1.)).xyz;
   gl_Position=projectionMatrix*modelViewMatrix*vec4(p,1.);
 }
-`
-export const surfaceFragment = /* glsl */`
+`;
+export const surfaceFragment = /* glsl */ `
 ${audioShader}
 uniform float uTime,uKind,uLayer,uBass,uMiddle,uTreble,uDaily;
 uniform vec3 uMain,uAccent,uHigh;
@@ -99,4 +99,4 @@ void main(){
   }
   gl_FragColor=vec4(color*(1.-uDaily*.22),alpha);
 }
-`
+`;

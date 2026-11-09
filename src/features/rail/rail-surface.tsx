@@ -621,7 +621,7 @@ export function RailSurface({
       ref={holder}
       className={`rail-surface rail-wheel${popupWindow === "host" ? " rail-popup-host" : ""}${popup ? " rail-popup-open" : ""}${editing ? " rail-is-editing" : ""}${group.collapsed ? " rail-is-collapsed" : ""}`}
       data-rail-skin={railSkin(group.skin)}
-      data-rail-canopy={railSkin(group.skin) === 'floral' && !group.collapsed}
+      data-rail-canopy={railSkin(group.skin) === "floral" && !group.collapsed}
       data-rail-clip-accent={theme.clipStyle.accent}
       data-rail-group={group.id}
       {...reorder.events}
@@ -802,8 +802,17 @@ export function RailSurface({
                 />
               </svg>
             </button>
-            {railSkin(group.skin) === 'floral' && <RailLeafCanopy unit={unit} geometry={geometry} theme={theme}
-              attachments={group.items.map((_, index) => geometry.slot(index, wheel.active)).filter(slot => slot.visible).map(slot => slot.x)} />}
+            {railSkin(group.skin) === "floral" && (
+              <RailLeafCanopy
+                unit={unit}
+                geometry={geometry}
+                theme={theme}
+                attachments={group.items
+                  .map((_, index) => geometry.slot(index, wheel.active))
+                  .filter((slot) => slot.visible)
+                  .map((slot) => slot.x)}
+              />
+            )}
             <RailMotionSnapshot
               beforeUpdate={() =>
                 captureMotion(group.items.map((item) => item.id))

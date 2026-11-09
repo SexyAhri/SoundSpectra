@@ -20,7 +20,9 @@ export function RailItemFrame({
       data-paper-print={seed % 3}
       style={{ "--rail-string-length": 20 + (seed % 3) * 5 } as CSSProperties}
     >
-      <span className="rail-clip" aria-hidden="true"><RailWoodPin materialId={materialId} /></span>
+      <span className="rail-clip" aria-hidden="true">
+        <RailWoodPin materialId={materialId} />
+      </span>
       <span className="rail-tether" aria-hidden="true" />
       <span className="rail-slot-ghost" aria-hidden="true" />
       <div className="rail-keepsake">{children}</div>

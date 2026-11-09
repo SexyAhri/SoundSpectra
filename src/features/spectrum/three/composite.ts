@@ -1,6 +1,6 @@
 export const passVertex = `
 void main() { gl_Position = vec4(position.xy, 0., 1.); }
-`
+`;
 
 export const compositeFragment = `
 uniform sampler2D uImage;
@@ -42,4 +42,4 @@ void main() {
   #include <tonemapping_fragment>
   #include <colorspace_fragment>
   #include <premultiplied_alpha_fragment>
-}`
+}`;

@@ -1,7 +1,9 @@
 // Apply masks after every effect's own entry point, including early returns.
 // Screen coordinates use a top-left origin in both preview and desktop.
 export function withSceneMasks(source: string) {
-  return source.replace(/void main\s*\(\s*\)/, 'void drawEffect()') + `
+  return (
+    source.replace(/void main\s*\(\s*\)/, "void drawEffect()") +
+    `
 uniform vec4 u_maskBounds[8];
 uniform float u_maskFeather[8];
 uniform int u_maskCount;
@@ -22,4 +24,5 @@ void main() {
   }
   outColor *= visible;
 }`
+  );
 }

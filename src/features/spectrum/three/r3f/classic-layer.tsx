@@ -22,7 +22,7 @@ export function ClassicLayer({
   const parentRotation = useMemo(() => new T.Quaternion(), []);
   useEffect(() => () => disposeVisualTree(spatial.group), [spatial]);
   useVisualFrame(({ motion, settings, reduced }) => {
-    if (effect === 'window_rain') {
+    if (effect === "window_rain") {
       // Glass is a viewing plane. Orbiting must not expose the edge of its
       // backdrop or collapse every water bead to a line. Pan and zoom remain
       // camera controls, and the same orientation serves preview and desktop.
@@ -35,7 +35,8 @@ export function ClassicLayer({
     }
     spatial.layout?.((camera as T.PerspectiveCamera).aspect);
     spatial.group.traverse((object) => {
-      if(object.name==='scene-backdrop')object.visible=settings.sceneMode==='immersive';
+      if (object.name === "scene-backdrop")
+        object.visible = settings.sceneMode === "immersive";
       const material = (object as T.Points).material;
       for (const item of Array.isArray(material) ? material : [material]) {
         if (item instanceof T.ShaderMaterial && item.uniforms.uPixelRatio)
