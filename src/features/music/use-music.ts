@@ -11,12 +11,19 @@ import { native, describeError } from "../spectrum/bridge";
 import { musicClient, setMusicProvider } from "./client";
 import { emptySnapshot } from "./types";
 
+const SNAPSHOT_TIMEOUT_MS = 5000;
+
 function useMusicSession(enabled = true) {
   const [snapshot, setSnapshot] = useState(emptySnapshot);
   const [error, setError] = useState<string | null>(null),
     [busy, setBusy] = useState(false);
   const latest = useRef(emptySnapshot);
-  const accept = (next: typeof emptySnapshot) => {
+  const requestedSnapshot = useRef(0);
+  const acceptedSnapshot = useRef(0);
+  const pollingError = useRef<string | null>(null);
+  const accept = ({ value: next, sequence }: { value: typeof emptySnapshot; sequence: number }) => {
+    if (sequence < acceptedSnapshot.current) return;
+    acceptedSnapshot.current = sequence;
     if (next.playback.queueUnchanged)
       next = {
         ...next,
@@ -27,11 +34,24 @@ function useMusicSession(enabled = true) {
         },
       };
     latest.current = next;
-    setMusicProvider(next.account?.provider ?? next.providers[0]?.id ?? "");
+    setMusicProvider(next.account?.provider ?? next.login.provider ?? next.providers[0]?.id ?? "");
     setSnapshot(next);
   };
-  const readSnapshot = () =>
-    musicClient.snapshot(latest.current.playback.queueRevision);
+  const readSnapshot = async () => {
+    const sequence = ++requestedSnapshot.current;
+    let timeout: ReturnType<typeof setTimeout> | undefined;
+    try {
+      const value = await Promise.race([
+        musicClient.snapshot(latest.current.playback.queueRevision),
+        new Promise<never>((_, reject) => {
+          timeout = setTimeout(() => reject(new Error("音乐状态更新超时，正在重新获取…")), SNAPSHOT_TIMEOUT_MS);
+        }),
+      ]);
+      return { value, sequence };
+    } finally {
+      clearTimeout(timeout);
+    }
+  };
   const epoch = useRef(0);
   useEffect(() => {
     if (!native || !enabled) return;
@@ -40,9 +60,17 @@ function useMusicSession(enabled = true) {
     const read = async () => {
       try {
         const value = await readSnapshot();
-        if (!disposed) accept(value);
+        if (!disposed) {
+          accept(value);
+          const previousError = pollingError.current;
+          pollingError.current = null;
+          if (previousError) setError((current) => current === previousError ? null : current);
+        }
       } catch (e) {
-        if (!disposed) setError(describeError(e));
+        if (!disposed) {
+          pollingError.current = describeError(e);
+          setError(pollingError.current);
+        }
       }
       if (!disposed) timer = setTimeout(read, 650);
     };

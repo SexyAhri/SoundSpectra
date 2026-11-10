@@ -1,10 +1,9 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import {
   AudioLines,
   Check,
   CheckCheck,
   CircleAlert,
-  Disc3,
   ExternalLink,
   LoaderCircle,
   Music2,
@@ -27,9 +26,8 @@ const platformAppearance = [
     tone: "green",
     scanner: "手机 QQ",
   },
-  { id: "netease", name: "网易云音乐", icon: AudioLines, tone: "red" },
-  { id: "kugou", name: "酷狗音乐", icon: Radio, tone: "blue" },
-  { id: "qishui", name: "汽水音乐", icon: Disc3, tone: "purple" },
+  { id: "netease", name: "网易云音乐", icon: AudioLines, tone: "red", scanner: "网易云音乐 App" },
+  { id: "kugou", name: "酷狗音乐", icon: Radio, tone: "blue", scanner: "酷狗音乐 App" },
 ];
 
 export function LoginCard({
@@ -44,11 +42,16 @@ export function LoginCard({
   perform: (action: () => Promise<unknown>) => Promise<void>;
 }) {
   const [selectedId, setSelectedId] = useState("");
-  const [switching, setSwitching] = useState(false);
+  const [pending, setPending] = useState<"start" | "cancel" | "official" | "switch" | null>(null);
+  const [notice, setNotice] = useState("");
+  const flight = useRef(false);
+  const switching = pending === "switch";
   const available = providers.filter((p) =>
     p.capabilities.includes("qr-login"),
   );
-  const selected = available.find((p) => p.id === selectedId) ?? available[0];
+  const selected = (login.phase ? providers.find((p) => p.id === login.provider) : undefined)
+    ?? available.find((p) => p.id === selectedId) ?? available[0];
+  const selectedReady = Boolean(selected?.capabilities.includes("qr-login"));
   const platforms = [
     ...providers,
     ...platformAppearance
@@ -59,30 +62,43 @@ export function LoginCard({
   const Icon = appearance?.icon ?? Music2;
   const platform = selected?.name ?? "音乐平台";
   const restoring = login.phase === "restoring";
-  const logging = Boolean(login.phase) && !restoring;
-  const disabled = busy || switching || restoring;
+  const verifying = login.phase === "verifying" || login.phase === "connected";
+  const logging = Boolean(login.phase);
+  const locked = busy || pending !== null;
+  const disabled = locked || restoring || verifying;
   const expired = login.phase === "expired";
   const failed = login.phase === "error";
   const scanned = login.phase === "scanned";
-  const action = (value: "start" | "cancel" | "official") => {
-    if (selected && !disabled)
-      void perform(() => musicClient.login(value, selected.id));
+  const authorization = login.phase === "authorization";
+  const action = async (value: "start" | "cancel" | "official") => {
+    if (!selected || flight.current || locked || (value !== "cancel" && (disabled || !selectedReady))) return;
+    setSelectedId(selected.id);
+    flight.current = true; setPending(value); setNotice("");
+    try {
+      await perform(async () => {
+        await musicClient.login(value, selected.id);
+        if (value === "official") setNotice(selected.id === "kugou"
+          ? "官方验证窗口已打开，完成验证后请刷新二维码继续登录。"
+          : "官方授权窗口已打开，完成后会自动连接。关闭窗口后可在这里再次打开。");
+      });
+    } finally { flight.current = false; setPending(null); }
   };
   const select = async (id: string) => {
-    if (id === selected?.id || disabled) return;
-    if (login.phase || login.qr) {
-      setSwitching(true);
-      let cancelled = false;
-      await perform(async () => {
-        await musicClient.login("cancel", selected?.id);
-        cancelled = true;
-      });
-      if (cancelled) setSelectedId(id);
-      setSwitching(false);
-    } else setSelectedId(id);
+    if (id === selected?.id || disabled || flight.current) return;
+    flight.current = true; setPending("switch"); setNotice("");
+    try {
+      if (login.phase || login.qr) {
+        let cancelled = false;
+        await perform(async () => {
+          await musicClient.login("cancel", login.provider ?? selected?.id);
+          cancelled = true;
+        });
+        if (cancelled) setSelectedId(id);
+      } else setSelectedId(id);
+    } finally { flight.current = false; setPending(null); }
   };
   const status =
-    login.message ||
+    (pending === "start" ? "正在获取新的登录二维码…" : switching ? "正在切换音乐平台…" : pending === "cancel" ? "正在取消登录…" : "") || login.message ||
     (restoring
       ? "正在恢复上次的登录…"
       : selected
@@ -96,7 +112,7 @@ export function LoginCard({
           <h3>连接你的音乐</h3>
           <p>选择音乐平台，将你的歌单带到 SoundSpectra。</p>
         </div>
-        <div className="library-connect-panel" aria-busy={switching}>
+        <div className="library-connect-panel" aria-busy={locked}>
           <aside className="library-platforms" aria-label="音乐平台">
             <span className="library-platforms-label">音乐平台</span>
             <div className="library-platform-list">
@@ -154,7 +170,11 @@ export function LoginCard({
                 <div
                   className={`library-qr ${expired || failed ? "expired" : ""}`}
                 >
-                  {login.qr && !switching ? (
+                  {pending === "start" || switching ? (
+                    <LoaderCircle className="spinning" size={26} aria-label="正在获取登录状态" />
+                  ) : authorization ? (
+                    <ShieldCheck size={42} aria-hidden="true" />
+                  ) : login.qr && !expired && !failed && !scanned && !verifying ? (
                     <img src={login.qr} alt={`${platform}登录二维码`} />
                   ) : restoring ||
                     switching ||
@@ -171,15 +191,6 @@ export function LoginCard({
                   ) : (
                     <QrCode size={54} strokeWidth={1.4} aria-hidden="true" />
                   )}
-                  {expired && (
-                    <Button
-                      size="sm"
-                      disabled={disabled}
-                      onClick={() => action("start")}
-                    >
-                      刷新二维码
-                    </Button>
-                  )}
                 </div>
                 <p
                   className="library-login-status"
@@ -190,37 +201,33 @@ export function LoginCard({
                   {status}
                 </p>
                 <div className="library-login-actions">
-                  {logging ? (
+                  {restoring || verifying ? (
+                    <Button size="sm" disabled><LoaderCircle size={13} className="spinning" />{restoring ? "正在恢复登录…" : "正在连接账号…"}</Button>
+                  ) : logging ? (
                     <>
                       <Button
                         variant="outline"
                         size="sm"
-                        disabled={disabled}
-                        onClick={() => action("start")}
+                        disabled={disabled || !selectedReady}
+                        onClick={() => void action(authorization ? "official" : "start")}
                       >
-                        <RefreshCw size={13} />
-                        {failed ? "重试" : "刷新"}
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        disabled={disabled}
-                        onClick={() => action("cancel")}
-                      >
-                        取消
+                        {pending === "start" || pending === "official" ? <LoaderCircle size={13} className="spinning" /> : authorization ? <ExternalLink size={13} /> : <RefreshCw size={13} />}
+                        {pending === "start" ? "正在获取…" : pending === "official" ? "正在打开…" : authorization ? "打开官方授权" : failed ? "重试" : expired ? "刷新二维码" : "刷新"}
                       </Button>
                     </>
                   ) : (
                     <Button
                       size="sm"
-                      disabled={disabled || !selected}
-                      onClick={() => action("start")}
+                      disabled={disabled || !selectedReady}
+                      onClick={() => void action("start")}
                     >
-                      <QrCode size={14} />
-                      {restoring ? "正在恢复登录…" : "获取登录二维码"}
+                      {pending === "start" ? <LoaderCircle size={14} className="spinning" /> : <QrCode size={14} />}
+                      {pending === "start" ? "正在获取…" : "获取登录二维码"}
                     </Button>
                   )}
+                  {logging && <Button variant="ghost" size="sm" disabled={locked} onClick={() => void action("cancel")}>{pending === "cancel" ? "正在取消…" : "取消"}</Button>}
                 </div>
+                {authorization && <Button className="library-login-restart" variant="link" size="sm" disabled={disabled} onClick={() => void action("start")}>刷新二维码</Button>}
               </div>
               <div className="library-login-guide">
                 <h5>
@@ -241,20 +248,25 @@ export function LoginCard({
                       扫描二维码<small>在手机上确认登录与授权</small>
                     </div>
                   </li>
+                  <li>
+                    <span>3</span>
+                    <div>自动连接账号<small>确认后会自动进入歌单，无需再次点击登录</small></div>
+                  </li>
                 </ol>
-                {logging && (
+                {!authorization && (
                   <Button
                     variant="link"
                     size="sm"
-                    disabled={disabled}
-                    onClick={() => action("official")}
+                    disabled={disabled || !selectedReady}
+                    onClick={() => void action("official")}
                   >
-                    打开官方授权
+                    {pending === "official" ? "正在打开…" : "打开官方授权"}
                     <ExternalLink size={12} />
                   </Button>
                 )}
               </div>
             </div>
+            {notice && <p className="library-login-notice">{notice}</p>}
             <footer className="library-login-privacy">
               <ShieldCheck size={14} aria-hidden="true" />
               <span>登录凭据仅保存在本机，播放权限以平台账号为准。</span>

@@ -86,7 +86,7 @@ export interface MusicProviderInfo {
 export interface MusicSnapshot {
   libraryKey?: string | null;
   account: Account | null;
-  login: { phase: string; qr: string | null; message: string };
+  login: { provider?: string | null; phase: string; qr: string | null; message: string };
   playback: Playback;
   providers: MusicProviderInfo[];
 }

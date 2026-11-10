@@ -7,6 +7,7 @@ import {
   MoreHorizontal,
   AudioLines,
   Pause,
+  FileText,
 } from "lucide-react";
 import { ContextMenu, type ContextAction } from "@/components/ui/context-menu";
 import { MusicButton, MusicHint } from "./music-hint";
@@ -24,6 +25,8 @@ export function LibraryTrackRow({
   onSelect,
   onPlay,
   perform,
+  playable = true,
+  onLyrics,
 }: {
   track: Track;
   index: number;
@@ -34,6 +37,8 @@ export function LibraryTrackRow({
   onSelect: () => void;
   onPlay: () => void;
   perform: (action: () => Promise<unknown>) => Promise<void>;
+  playable?: boolean;
+  onLyrics?: () => void;
 }) {
   const append = (next: boolean) =>
     void perform(() =>
@@ -65,6 +70,8 @@ export function LibraryTrackRow({
         ),
     },
   ];
+  if (!playable) actions.splice(0, 3, ...(onLyrics ? [{ id: "lyrics", label: "查看歌词", icon: <FileText size={15} />, run: onLyrics }] : []));
+  else if (onLyrics) actions.splice(3, 0, { id: "lyrics", label: "查看歌词", icon: <FileText size={15} />, run: onLyrics });
   const heading = (
     <span className="library-context-track">
       <MusicCover src={t.cover} small />
@@ -90,11 +97,11 @@ export function LibraryTrackRow({
           aria-pressed={selected}
           onFocus={onSelect}
           onClick={onSelect}
-          onDoubleClick={onPlay}
+          onDoubleClick={playable ? onPlay : onLyrics}
           onKeyDown={(e) => {
             if (e.key === "Enter") {
               e.preventDefault();
-              onPlay();
+              if (playable) onPlay(); else onLyrics?.();
             }
           }}
         >
@@ -128,19 +135,20 @@ export function LibraryTrackRow({
           <MusicButton
             variant="ghost"
             size="icon-sm"
-            aria-label={`播放 ${t.title}`}
-            onClick={onPlay}
+            aria-label={playable ? `播放 ${t.title}` : `查看 ${t.title} 歌词`}
+            disabled={!playable && !onLyrics}
+            onClick={playable ? onPlay : onLyrics}
           >
-            <Play size={15} />
+            {playable ? <Play size={15} /> : <FileText size={15} />}
           </MusicButton>
-          <MusicButton
+          {playable && <MusicButton
             variant="ghost"
             size="icon-sm"
             aria-label={`下一首播放 ${t.title}`}
             onClick={() => append(true)}
           >
             <ListStart size={15} />
-          </MusicButton>
+          </MusicButton>}
           <DropdownMenu.Root>
             <DropdownMenu.Trigger asChild>
               <MusicButton

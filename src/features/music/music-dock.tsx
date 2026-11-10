@@ -1,5 +1,4 @@
-import { MusicButton } from "./music-hint";
-import { X } from "lucide-react";
+import { MusicMessage, MusicMessages } from "./music-message";
 import { native } from "../spectrum/bridge";
 import { useMusic } from "./use-music";
 import { MusicTransport } from "./music-transport";
@@ -8,24 +7,15 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import "./music.css";
 
 export function MusicDock() {
-  const { snapshot, busy, command, perform, error, setError } = useMusic();
+  const { snapshot, busy, command, perform, error } = useMusic();
   const panels = useMusicPanel(false);
   if (!native || !snapshot.playback.queue.length) return null;
   return (
     <TooltipProvider>
+      <MusicMessages>
       <div className="music-global-dock" aria-label="全局音乐控制">
         {error && (
-          <div className="library-dock-error" role="alert">
-            {error}
-            <MusicButton
-              variant="ghost"
-              size="icon-sm"
-              aria-label="收起播放错误"
-              onClick={() => setError(null)}
-            >
-              <X size={14} />
-            </MusicButton>
-          </div>
+          <MusicMessage key={error} message={error} />
         )}
         <MusicTransport
           compact
@@ -47,6 +37,7 @@ export function MusicDock() {
           />
         )}
       </div>
+      </MusicMessages>
     </TooltipProvider>
   );
 }

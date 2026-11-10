@@ -93,11 +93,6 @@
   margin: 10px 0 0;
 }
 
-.workspace-music > .error-banner {
-  margin-top: 12px;
-  flex-shrink: 0;
-}
-
 .library-login-layout {
   display: flex;
   flex: 1;
@@ -213,9 +208,6 @@
 }
 .library-platform-icon[data-tone="blue"] {
   --platform-color: #4384c2;
-}
-.library-platform-icon[data-tone="purple"] {
-  --platform-color: #8d5cb8;
 }
 .library-platform-icon[data-tone] {
   color: color-mix(in srgb, var(--platform-color) 85%, var(--foreground));
@@ -351,9 +343,26 @@
   align-items: center;
   justify-content: center;
   gap: 8px;
+  flex-wrap: wrap;
 }
 .library-login-actions [data-slot="button"] {
   font-size: 12px;
+}
+.library-login-restart {
+  margin-top: 6px;
+  font-size: 11px;
+}
+.library-login-notice {
+  margin: 0 0 15px;
+  padding: 10px 12px;
+  border-radius: 7px;
+  background: var(--accent);
+  color: var(--muted-foreground);
+  font-size: 11px;
+  line-height: 1.7;
+}
+.library-login-status[data-phase="authorization"] {
+  color: var(--primary);
 }
 
 .library-login-guide h5 {
@@ -526,6 +535,7 @@
   flex: 1;
   min-height: 0;
   overflow: auto;
+  overflow-anchor: none;
   padding-bottom: 20px;
 }
 
@@ -2109,22 +2119,4 @@
   .library-match-count {
     margin-left: auto;
   }
-}
-
-.library-dock-error {
-  position: absolute;
-  right: 18px;
-  bottom: calc(100% + 8px);
-  z-index: 20;
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  max-width: min(430px, calc(100vw - 100px));
-  padding: 9px 12px;
-  background: var(--popover);
-  color: var(--destructive);
-  border: 1px solid var(--border);
-  border-radius: 9px;
-  box-shadow: 0 8px 24px var(--shadow);
-  font-size: 12px;
 }

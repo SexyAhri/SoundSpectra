@@ -52,7 +52,7 @@ async function fixture(page: Page, loggedIn = true) {
       if(command==='music_snapshot')return structuredClone(window.musicState);
       if(command==='music_login'){
         if(args.action==='cancel' && window.rejectLoginCancel)throw new Error('取消登录失败');
-        window.musicState.login=args.action==='cancel'?{phase:'',qr:null,message:''}:{phase:'waiting',qr:'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=',message:'使用手机 QQ 扫码'};
+        window.musicState.login=args.action==='cancel'?{phase:'',qr:null,message:''}:{provider:args.provider,phase:'waiting',qr:'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=',message:args.provider==='netease'?'使用手机网易云音乐扫码并确认登录':'使用手机 QQ 扫码'};
         return;
       }
       if(command==='music_playlists')return {items:[{id:'1',name:'示例歌单',cover:null,count:201}],total:1,nextOffset:null,filtered:0};
@@ -361,9 +361,7 @@ test("platform connections follow provider capabilities and cancel the old login
   await expect(
     platforms.getByRole("button", { name: "酷狗音乐 待接入" }),
   ).toBeDisabled();
-  await expect(
-    platforms.getByRole("button", { name: "汽水音乐 待接入" }),
-  ).toBeDisabled();
+  await expect(platforms.getByRole("button")).toHaveCount(3);
   await expect(platforms.getByText("酷我音乐")).toHaveCount(0);
   expect(
     await page.evaluate(() =>
@@ -412,6 +410,39 @@ test("platform connections follow provider capabilities and cancel the old login
     { action: "cancel", provider: "qq" },
     { action: "cancel", provider: "qq" },
     { action: "start", provider: "test-provider" },
+  ]);
+});
+
+test("NetEase recovery keeps its platform and failed cancellation cannot switch to QQ", async ({ page }) => {
+  await fixture(page, false);
+  await page.evaluate(() => {
+    (window as any).musicState.providers.push({ id: "netease", name: "网易云音乐", capabilities: ["qr-login"] });
+    (window as any).musicState.login = { provider: "netease", phase: "restoring", qr: null, message: "正在恢复网易云音乐登录…" };
+  });
+  const netease = page.getByRole("button", { name: "网易云音乐 可连接" });
+  const qq = page.getByRole("button", { name: "QQ 音乐 可连接" });
+  await expect(netease).toHaveAttribute("aria-pressed", "true");
+  await expect(qq).toBeDisabled();
+  await page.evaluate(() => ((window as any).musicState.login.phase = "error"));
+  await page.getByRole("button", { name: "重试", exact: true }).click();
+  await expect(page.getByRole("img", { name: "网易云音乐登录二维码" })).toBeVisible();
+  await expect(page.getByRole("listitem").filter({ hasText: "打开网易云音乐 App" })).toBeVisible();
+  await page.getByRole("button", { name: "打开官方授权" }).click();
+  await page.evaluate(() => ((window as any).rejectLoginCancel = true));
+  await qq.click();
+  await expect(page.getByRole("alert")).toContainText("取消登录失败");
+  await expect(netease).toHaveAttribute("aria-pressed", "true");
+  await page.evaluate(() => ((window as any).rejectLoginCancel = false));
+  await qq.click();
+  await expect(qq).toHaveAttribute("aria-pressed", "true");
+  await page.getByRole("button", { name: "获取登录二维码" }).click();
+  await expect(page.getByRole("img", { name: "QQ 音乐登录二维码" })).toBeVisible();
+  expect(await page.evaluate(() => (window as any).commands.filter((r: any) => r.command === "music_login").map((r: any) => r.args))).toEqual([
+    { action: "start", provider: "netease" },
+    { action: "official", provider: "netease" },
+    { action: "cancel", provider: "netease" },
+    { action: "cancel", provider: "netease" },
+    { action: "start", provider: "qq" },
   ]);
 });
 
@@ -525,12 +556,12 @@ for (const layout of [
       page.getByRole("button", { name: "打开官方授权" }),
     ).toBeInViewport();
     const login = await page.locator(".library-login-card").boundingBox();
-    const transport = await page.locator(".library-player").boundingBox();
+    await expect(page.locator(".library-player")).toHaveCount(0);
     const official = await page
       .getByRole("button", { name: "打开官方授权" })
       .boundingBox();
     expect(login!.x + login!.width).toBeLessThanOrEqual(layout.width);
-    expect(official!.y + official!.height).toBeLessThanOrEqual(transport!.y);
+    expect(official!.y + official!.height).toBeLessThanOrEqual(layout.height);
   });
 }
 

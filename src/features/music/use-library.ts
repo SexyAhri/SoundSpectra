@@ -7,13 +7,14 @@ export function useLibrary(
   connected: boolean,
   initial?: BrowseState,
   searchQuery = "",
+  playlistsAvailable = true,
 ) {
   const [collection, setCollection] = useState(
     initial?.collection ?? "created",
   );
   const [playlists, setPlaylists] = useState<Page<Playlist> | null>(null);
   const [selected, setSelected] = useState<Playlist | null>(
-    initial?.selected ?? null,
+    playlistsAvailable ? initial?.selected ?? null : { id: "__remote", name: "全站搜索", cover: null, count: 0 },
   );
   const [tracks, setTracks] = useState<Page<Track> | null>(null);
   const [listBusy, setListBusy] = useState(false),
@@ -27,7 +28,7 @@ export function useLibrary(
     tracksFlight = useRef(false);
   const loadLists = useCallback(
     async (offset = 0) => {
-      if (!connected || listsFlight.current) return;
+      if (!connected || !playlistsAvailable || listsFlight.current) return;
       listsFlight.current = true;
       setListBusy(true);
       setListError(null);
@@ -48,7 +49,7 @@ export function useLibrary(
         }
       }
     },
-    [connected, collection],
+    [connected, collection, playlistsAvailable],
   );
   const previousList = useRef({ connected, collection });
   useEffect(() => {
@@ -68,12 +69,12 @@ export function useLibrary(
     setTrackError(null);
     setTrackBusy(false);
     setListBusy(false);
-    if (connected) void loadLists();
+    if (connected && playlistsAvailable) void loadLists();
     return () => {
       listEpoch.current++;
       trackEpoch.current++;
     };
-  }, [connected, collection, loadLists]);
+  }, [connected, collection, loadLists, playlistsAvailable]);
   const select = (playlist: Playlist) => {
     trackEpoch.current++;
     tracksFlight.current = false;

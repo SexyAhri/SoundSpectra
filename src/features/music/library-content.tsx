@@ -24,7 +24,9 @@ import { MusicButton as Button } from "./music-hint";
 import { ChoiceSelect } from "@/components/ui/choice-select";
 import { musicClient } from "./client";
 import { MusicCover } from "./music-cover";
-import { trackKey, type Playback } from "./types";
+import { trackKey, type Playback, type Track } from "./types";
+import { TrackLyricsPreview } from "./track-lyrics-preview";
+import { MusicMessage } from "./music-message";
 import { LibraryTrackRow } from "./library-track-row";
 import { useUiPreference } from "../settings/use-ui-preference";
 import { VirtualRows } from "./virtual-rows";
@@ -49,7 +51,10 @@ function LibraryBrowser({
   const [searchQuery, setSearchQuery] = useState(
     initial?.selected?.id === "__remote" ? initial.query : "",
   );
-  const library = useLibrary(true, initial, searchQuery);
+  const hasPlaylists = capabilities.includes("playlists");
+  const playable = capabilities.includes("playback");
+  const library = useLibrary(true, initial, searchQuery, hasPlaylists);
+  const [lyricTrack, setLyricTrack] = useState<Track | null>(null);
   const remote = library.selected?.id === "__remote";
   const lastPlaylist = useRef(
     initial?.selected && !["__remote", "__all"].includes(initial.selected.id)
@@ -190,7 +195,7 @@ function LibraryBrowser({
     : (library.selected?.cover ?? all[0]?.cover);
   return (
     <>
-      <nav className="library-tabs" aria-label="歌单分类">
+      {hasPlaylists && <nav className="library-tabs" aria-label="歌单分类">
         <Button
           variant={library.selected?.id === "__recent" ? "secondary" : "ghost"}
           aria-pressed={library.selected?.id === "__recent"}
@@ -256,7 +261,9 @@ function LibraryBrowser({
           <FolderHeart size={14} />
           收藏的歌单
         </Button>
-      </nav>
+      </nav>}
+      {!playable && <p className="library-notice">可搜索歌曲、查看封面和歌词。播放与歌单功能暂未开放。</p>}
+      {lyricTrack && <TrackLyricsPreview track={lyricTrack} onClose={() => setLyricTrack(null)} />}
       <div
         className="library-browser-toolbar"
         data-collection={Boolean(library.selected) || undefined}
@@ -272,14 +279,14 @@ function LibraryBrowser({
               } as CSSProperties
             }
           >
-            <Button
+            {hasPlaylists && <Button
               variant="ghost"
               size="icon-sm"
               aria-label="返回歌单"
               onClick={library.back}
             >
               <ChevronLeft size={19} />
-            </Button>
+            </Button>}
             <span className="library-collection-art" aria-hidden="true">
               {collectionCover ? (
                 <MusicCover src={collectionCover} onImage={setCoverImage} />
@@ -308,12 +315,12 @@ function LibraryBrowser({
               ...(capabilities.includes("search")
                 ? [{ value: "platform", label: "平台曲库" }]
                 : []),
-              { value: "synced", label: "已同步歌曲" },
+              ...(hasPlaylists ? [{ value: "synced", label: "已同步歌曲" },
               {
                 value: "playlist",
                 label: "当前歌单",
                 disabled: !lastPlaylist.current,
-              },
+              }] : []),
             ]}
           />
           <SearchField
@@ -360,7 +367,7 @@ function LibraryBrowser({
         {library.selected ? (
           <>
             <div className="library-track-tools" ref={tools}>
-              <Button
+              {playable && <Button
                 size="sm"
                 className="library-play-collection"
                 aria-label="播放已加载歌曲"
@@ -370,7 +377,7 @@ function LibraryBrowser({
               >
                 <Play size={14} />
                 播放
-              </Button>
+              </Button>}
               {!remote && (
                 <Button
                   variant="ghost"
@@ -433,16 +440,8 @@ function LibraryBrowser({
               )}
             </div>
             {library.trackError && (
-              <div className="error-banner" role="alert">
-                {library.trackError}
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => void library.loadTracks(moreTracks ?? 0)}
-                >
-                  重试
-                </Button>
-              </div>
+              <MusicMessage key={library.trackError} message={library.trackError}
+                action={{ label: "重试", run: () => void library.loadTracks(moreTracks ?? 0) }} />
             )}
             {!remote &&
               !library.complete &&
@@ -480,6 +479,8 @@ function LibraryBrowser({
                           setSelectedTrack(`${t.provider}:${t.id}`)
                         }
                         onPlay={() => play(trackKey(t))}
+                        playable={playable}
+                        onLyrics={capabilities.includes("lyrics") ? () => setLyricTrack(t) : undefined}
                         perform={perform}
                       />
                     );
@@ -538,16 +539,8 @@ function LibraryBrowser({
               </Button>
             </div>
             {library.listError && (
-              <div className="error-banner" role="alert">
-                {library.listError}
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => void library.loadLists()}
-                >
-                  重试
-                </Button>
-              </div>
+              <MusicMessage key={library.listError} message={library.listError}
+                action={{ label: "重试", run: () => void library.loadLists() }} />
             )}
             <div className="library-playlist-grid">
               {library.playlists?.items.map((list) => (
@@ -621,6 +614,9 @@ export function LibraryContent(props: {
       disposed = true;
     };
   }, []);
+  if (!props.capabilities.includes("playlists") && !props.capabilities.includes("search")) {
+    return <div className="library-empty"><h3>账号已连接</h3><p>网页曲库功能准备中。</p></div>;
+  }
   return initial === undefined ? (
     <div className="library-loading">正在恢复音乐库…</div>
   ) : (

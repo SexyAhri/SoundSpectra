@@ -10,16 +10,21 @@ import { MusicCover } from "./music-cover";
 import { LoginCard } from "./login-card";
 import { LibraryContent } from "./library-content";
 import { MusicTransport } from "./music-transport";
+import { MusicMessage, MusicMessages } from "./music-message";
 import "./music.css";
 
 export function MusicLibrary() {
-  const { snapshot, error, setError, busy, perform, command } = useMusic();
+  const { snapshot, error, busy, perform, command } = useMusic();
   const panels = useMusicPanel();
   const { panel, setPanel } = panels;
   const { account, login, playback: p } = snapshot;
+  const loginActive = Boolean(login.phase) && login.phase !== "connected";
   const current = p.queue[p.index];
+  const message = error || (!loginActive ? p.error : null);
+  const playable = !account || Boolean(snapshot.providers.find((provider) => provider.id === account.provider)?.capabilities.includes("playback"));
   return (
     <TooltipProvider delayDuration={400} skipDelayDuration={150}>
+      <MusicMessages>
       <section className="workspace-music" aria-label="音乐库">
         <header className="library-heading">
           <div>
@@ -33,7 +38,7 @@ export function MusicLibrary() {
               )?.name ?? "连接音乐平台"}
             </span>
           </div>
-          {account && (
+          {account && !loginActive && (
             <div className="library-account">
               <Button
                 variant="ghost"
@@ -57,7 +62,9 @@ export function MusicLibrary() {
                     <MusicCover src={account.avatar} small />
                     <strong>{account.nickname}</strong>
                     <span className="library-membership">
-                      {account.membership?.active
+                      {!account.membership
+                        ? "会员状态待确认"
+                        : account.membership.active
                         ? `${account.membership.name}${account.membership.level || ""}`
                         : "普通用户"}
                     </span>
@@ -83,7 +90,7 @@ export function MusicLibrary() {
                       aria-label="刷新账号"
                       disabled={busy}
                       onSelect={() =>
-                        void perform(() => musicClient.login("refresh-account"))
+                        void perform(() => musicClient.login("refresh-account", account.provider))
                       }
                     >
                       <RefreshCw size={14} />
@@ -94,7 +101,7 @@ export function MusicLibrary() {
                       aria-label="退出登录"
                       disabled={busy}
                       onSelect={() =>
-                        void perform(() => musicClient.login("logout"))
+                        void perform(() => musicClient.login("logout", account.provider))
                       }
                     >
                       <LogOut size={14} />
@@ -106,29 +113,16 @@ export function MusicLibrary() {
             </div>
           )}
         </header>
-        {(error || p.error) && (
-          <div role="alert" className="error-banner">
-            <span>{error || p.error}</span>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() =>
-                p.failure?.loginRequired
-                  ? void perform(() => musicClient.login("start"))
-                  : current
-                    ? command("retry")
-                    : setError(null)
-              }
-            >
-              {p.failure?.loginRequired
-                ? "重新扫码"
-                : current
-                  ? "重试播放"
-                  : "关闭"}
-            </Button>
-          </div>
-        )}
-        {account?.membershipIssue && (
+        {message && <MusicMessage
+          key={JSON.stringify([snapshot.libraryKey, account?.provider, error ? "operation" : p.generation, message])}
+          message={message}
+          action={!error && p.failure?.loginRequired
+            ? { label: "重新扫码", run: () => void perform(() => musicClient.login("start", account?.provider)) }
+            : !error && p.failure?.retryable && current
+              ? { label: "重试播放", run: () => command("retry") }
+              : undefined}
+        />}
+        {!loginActive && account?.membershipIssue && (
           <p className="library-notice">{account.membershipIssue}</p>
         )}
         <div className="library-body">
@@ -139,7 +133,7 @@ export function MusicLibrary() {
                 <h3>请在桌面版连接音乐账号</h3>
                 <p>浏览器预览无法登录账号或播放平台音乐。</p>
               </div>
-            ) : account ? (
+            ) : account && !loginActive ? (
               <LibraryContent
                 playing={p.playing}
                 key={snapshot.libraryKey ?? account.nickname}
@@ -160,7 +154,7 @@ export function MusicLibrary() {
               />
             )}
           </div>
-          {panel && panel !== "settings" && (
+          {account && !loginActive && playable && panel && panel !== "settings" && (
             <MusicDrawer
               {...panels}
               panel={panel}
@@ -170,7 +164,7 @@ export function MusicLibrary() {
             />
           )}
         </div>
-        {native && (
+        {native && account && !loginActive && playable && (
           <MusicTransport
             playback={p}
             busy={busy}
@@ -179,7 +173,7 @@ export function MusicLibrary() {
             onPanel={(next) => setPanel(panel === next ? null : next)}
           />
         )}
-        {panel === "settings" && (
+        {account && !loginActive && panel === "settings" && (
           <MusicDrawer
             {...panels}
             panel={panel}
@@ -189,6 +183,7 @@ export function MusicLibrary() {
           />
         )}
       </section>
+      </MusicMessages>
     </TooltipProvider>
   );
 }

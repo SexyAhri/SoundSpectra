@@ -39,6 +39,8 @@ export default defineConfig({
         "**/valley-library.spec.ts",
         "**/workspace-polish.spec.ts",
         "**/music-library.spec.ts",
+        "**/music-readonly.spec.ts",
+        "**/music-kugou.spec.ts",
         "**/music-recovery.spec.ts",
       ],
       use: { ...base.use, baseURL: fixturesURL },

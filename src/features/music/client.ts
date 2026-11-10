@@ -24,6 +24,8 @@ export const setMusicProvider = (id: string) => {
 const sourceChanged = () =>
   window.dispatchEvent(new Event("music-source-change"));
 export const musicClient = {
+  trackLyrics: (id: string, refresh = false) =>
+    invoke<LyricDocument>("music_track_lyrics", { id, refresh }),
   search: (query: string, offset = 0) =>
     invoke<Page<Track>>("music_search", { query, offset }),
   snapshot: (queueRevision?: number) =>
