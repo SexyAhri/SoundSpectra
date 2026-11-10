@@ -48,7 +48,8 @@ export const musicClient = {
     invoke<string | null>("music_artwork", { url, refresh }),
   login: (
     action: "start" | "cancel" | "official" | "logout" | "refresh-account",
-  ) => invoke<void>("music_login", { action }),
+    provider?: string,
+  ) => invoke<void>("music_login", { action, provider: provider ?? null }),
   playlists: (collection: string, offset = 0) =>
     invoke<Page<Playlist>>("music_playlists", {
       provider: providerId,

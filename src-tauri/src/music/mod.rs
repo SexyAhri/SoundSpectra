@@ -262,8 +262,10 @@ pub async fn music_login(
     app: AppHandle,
     state: State<'_, Arc<AppState>>,
     action: String,
+    provider: Option<String>,
 ) -> Result<(), String> {
     library_window(&window)?;
+    login::validate_provider(provider.as_deref())?;
     let state = state.inner().clone();
     tauri::async_runtime::spawn_blocking(move || match action.as_str() {
         "start" => {

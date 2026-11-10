@@ -40,6 +40,15 @@ pub struct Login {
     pub message: String,
 }
 
+// Legacy callers omit the provider. Explicit platform requests must never
+// silently fall through to QQ authentication.
+pub fn validate_provider(provider: Option<&str>) -> Result<(), String> {
+    match provider {
+        None | Some("qq") => Ok(()),
+        Some(_) => Err("此音乐平台尚未接入登录".into()),
+    }
+}
+
 pub fn allowed_navigation(url: &reqwest::Url) -> bool {
     url.scheme() == "https"
         && url.host_str().is_some_and(|host| {
@@ -228,6 +237,15 @@ pub fn logout(app: &AppHandle, state: &MusicState) -> Result<(), String> {
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn login_rejects_unimplemented_platforms() {
+        assert!(super::validate_provider(None).is_ok());
+        assert!(super::validate_provider(Some("qq")).is_ok());
+        for id in ["netease", "kugou", "qishui", "", "unknown"] {
+            assert!(super::validate_provider(Some(id)).is_err());
+        }
+    }
+
     #[test]
     fn auth_stays_on_official_https_origins() {
         assert!(super::allowed_navigation(
