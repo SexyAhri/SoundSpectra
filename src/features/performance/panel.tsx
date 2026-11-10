@@ -13,6 +13,7 @@ import {
   X,
 } from "lucide-react";
 import { ModalContent } from "@/components/ui/modal";
+import { fadeUpdate } from "@/components/ui/fade-update";
 import { Button } from "@/components/ui/button";
 import { IconButton } from "@/components/ui/icon-button";
 import { ChoiceSelect } from "@/components/ui/choice-select";
@@ -194,13 +195,14 @@ export function PerformancePanel({
     <>
       <Button
         className="performance-entry"
-        size="sm"
+        size="icon-sm"
         variant="ghost"
+        aria-label="演出编排"
+        title="演出编排"
         disabled={disabled}
         onClick={() => setOpen(true)}
       >
         <Clapperboard size={14} />
-        演出编排
       </Button>
       <Dialog.Root open={open} onOpenChange={setOpen}>
         <ModalContent className="performance-workspace">
@@ -222,7 +224,9 @@ export function PerformancePanel({
           </header>
           <Tabs.Root
             value={tab}
-            onValueChange={setTab}
+            onValueChange={(value) =>
+              fadeUpdate(".performance-workspace-content[data-state=active]", () => setTab(value))
+            }
             className="performance-workspace-tabs"
           >
             <Tabs.List

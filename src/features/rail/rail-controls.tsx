@@ -1,4 +1,5 @@
 import { Hint } from "@/components/ui/hint";
+import { fadeUpdate } from "@/components/ui/fade-update";
 import { Fragment, useEffect, useRef, useState, type FormEvent } from "react";
 import {
   Check,
@@ -284,7 +285,9 @@ export function RailControls({
           <Tabs.Root
             className="rail-settings-tabs"
             value={tab}
-            onValueChange={(value) => setTab(value as RailSettingsTab)}
+            onValueChange={(value) =>
+              fadeUpdate(".rail-settings-panel[data-state=active]", () => setTab(value as RailSettingsTab))
+            }
           >
             <Tabs.List
               className="module-section-nav rail-settings-tab-list"

@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
+import { fadeUpdate } from "@/components/ui/fade-update";
 import {
   Disc3,
   Image,
@@ -43,15 +44,23 @@ export function useWorkspaceNavigation() {
   }, []);
   const navigate = useCallback(
     (panel: WorkspacePanel, tab = view.tab) => {
-      const next = { panel, tab },
-        hash = `#${panel}${panel === "scene" ? `/${tab}` : ""}`;
-      if (location.hash !== hash)
-        history[panel === view.panel ? "replaceState" : "pushState"](
-          null,
-          "",
-          hash,
-        );
-      setView(next);
+      fadeUpdate(
+        panel === "music" || view.panel === "music"
+          ? ".workspace-body"
+          : ".workspace-inspector-container",
+        () => {
+          const next = { panel, tab },
+            hash = `#${panel}${panel === "scene" ? `/${tab}` : ""}`;
+          if (location.hash !== hash)
+            history[panel === view.panel ? "replaceState" : "pushState"](
+              null,
+              "",
+              hash,
+            );
+          setView(next);
+        },
+        "workspace-navigation",
+      );
     },
     [view.panel, view.tab],
   );

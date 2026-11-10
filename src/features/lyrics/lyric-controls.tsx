@@ -4,6 +4,7 @@ import { activeLine } from "./model";
 import { SettingToggle } from "@/components/ui/setting-toggle";
 import { Button } from "@/components/ui/button";
 import { Parameter } from "@/components/ui/parameter";
+import { fadeUpdate } from "@/components/ui/fade-update";
 import {
   defaultLyrics,
   type LyricSettings,
@@ -93,7 +94,9 @@ export function LyricControls({
       role="region"
       aria-label="歌词动效设置"
       value={tab}
-      onValueChange={(value) => onTabChange(value as LyricSettingsTab)}
+      onValueChange={(value) =>
+        fadeUpdate(".lyric-controls", () => onTabChange(value as LyricSettingsTab))
+      }
     >
       <div className="module-settings-content lyric-controls-status">
         <SettingToggle

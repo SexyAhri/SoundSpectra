@@ -15,30 +15,30 @@
 }
 
 .drawer-content[data-state="open"] {
-  animation: drawer-enter 180ms ease-out;
+  animation: drawer-enter var(--motion-panel, 200ms) var(--motion-ease, ease-out);
 }
 
 .drawer-content[data-state="closed"] {
-  animation: drawer-exit 140ms ease-in;
+  animation: drawer-exit var(--motion-exit, 120ms) ease-in;
 }
 
 @keyframes drawer-enter {
   from {
-    transform: translateX(100%);
+    opacity: 0;
   }
 
   to {
-    transform: translateX(0);
+    opacity: 1;
   }
 }
 
 @keyframes drawer-exit {
   from {
-    transform: translateX(0);
+    opacity: 1;
   }
 
   to {
-    transform: translateX(100%);
+    opacity: 0;
   }
 }
 

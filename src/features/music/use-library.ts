@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { describeError } from "../spectrum/bridge";
 import { musicClient } from "./client";
+import { fadeUpdate } from "@/components/ui/fade-update";
 import type { Page, Playlist, Track, BrowseState } from "./types";
 
 export function useLibrary(
@@ -75,14 +76,15 @@ export function useLibrary(
       trackEpoch.current++;
     };
   }, [connected, collection, loadLists, playlistsAvailable]);
-  const select = (playlist: Playlist) => {
-    trackEpoch.current++;
-    tracksFlight.current = false;
-    setSelected(playlist);
-    setTracks(null);
-    setTrackBusy(false);
-    setTrackError(null);
-  };
+  const select = (playlist: Playlist) =>
+    fadeUpdate(".library-browser", () => {
+      trackEpoch.current++;
+      tracksFlight.current = false;
+      setSelected(playlist);
+      setTracks(null);
+      setTrackBusy(false);
+      setTrackError(null);
+    });
   const loadTracks = useCallback(
     async (offset = 0, all = false) => {
       if (!selected || tracksFlight.current) return;
@@ -191,18 +193,20 @@ export function useLibrary(
   }, [selected, loadTracks]);
   return {
     collection,
-    setCollection,
+    setCollection: (value: string) =>
+      fadeUpdate(".library-browser", () => setCollection(value)),
     playlists,
     selected,
     select,
-    back: () => {
-      trackEpoch.current++;
-      tracksFlight.current = false;
-      setSelected(null);
-      setTracks(null);
-      setTrackBusy(false);
-      setTrackError(null);
-    },
+    back: () =>
+      fadeUpdate(".library-browser", () => {
+        trackEpoch.current++;
+        tracksFlight.current = false;
+        setSelected(null);
+        setTracks(null);
+        setTrackBusy(false);
+        setTrackError(null);
+      }),
     tracks,
     complete,
     listBusy,

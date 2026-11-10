@@ -130,7 +130,11 @@ test("preview and transport stay visible while each inspector scrolls independen
           const holder = document
             .querySelector(".preview-stage-holder")!
             .getBoundingClientRect();
+          const toolbar = document.querySelector(".preview-section > .section-toolbar")!.getBoundingClientRect();
+          const tools = document.querySelector(".preview-tools")!.getBoundingClientRect();
           return {
+            toolsRight: tools.right,
+            toolbarRight: toolbar.right,
             documentHeight: document.documentElement.scrollHeight,
             documentWidth: document.documentElement.scrollWidth,
             mainHeight: main.clientHeight,
@@ -146,6 +150,7 @@ test("preview and transport stay visible while each inspector scrolls independen
         });
         expect(geometry.documentHeight).toBeLessThanOrEqual(height);
         expect(geometry.documentWidth).toBeLessThanOrEqual(width);
+        expect(Math.abs(geometry.toolsRight - geometry.toolbarRight)).toBeLessThan(1);
         expect(geometry.mainScroll).toBeLessThanOrEqual(geometry.mainHeight);
         expect(geometry.footerBottom).toBeLessThanOrEqual(height);
         expect(geometry.previewBottom).toBeLessThanOrEqual(height - 60);

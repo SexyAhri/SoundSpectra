@@ -215,27 +215,6 @@
   line-height: 1.6;
 }
 
-.preview-state-control {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding-block: 5px;
-  font-size: 12px;
-  color: var(--muted-foreground);
-  /* Source changes must not wrap the toolbar and resize the preview below it. */
-  width: clamp(140px, 18vw, 240px);
-  flex-shrink: 0;
-  min-width: 0;
-}
-
-.preview-state-control>strong {
-  color: var(--foreground);
-  font-weight: 500;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
 .scene-includes {
   display: flex;
   gap: 6px;

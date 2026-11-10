@@ -1,3 +1,5 @@
+import { fadeUpdate } from "@/components/ui/fade-update";
+import type { CSSProperties } from "react";
 import { ModalContent } from "@/components/ui/modal";
 import { IconButton } from "@/components/ui/icon-button";
 import { Dialog } from "radix-ui";
@@ -126,7 +128,9 @@ export function ApplicationSettingsDialog({
         </header>
         <Tabs
           value={tab}
-          onValueChange={onTabChange}
+          onValueChange={(value) =>
+            fadeUpdate(".application-dialog-body[data-state=active]", () => onTabChange(value))
+          }
           className="application-settings-tabs"
         >
           <TabsList
@@ -260,15 +264,28 @@ export function ApplicationSettingsDialog({
               </div>
               {state.phase === "downloading" && (
                 <div className="download-progress">
-                  <progress
+                  <div
+                    className="update-progress"
+                    role="progressbar"
                     aria-label="更新下载进度"
-                    max={state.total || undefined}
-                    value={
+                    aria-valuemin={0}
+                    aria-valuemax={state.total || undefined}
+                    aria-valuenow={
                       state.total
                         ? Math.min(state.received, state.total)
                         : undefined
                     }
-                  />
+                    data-indeterminate={!state.total}
+                  >
+                    <i
+                      className="update-progress-fill"
+                      style={{
+                        "--download-progress": state.total
+                          ? `${Math.min(100, state.received / state.total * 100)}%`
+                          : undefined,
+                      } as CSSProperties}
+                    />
+                  </div>
                   <span>
                     {(state.received / 1024 / 1024).toFixed(1)} MB
                     {state.total

@@ -25,7 +25,7 @@ import { WorkspaceTools } from "./workspace-tools";
 import { PerformanceProvider } from "../performance/runtime";
 import { PerformancePanel } from "../performance/panel";
 import { Wordmark } from "./wordmark";
-import { MusicProvider } from "../music/use-music";
+import { MusicProvider, useMusicInitialized } from "../music/use-music";
 import { MusicDock } from "../music/music-dock";
 import { useUiPreference } from "./use-ui-preference";
 import type { LyricSettingsTab } from "../lyrics/lyric-controls";
@@ -40,6 +40,7 @@ export function SettingsWorkspace() {
   );
 }
 function Workspace() {
+  const musicInitialized = useMusicInitialized();
   const {
     settings: sceneSettings,
     status,
@@ -247,6 +248,7 @@ function Workspace() {
                     </div>
                   )}
                   <DesktopPreview
+                    ready={loaded && musicInitialized}
                     sceneActions={
                       <PerformancePanel
                         settings={settings}

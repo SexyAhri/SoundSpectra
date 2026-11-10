@@ -2,6 +2,7 @@
 @import "./styles/themes.css";
 @import "./components/ui/primitives.css";
 @import "./components/ui/section-tabs.css";
+@import "./styles/motion.css";
 
 @custom-variant dark (&:is(.dark *));
 

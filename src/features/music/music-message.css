@@ -48,6 +48,6 @@
 .music-message-action { color: var(--primary); font-size: 12px; }
 .music-message-action:hover, .music-message-close:hover { background: var(--accent); }
 .music-message-action:focus-visible, .music-message-close:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
-.music-message[data-state="open"] { animation: music-message-in 150ms ease-out; }
-@keyframes music-message-in { from { opacity: 0; transform: translateY(-6px); } to { opacity: 1; transform: translateY(0); } }
-@media (prefers-reduced-motion: reduce) { .music-message[data-state="open"] { animation: none; } }
+.music-message[data-state="open"] { animation: ui-fade-in var(--motion-panel) ease-in-out; }
+.music-message[data-state="closed"] { animation: ui-fade-out var(--motion-exit) ease-in-out; }
+@media (prefers-reduced-motion: reduce) { .music-message[data-state] { animation: none; } }

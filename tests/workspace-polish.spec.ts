@@ -139,6 +139,59 @@ test("wallpaper guides can be removed for a clean composition preview", async ({
   await expect(page.getByLabel("壁纸构图辅助")).toBeVisible();
 });
 
+test("preview actions remain visible as borderless icons with hover and keyboard hints", async ({ page }) => {
+  await page.goto("/#wallpaper");
+  const toolbar = page.locator(".preview-section > .section-toolbar");
+  const before = await toolbar.boundingBox();
+  for (const name of ["自动搭配", "场景收藏", "演出编排", "完成构图", "布置", "遮罩", "放大预览"]) {
+    const button = toolbar.getByRole("button", { name, exact: true });
+    await expect(button).toBeVisible();
+    await expect(button).toHaveText("");
+    await expect(button).toHaveCSS("border-top-width", "0px");
+    await button.hover();
+    await expect(page.getByRole("tooltip")).toContainText(name);
+  }
+  const simulation = toolbar.getByRole("switch", { name: "模拟预览" });
+  await simulation.click();
+  await expect(simulation).toBeChecked();
+  await expect(toolbar).not.toContainText(/模拟预览|自动搭配|播放中/);
+  expect(await toolbar.boundingBox()).toEqual(before);
+  await page.mouse.move(0, 0);
+  await page.keyboard.press("Tab");
+  const guides = toolbar.getByRole("button", { name: "完成构图", exact: true });
+  await expect(guides).toBeFocused();
+  await expect(page.getByRole("tooltip")).toContainText("完成构图");
+});
+
+test("interface transitions preserve modal closing and respect reduced motion", async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: "no-preference" });
+  await page.goto("/#wallpaper");
+  await expect(page.locator(".global-inspector-scroll")).toHaveCSS("animation-name", "ui-fade-in");
+  await page.getByRole("button", { name: "使用指南", exact: true }).click();
+  const dialog = page.getByRole("dialog");
+  await expect(dialog).toHaveCSS("animation-name", "ui-fade-in");
+  await page.getByRole("button", { name: "关闭工作台工具", exact: true }).click();
+  await expect(dialog).toBeHidden();
+  await expect(page.getByRole("button", { name: "使用指南", exact: true })).toBeFocused();
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  await page.getByRole("button", { name: "使用指南", exact: true }).click();
+  await expect(dialog).toHaveCSS("animation-name", "none");
+  await page.keyboard.press("Escape");
+  await expect(dialog).toBeHidden();
+});
+
+test("rapid module navigation keeps the final destination after fading", async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: "no-preference" });
+  await page.goto("/");
+  await page.getByRole("button", { name: "音乐库", exact: true }).click();
+  await page.getByRole("button", { name: "歌词", exact: true }).click();
+  await expect(page.getByRole("heading", { name: "歌词动效", exact: true })).toBeVisible();
+  await page.waitForTimeout(500);
+  await expect(page).toHaveURL(/#lyrics$/);
+  await expect(page.locator(".workspace-inspector-container")).toHaveCSS("opacity", "1");
+  await expect(page.locator(".workspace-body")).toHaveCSS("opacity", "1");
+});
+
 test("module scrolling and expanded groups survive page switches", async ({
   page,
 }) => {

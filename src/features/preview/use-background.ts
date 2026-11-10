@@ -11,6 +11,12 @@ import {
 
 type Mode = "desktop" | "plain" | "custom";
 const key = "soundspectra.preview.background";
+// Keep the last decoded wallpaper across module navigation. Revalidate its
+// revision on return without resetting screen geometry or decoding it again.
+let recentDesktop: {
+  desktop: DesktopBackground;
+  wallpaper: PreviewImage | null;
+} | null = null;
 export function useBackground(enabled = true) {
   const [mode, setMode] = useState<Mode>(() => {
     try {
@@ -20,14 +26,15 @@ export function useBackground(enabled = true) {
       return "desktop";
     }
   });
-  const [desktop, setDesktop] = useState<DesktopBackground | null>(null);
-  const [wallpaper, setWallpaper] = useState<PreviewImage | null>(null);
+  const [desktop, setDesktop] = useState<DesktopBackground | null>(recentDesktop?.desktop ?? null);
+  const [wallpaper, setWallpaper] = useState<PreviewImage | null>(recentDesktop?.wallpaper ?? null);
+  const lastWallpaper = useRef(wallpaper);
   const [custom, setCustom] = useState<PreviewImage | null>(null);
-  const [loading, setLoading] = useState(native);
+  const [loading, setLoading] = useState(native && !recentDesktop);
   const [importing, setImporting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [fileError, setFileError] = useState<string | null>(null);
-  const revision = useRef(""),
+  const revision = useRef(recentDesktop?.desktop.revision ?? ""),
     sequence = useRef(0),
     lastRead = useRef(0),
     mounted = useRef(false),
@@ -50,13 +57,22 @@ export function useBackground(enabled = true) {
         changed && next.image ? await decodePreview(next.image) : null;
       if (!mounted.current || request !== sequence.current) return;
       setError(next.issue);
-      if (next.issue || changed) setWallpaper(image);
+      if (next.issue || changed) {
+        setWallpaper(image);
+        lastWallpaper.current = image;
+      }
+      recentDesktop = next.issue ? null : {
+        desktop: { ...next, image: null },
+        wallpaper: lastWallpaper.current,
+      };
       revision.current = next.issue ? "" : next.revision;
       lastRead.current = Date.now();
     } catch (reason) {
       if (!mounted.current || request !== sequence.current) return;
       setError(describeError(reason));
       setWallpaper(null);
+      lastWallpaper.current = null;
+      recentDesktop = null;
       revision.current = "";
     } finally {
       if (mounted.current && request === sequence.current) {
@@ -73,7 +89,7 @@ export function useBackground(enabled = true) {
     mounted.current = true;
     let disposed = false;
     const initialImageRevision = imageRevision.current;
-    void refresh();
+    void refresh(Boolean(recentDesktop));
     void referenceImage()
       .then((image) => {
         if (

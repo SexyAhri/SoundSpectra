@@ -24,9 +24,10 @@ import {
   Undo2,
   X,
   Bookmark,
+  AudioLines,
+  Grid2X2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Switch } from "@/components/ui/switch";
 import { native } from "../spectrum/bridge";
 import type { SpectrumSettings, SettingsUpdate } from "../spectrum/model";
 import type { AnalysisSnapshot } from "../spectrum/spectrum-canvas";
@@ -102,6 +103,7 @@ interface Props {
   audioState?: string;
   disabled: boolean;
   active: boolean;
+  ready: boolean;
   selectedRegion: string;
   onSelectRegion: (id: string) => void;
   arrangeRequest: number;
@@ -180,6 +182,7 @@ function PreviewStage(props: StageProps) {
   const holder = useRef<HTMLDivElement>(null),
     surface = useRef<HTMLDivElement>(null);
   const [size, setSize] = useState({ width: 0, height: 0 });
+  const [fitted, setFitted] = useState(false);
   const [draft, setDraft] = useState<{ region: string; bounds: Bounds } | null>(
     null,
   );
@@ -200,6 +203,9 @@ function PreviewStage(props: StageProps) {
   } | null>(null);
   useLayoutEffect(() => {
     let frame = 0;
+    let revealFrame = 0;
+    let disposed = false;
+    setFitted(false);
     const measure = () => {
       const available = holder.current!.clientWidth;
       const maxHeight =
@@ -226,11 +232,30 @@ function PreviewStage(props: StageProps) {
     const observer = new ResizeObserver(schedule);
     observer.observe(holder.current!);
     measure();
+    // Sibling layout effects and font metrics can change the available width
+    // after the first measurement. Fit once more before revealing the surface.
+    void document.fonts.ready.then(() => {
+      if (disposed) return;
+      let previous = "";
+      let stableFrames = 0;
+      const reveal = () => {
+        const bounds = holder.current!.getBoundingClientRect();
+        const geometry = `${bounds.width}:${bounds.height}`;
+        stableFrames = geometry === previous ? stableFrames + 1 : 0;
+        previous = geometry;
+        measure();
+        if (stableFrames >= 2) setFitted(props.ready);
+        else revealFrame = requestAnimationFrame(reveal);
+      };
+      revealFrame = requestAnimationFrame(reveal);
+    });
     return () => {
+      disposed = true;
       observer.disconnect();
       cancelAnimationFrame(frame);
+      cancelAnimationFrame(revealFrame);
     };
-  }, [screen.width, screen.height, expanded]);
+  }, [screen.width, screen.height, expanded, props.ready]);
   useEffect(() => {
     if (disabled || !arranging) {
       gesture.current = null;
@@ -350,6 +375,7 @@ function PreviewStage(props: StageProps) {
   return (
     <SceneFocusProvider>
       <div className="preview-stage-holder" ref={holder}>
+        {(!props.ready || !fitted) && <span className="preview-loading" role="status">正在准备预览…</span>}
         <ContextMenu
           {...menu}
           disabled={!arranging || disabled || props.viewPreviewOnly}
@@ -363,6 +389,8 @@ function PreviewStage(props: StageProps) {
         >
           <div
             className={`desktop-preview${arranging ? " arranging" : ""}`}
+            data-ready={props.ready && fitted}
+            aria-hidden={!props.ready || !fitted || undefined}
             ref={surface}
             style={{
               width: size.width || "100%",
@@ -907,18 +935,18 @@ export function DesktopPreview(props: Props) {
     masking: masking && !props.disabled,
     selectedMask: maskSelection,
     onSelectMask: selectMask,
+    ready: props.ready && (!native || !!background.desktop || !!background.error),
+    active: props.active && props.ready,
   };
   const status =
     wallpaper.source === "custom"
-      ? (custom.error ?? (custom.loading ? "正在读取自选壁纸…" : null))
+      ? custom.error
       : systemPreview
-        ? background.loading
-          ? "正在读取壁纸…"
-          : !native
-            ? props.wallpaperEditing
-              ? "浏览器无法读取系统壁纸，请在右侧选择自选图片预览。"
-              : "浏览器无法读取系统壁纸，可选择参考图片。"
-            : background.error
+        ? !native
+          ? props.wallpaperEditing
+            ? "浏览器无法读取系统壁纸，请在右侧选择自选图片预览。"
+            : "浏览器无法读取系统壁纸，可选择参考图片。"
+          : background.error
         : background.mode === "custom" && !background.image
           ? "请选择参考图片。"
           : null;
@@ -931,8 +959,10 @@ export function DesktopPreview(props: Props) {
     props.update((latest) => regionPatch(latest, props.selectedRegion, patch));
   const arrangementButton = (
     <Button
-      size="sm"
+      size="icon-sm"
       variant="ghost"
+      aria-label={arranging ? "完成布置" : "布置"}
+      title={arranging ? "完成布置" : "布置"}
       disabled={props.disabled}
       aria-pressed={arranging}
       onClick={() => {
@@ -941,13 +971,14 @@ export function DesktopPreview(props: Props) {
       }}
     >
       <Move size={14} />
-      {arranging ? "完成布置" : "布置"}
     </Button>
   );
   const maskButton = (
     <Button
-      size="sm"
+      size="icon-sm"
       variant="ghost"
+      aria-label={masking ? "完成遮罩" : "遮罩"}
+      title={masking ? "完成遮罩" : "遮罩"}
       disabled={props.disabled}
       aria-pressed={masking}
       onClick={() => {
@@ -956,7 +987,6 @@ export function DesktopPreview(props: Props) {
       }}
     >
       <Scan size={14} />
-      {masking ? "完成遮罩" : "遮罩"}
     </Button>
   );
   const presets = (
@@ -977,15 +1007,6 @@ export function DesktopPreview(props: Props) {
       onChange={(masks) => props.update({ masks })}
     />
   );
-  const playbackStatus = props.demo
-    ? "演示音源"
-    : props.nowPlaying?.title
-      ? `${props.nowPlaying.source || "当前音源"} · ${props.nowPlaying.playing ? "播放中" : "已暂停"}`
-      : props.audioState === "silent"
-        ? "音源已连接 · 静音"
-        : props.running
-          ? "实时音源 · 已连接"
-          : "等待音源";
   const objectControls = arranging && !props.disabled && (
     <div className="preview-arrange-toolbar">
       <PreviewObjectList
@@ -1008,7 +1029,11 @@ export function DesktopPreview(props: Props) {
     </div>
   );
   return (
-    <section className="preview-section" aria-label="效果预览">
+    <section
+      className="preview-section"
+      aria-label="效果预览"
+      aria-busy={wallpaper.source === "custom" ? custom.loading : background.loading}
+    >
       <div className="section-toolbar">
         <div className="preview-title-actions">
           <h2>
@@ -1018,8 +1043,10 @@ export function DesktopPreview(props: Props) {
           <div className="auto-scene-entry">
             <Button
               ref={autoTrigger}
-              size="sm"
-              variant="outline"
+              size="icon-sm"
+              variant="ghost"
+              aria-label="自动搭配"
+              title="自动搭配"
               disabled={props.disabled}
               onClick={() => {
                 setExpanded(false);
@@ -1027,12 +1054,13 @@ export function DesktopPreview(props: Props) {
               }}
             >
               <Sparkles size={14} />
-              自动搭配
             </Button>
             <Button
               ref={libraryTrigger}
-              size="sm"
+              size="icon-sm"
               variant="ghost"
+              aria-label="场景收藏"
+              title="场景收藏"
               disabled={props.disabled}
               onClick={() => {
                 setExpanded(false);
@@ -1040,32 +1068,33 @@ export function DesktopPreview(props: Props) {
               }}
             >
               <Bookmark size={14} />
-              场景收藏
             </Button>
           </div>
           {props.sceneActions}
-          {props.editActions}
         </div>
         <div className="preview-tools">
-          <span className="preview-state-control">
-            <strong title={playbackStatus}>{playbackStatus}</strong>
-          </span>
-          <label className="demo-control" htmlFor="demo-switch">
-            模拟预览
-            <Switch
-              id="demo-switch"
-              checked={props.demo}
-              onCheckedChange={props.onDemoChange}
-            />
-          </label>
+          {props.editActions}
+          <Button
+            size="icon-sm"
+            variant="ghost"
+            role="switch"
+            aria-label="模拟预览"
+            aria-checked={props.demo}
+            title={props.demo ? "关闭模拟预览" : "开启模拟预览"}
+            onClick={() => props.onDemoChange(!props.demo)}
+          >
+            <AudioLines size={15} />
+          </Button>
           {props.wallpaperEditing && (
             <Button
-              size="sm"
+              size="icon-sm"
               variant="ghost"
+              aria-label={wallpaperGuides ? "完成构图" : "显示构图辅助"}
+              title={wallpaperGuides ? "完成构图" : "显示构图辅助"}
               aria-pressed={wallpaperGuides}
               onClick={() => setWallpaperGuides((value) => !value)}
             >
-              {wallpaperGuides ? "完成构图" : "显示构图辅助"}
+              <Grid2X2 size={15} />
             </Button>
           )}
           {arrangementButton}

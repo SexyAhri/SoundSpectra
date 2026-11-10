@@ -14,6 +14,7 @@ import { MusicSettings } from "./music-settings";
 import type { Playback } from "./types";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useUiPreference } from "../settings/use-ui-preference";
+import { fadeUpdate } from "@/components/ui/fade-update";
 export type MusicPanel = "queue" | "lyrics" | "settings";
 export function useMusicPanel(allowDock = true) {
   const [panel, changePanel] = useState<MusicPanel | null>(null);
@@ -32,12 +33,14 @@ export function useMusicPanel(allowDock = true) {
       active.matches("[data-music-panel-toggle]")
     )
       opener.current = active;
-    changePanel(next);
-    if (!next && active instanceof Element && active.closest(".library-panel"))
-      requestAnimationFrame(() => {
-        if (opener.current?.isConnected)
-          opener.current.focus({ preventScroll: true });
-      });
+    fadeUpdate(".library-panel", () => {
+      changePanel(next);
+      if (!next && active instanceof Element && active.closest(".library-panel"))
+        requestAnimationFrame(() => {
+          if (opener.current?.isConnected)
+            opener.current.focus({ preventScroll: true });
+        });
+    });
   }, []);
   useEffect(() => {
     if (!panel) return;
@@ -54,7 +57,7 @@ export function useMusicPanel(allowDock = true) {
           ".library-panel, [data-music-panel-toggle], .library-choice-menu",
         )
       )
-        changePanel(null);
+        setPanel(null);
     };
     const escape = (event: KeyboardEvent) => {
       if (

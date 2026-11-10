@@ -33,11 +33,8 @@
 
 .studio-shell .preview-title-actions .auto-scene-entry>button:last-child {
   color: var(--primary);
-  background: var(--accent);
-  border: 1px solid var(--border);
 }
 
-.studio-shell .demo-control,
 .studio-shell .preview-footer,
 .studio-shell .preview-background-label,
 .studio-shell .preview-background-controls>button,
@@ -947,32 +944,55 @@
   }
 }
 
-/* Keep creation and history actions together, with preview tools at the right. */
+/* Scene actions stay left; editing and preview controls align to the right, even when wrapped. */
 .studio-shell .preview-title-actions {
   flex-wrap: wrap;
   gap: 8px
 }
 
-.studio-shell .preview-title-actions>.workspace-edit-actions {
-  border-left: 1px solid var(--border);
-  padding-left: 8px;
-  margin-left: 4px
+.studio-shell .preview-tools {
+  margin-left: auto;
+  justify-content: flex-end;
+  flex-wrap: wrap;
 }
 
+.studio-shell .preview-tools>.workspace-edit-actions {
+  border-right: 1px solid var(--border);
+  padding-right: 8px;
+  margin-right: 4px;
+}
+
+.studio-shell .preview-tools>button,
 .studio-shell .preview-title-actions>.performance-entry {
-  color: var(--muted-foreground)
+  width: 32px;
+  height: 32px;
+  padding: 0;
+}
+
+.studio-shell .preview-title-actions .auto-scene-entry>button,
+.studio-shell .preview-title-actions>.performance-entry,
+.studio-shell .preview-tools>button {
+  border: 0;
+  box-shadow: none;
+  background: transparent;
+  color: var(--muted-foreground);
+}
+
+.studio-shell .preview-title-actions .auto-scene-entry>button:hover,
+.studio-shell .preview-title-actions>.performance-entry:hover,
+.studio-shell .preview-tools>button:hover,
+.studio-shell .preview-tools>button[aria-pressed="true"],
+.studio-shell .preview-tools>button[aria-checked="true"] {
+  color: var(--primary);
+}
+
+.studio-shell .preview-section>.section-toolbar .toolbar-button:hover:not(:disabled) {
+  background: transparent;
+  color: var(--primary);
 }
 
 @media(max-width:760px) {
   .studio-shell .preview-title-actions {
     justify-content: flex-start
-  }
-
-  .studio-shell .preview-section>.section-toolbar {
-    justify-content: flex-start
-  }
-
-  .studio-shell .preview-tools {
-    flex-wrap: wrap
   }
 }

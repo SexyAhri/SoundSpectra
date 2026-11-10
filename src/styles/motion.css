@@ -1,0 +1,75 @@
+/* Interface fades; progress has its own clock. Keep live canvases and layout sizes stable. */
+:root {
+  --motion-fast: 120ms;
+  --motion-panel: 160ms;
+  --motion-exit: 90ms;
+  --motion-ease: ease-in-out;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  :where(.studio-shell, .studio-shell *, [data-motion="modal"], [data-motion="modal"] *, .drawer-content, .drawer-content *, button, a, input, textarea, select, summary, [role="tab"], [role="option"], [role="menuitem"]) {
+    transition: color var(--motion-fast) ease,
+      background-color var(--motion-fast) ease,
+      border-color var(--motion-fast) ease,
+      box-shadow var(--motion-fast) ease,
+      opacity var(--motion-fast) ease;
+  }
+
+  .studio-shell :is(.workspace-music, .main-pane, .inspector-scroll, .library-track-list, .library-playlist-grid),
+  .application-dialog-body[data-state="active"],
+  .module-section-nav>button[data-state="active"]::after,
+  .studio-shell details[open]>:not(summary) {
+    animation: ui-fade-in var(--motion-panel) var(--motion-ease);
+  }
+
+  .dialog-backdrop[data-state="open"] {
+    animation: ui-fade-in var(--motion-panel) ease;
+  }
+
+  .dialog-backdrop[data-state="closed"] {
+    animation: ui-fade-out var(--motion-exit) ease;
+  }
+
+  [data-motion="modal"][data-state="open"] {
+    animation: ui-fade-in var(--motion-panel) var(--motion-ease);
+  }
+
+  [data-motion="modal"][data-state="closed"] {
+    animation: ui-fade-out var(--motion-exit) ease;
+  }
+
+  .library-panel {
+    animation: ui-fade-in var(--motion-panel) var(--motion-ease);
+  }
+
+  :is(.choice-menu, .library-choice-menu, .context-menu, [data-slot="tooltip-content"])[data-state="open"],
+  [data-slot="tooltip-content"][data-state="delayed-open"],
+  [data-slot="tooltip-content"][data-state="instant-open"] {
+    animation: ui-fade-in var(--motion-fast) var(--motion-ease);
+  }
+
+  :is(.choice-menu, .library-choice-menu, .context-menu, [data-slot="tooltip-content"])[data-state="closed"] {
+    animation: ui-fade-out var(--motion-exit) ease;
+  }
+
+  .library-progress-download,
+  .library-progress-buffer,
+  .update-progress-fill {
+    transition: width 360ms ease-out;
+  }
+
+  @starting-style {
+    .library-progress-download,
+    .update-progress-fill { width: 0; }
+  }
+}
+
+@keyframes ui-fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes ui-fade-out {
+  from { opacity: 1; }
+  to { opacity: 0; }
+}

@@ -1,8 +1,28 @@
 .preview-stage-holder {
+  position: relative;
   width: 100%;
   display: flex;
   justify-content: center;
   min-width: 0;
+}
+
+.desktop-preview[data-ready=false] {
+  visibility: hidden;
+}
+
+.preview-loading {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  color: var(--muted-foreground);
+  font-size: 12px;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .desktop-preview[data-ready=true] {
+    animation: ui-fade-in var(--motion-fast) ease-out;
+  }
 }
 
 .desktop-preview {
@@ -24,10 +44,6 @@
   display: flex;
   align-items: center;
   gap: 6px;
-}
-
-.preview-tools .demo-control {
-  margin-right: 8px;
 }
 
 .preview-tools>button {
@@ -751,11 +767,6 @@
 @media (max-width: 760px) {
   .preview-tools {
     gap: 2px;
-  }
-
-  .preview-tools .demo-control {
-    margin-right: 2px;
-    gap: 5px;
   }
 
   .preview-tools>button {

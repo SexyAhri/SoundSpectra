@@ -15,6 +15,7 @@ const SNAPSHOT_TIMEOUT_MS = 5000;
 
 function useMusicSession(enabled = true) {
   const [snapshot, setSnapshot] = useState(emptySnapshot);
+  const [initialized, setInitialized] = useState(!native || !enabled);
   const [error, setError] = useState<string | null>(null),
     [busy, setBusy] = useState(false);
   const latest = useRef(emptySnapshot);
@@ -34,6 +35,7 @@ function useMusicSession(enabled = true) {
         },
       };
     latest.current = next;
+    setInitialized(true);
     setMusicProvider(next.account?.provider ?? next.login.provider ?? next.providers[0]?.id ?? "");
     setSnapshot(next);
   };
@@ -71,6 +73,8 @@ function useMusicSession(enabled = true) {
           pollingError.current = describeError(e);
           setError(pollingError.current);
         }
+      } finally {
+        if (!disposed) setInitialized(true);
       }
       if (!disposed) timer = setTimeout(read, 650);
     };
@@ -98,6 +102,7 @@ function useMusicSession(enabled = true) {
   };
   return {
     snapshot,
+    initialized,
     error,
     setError,
     busy,
@@ -111,9 +116,15 @@ function useMusicSession(enabled = true) {
 const MusicContext = createContext<ReturnType<typeof useMusicSession> | null>(
   null,
 );
+const MusicReadyContext = createContext(!native);
+export function useMusicInitialized() {
+  return useContext(MusicReadyContext);
+}
 export function MusicProvider({ children }: { children: ReactNode }) {
   const music = useMusicSession();
-  return createElement(MusicContext.Provider, { value: music }, children);
+  return createElement(MusicContext.Provider, { value: music },
+    createElement(MusicReadyContext.Provider, { value: music.initialized }, children),
+  );
 }
 /** Standalone views remain usable in fixtures; the workspace shares one subscription. */
 export function useMusic() {
