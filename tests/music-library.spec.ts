@@ -24,7 +24,17 @@ async function fadedPlayerFixture(page: Page) {
       async play(){this.paused=false;this.listeners.playing?.()}
     };
     window.__TAURI_EVENT_PLUGIN_INTERNALS__={unregisterListener(){}};
-    window.__TAURI_INTERNALS__={transformCallback:handler=>{window.wake=handler;return 1},invoke:async(command,args)=>{if(command==='music_player_state')return structuredClone(window.playerState);if(command==='music_player_feedback')window.feedback.push(args.feedback);return 1}};
+    window.__TAURI_INTERNALS__={transformCallback:handler=>{window.wake=handler;return 1},invoke:async(command,args)=>{
+      if(command==='music_player_state'){
+        if(window.holdState){window.holdState=false;const stale=structuredClone(window.playerState);return new Promise(resolve=>window.releaseState=()=>resolve(stale))}
+        return structuredClone(window.playerState);
+      }
+      if(command==='music_player_feedback'){
+        if(window.holdFeedback){window.holdFeedback=false;window.feedbackHeld=true;return new Promise(()=>{})}
+        window.feedback.push(args.feedback);
+      }
+      return 1;
+    }};
     window.changePlayer=changes=>{Object.assign(window.playerState,changes);window.playerState.revision++;window.wake({payload:null})};
     ReactDOM.createRoot(document.getElementById('root')).render(React.createElement(MusicPlayer));
   `,
@@ -35,6 +45,27 @@ async function fadedPlayerFixture(page: Page) {
     .poll(() => page.evaluate(() => (window as any).testAudio?.volume))
     .toBe(0.8);
 }
+
+test("audio engine retries a lost state response and ignores its late reply", async ({ page }) => {
+  await fadedPlayerFixture(page);
+  await page.evaluate(() => { (window as any).holdState = true; });
+  await expect.poll(() => page.evaluate(() => !!(window as any).releaseState)).toBe(true);
+  await page.evaluate(() => { (window as any).changePlayer({ playing: false }); });
+  await expect.poll(() => page.evaluate(() => (window as any).testAudio.paused), { timeout: 8000 }).toBe(true);
+  await page.evaluate(() => { (window as any).releaseState(); });
+  await page.waitForTimeout(600);
+  expect(await page.evaluate(() => (window as any).testAudio.paused)).toBe(true);
+  await page.evaluate(() => { (window as any).changePlayer({ playing: true }); });
+  await expect.poll(() => page.evaluate(() => (window as any).testAudio.volume)).toBe(.8);
+});
+
+test("audio engine resumes feedback after a lost acknowledgement", async ({ page }) => {
+  await fadedPlayerFixture(page);
+  await page.evaluate(() => { (window as any).holdFeedback = true; });
+  await expect.poll(() => page.evaluate(() => !!(window as any).feedbackHeld)).toBe(true);
+  await page.evaluate(() => { (window as any).feedback = []; (window as any).testAudio.currentTime = 43; });
+  await expect.poll(() => page.evaluate(() => (window as any).feedback.some((f: any) => f.playing && f.position === 43)), { timeout: 8000 }).toBe(true);
+});
 
 async function fixture(page: Page, loggedIn = true) {
   await page.addInitScript(() => Object.assign(window, { isTauri: true }));
@@ -1155,6 +1186,8 @@ test("timeline combines playback, download and seek states and separates time ra
   await expect(download).toHaveCount(0);
   await expect(page.locator(".library-progress-loading")).toHaveCount(0);
   await expect(slider).toBeEnabled();
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  await expect(slider).toHaveValue("12");
   await slider.focus();
   await page.keyboard.press("ArrowRight");
   await expect
@@ -1166,7 +1199,7 @@ test("timeline combines playback, download and seek states and separates time ra
             .at(-1)?.args,
       ),
     )
-    .toMatchObject({ action: "seek", value: 12.1 });
+    .toMatchObject({ action: "seek", value: 12.01 });
   await page.evaluate(
     () => ((window as any).musicState.playback.transfer.status = "cached"),
   );

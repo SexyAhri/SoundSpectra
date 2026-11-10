@@ -1,6 +1,7 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, type CSSProperties } from "react";
 import { clock, type Playback } from "./types";
 import { MusicHint } from "./music-hint";
+import { useProgressClock } from "./use-progress-clock";
 
 const percent = (value: number, total: number) =>
   Math.max(
@@ -21,19 +22,42 @@ export function MusicProgress({
   command: (action: string, value?: number) => void;
 }) {
   const [seek, setSeek] = useState<number | null>(null);
+  const [pendingSeek, setPendingSeek] = useState<{
+    value: number;
+    generation: number;
+    revision: number;
+  } | null>(null);
   useEffect(() => setSeek(null), [p.generation]);
+  useEffect(() => {
+    if (!pendingSeek) return;
+    if (
+      pendingSeek.generation !== p.generation ||
+      pendingSeek.revision !== p.seekRevision
+    ) {
+      setPendingSeek(null);
+      return;
+    }
+    const timer = setTimeout(() => setPendingSeek(null), 1500);
+    return () => clearTimeout(timer);
+  }, [pendingSeek, p.generation, p.seekRevision]);
   const current = p.queue[p.index];
   const ready =
     !!current && !p.suspended && p.phase !== "loading" && p.phase !== "error";
   const transfer = p.transfer;
   const downloading = !p.suspended && transfer?.status === "downloading";
   const downloaded = percent(transfer?.received ?? 0, transfer?.total ?? 0);
-  const position = seek ?? p.position;
+  const waitingForSeek =
+    pendingSeek?.generation === p.generation &&
+    pendingSeek.revision === p.seekRevision
+      ? pendingSeek.value
+      : null;
+  const position = useProgressClock(p, seek ?? waitingForSeek);
   const loading = p.phase === "loading" && !p.suspended;
   const authorizing = loading && p.loadStage !== "buffering";
   const buffering =
     !p.suspended &&
-    ((p.phase === "buffering" && p.playing) || (loading && !authorizing));
+    ((["ready", "buffering"].includes(p.phase) && p.playing) ||
+      (loading && !authorizing));
   const seeking = !p.suspended && p.seeking;
   const failed = !p.suspended && p.phase === "error";
   const states: { id: string; label: string }[] = [];
@@ -73,6 +97,7 @@ export function MusicProgress({
       : "";
   const tooltip = [summary, transferDetails].filter(Boolean).join("\n");
   const commit = (value: number) => {
+    setPendingSeek({ value, generation: p.generation, revision: p.seekRevision });
     command("seek", value);
     setSeek(null);
   };
@@ -88,6 +113,7 @@ export function MusicProgress({
             <div className="library-progress-track">
               {downloading && (
                 <div
+                  key={p.generation}
                   className="library-progress-download"
                   role="progressbar"
                   aria-label="音频下载进度"
@@ -95,7 +121,7 @@ export function MusicProgress({
                   aria-valuemax={100}
                   aria-valuenow={Math.floor(downloaded)}
                   aria-valuetext={`${Math.floor(downloaded)}% · ${transferDetails}`}
-                  style={{ width: `${downloaded}%` }}
+                  style={{ "--download-progress": `${downloaded}%` } as CSSProperties}
                 />
               )}
               {(p.buffered ?? []).map(([start, end], index) => (
@@ -124,7 +150,7 @@ export function MusicProgress({
               type="range"
               min="0"
               max={p.duration || 1}
-              step=".1"
+              step=".01"
               value={position}
               disabled={!ready}
               onChange={(e) => setSeek(Number(e.target.value))}

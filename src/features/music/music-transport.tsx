@@ -60,6 +60,7 @@ export function MusicTransport({
   const ModeIcon = mode.icon;
   const [volume, setVolume] = useState<number | null>(null);
   const silent = p.muted || p.volume === 0;
+  const waiting = p.phase === "loading" || (p.playing && ["ready", "buffering"].includes(p.phase));
   const commitVolume = (value: number) => {
     command("volume", value);
     setVolume(null);
@@ -148,7 +149,7 @@ export function MusicTransport({
               )
             }
           >
-            {p.phase === "loading" ? (
+            {waiting ? (
               <LoaderCircle className="spinning" size={20} />
             ) : p.playing ? (
               <Pause size={20} />

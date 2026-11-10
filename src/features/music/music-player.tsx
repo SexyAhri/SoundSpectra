@@ -3,6 +3,22 @@ import { convertFileSrc, invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { MusicFade } from "./music-fade";
 
+// A WebView reload can drop an IPC response. Always release the polling and
+// feedback gates so one lost callback cannot freeze the audio engine forever.
+async function playerRequest<T>(command: string, args?: Record<string, unknown>): Promise<T> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  try {
+    return await Promise.race([
+      invoke<T>(command, args),
+      new Promise<never>((_, reject) => {
+        timer = setTimeout(() => reject(new Error("音频引擎状态请求超时")), 5000);
+      }),
+    ]);
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 interface PlayerState {
   generation: number;
   revision: number;
@@ -65,7 +81,7 @@ export function MusicPlayer() {
         return;
       reporting = true;
       try {
-        await invoke("music_player_feedback", {
+        await playerRequest("music_player_feedback", {
           feedback: {
             generation: current.generation,
             revision: current.revision,
@@ -196,7 +212,7 @@ export function MusicPlayer() {
       if (disposed || polling) return;
       polling = true;
       try {
-        const next = await invoke<PlayerState>("music_player_state");
+        const next = await playerRequest<PlayerState>("music_player_state");
         if (disposed) return;
         current = next;
         if ("mediaSession" in navigator) {

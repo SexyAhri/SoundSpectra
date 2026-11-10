@@ -1017,6 +1017,7 @@
   inset-block: 0;
 }
 .library-progress-download {
+  width: var(--download-progress, 0%);
   left: 0;
   background: repeating-linear-gradient(
     110deg,
