@@ -73,6 +73,10 @@ node scripts/desktop.mjs --cargo test --manifest-path src-tauri/Cargo.toml --loc
 
 ## 验证入口
 
+配置中的启动窗口设置 `create: false`，由原生 `setup` 在应用、拾光绳和托盘状态注册后创建；不要恢复为自动创建，否则首次 `get_settings` 或 `rail_get` 可能早于对应状态就绪。开机自启时主窗口从创建开始保持隐藏。`native-card-save-smoke.mjs` 同时验证首次启动和启用卡片后的重启能够直接载入设置，不出现恢复默认设置入口。
+
+README 展示图可通过 `node scripts/capture-project.mjs` 重新生成：先启动 `npm run dev`，或用 `SHOWCASE_URL` 指向已有开发服务器。脚本使用隔离浏览器、应用内模拟音源及公开的平台能力配置，输出 `docs/images/workspace-current.png` 和 `docs/images/music-login.png`，不读取本机登录凭据或修改桌面客户端设置。更新图片后应检查实际画面，并同步 README 的截图日期与来源。
+
 Mac 音频通过 ScreenCaptureKit 对预设播放器分别采样，再由共享选择器选择唯一音源，不混入系统其他声音。Swift 辅助程序只输出 PCM，未注册屏幕画面回调；退出主程序后自动结束。AppKit 桌面属性在主线程设置，正常模式位于壁纸和图标之间并穿透鼠标。
 
 Mac 歌曲信息通过播放器的公开脚本接口读取。播放器没有脚本词典、没有时间线或未授权时明确报告不可用，不借用其他应用的歌曲。当前 Windows 实机记录不能作为 Mac 验收记录；Mac 编译、授权、播放器和双版本升级需独立验证。
