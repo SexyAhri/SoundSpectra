@@ -46,6 +46,14 @@ src-tauri/tauri.release.conf.json
 /backups/
 /diagnostics/
 
+# Local music credentials, databases and browser profiles
+*.dpapi
+/music/
+/*-webview/
+/qishui-vendor/
+/qishui-helper/
+/qishui-runtime.json
+
 # Editor and operating-system state
 .idea/
 .vs/
