@@ -1,16 +1,23 @@
-//! Local media cache. Only actual playback renews the seven-day lifetime.
-use super::{lyric_cache, model::Track, qq_quality::MAX_AUDIO_BYTES};
+//! Persist lyrics and small loudness measurements, never complete audio or playback URLs.
+use super::{
+    lyric_cache,
+    model::{Audio, Track},
+    qq_quality::MAX_AUDIO_BYTES,
+};
 use serde::{Deserialize, Serialize};
 use std::{
     fs,
     io::{Read, Write},
     path::{Path, PathBuf},
-    sync::{Arc, Mutex},
+    sync::{
+        atomic::{AtomicBool, Ordering},
+        Arc, Mutex,
+    },
     time::{Duration, SystemTime, UNIX_EPOCH},
 };
 
 const RETENTION: u64 = 7 * 24 * 60 * 60 * 1000;
-const MAX_TOTAL: u64 = 4 * 1024 * 1024 * 1024;
+const MAX_TOTAL: u64 = 32 * 1024 * 1024;
 const MAX_TRACKS: usize = 4096;
 
 pub fn identity(track: &Track) -> String {
@@ -20,9 +27,12 @@ pub fn identity(track: &Track) -> String {
     )
 }
 pub(super) fn hash(bytes: &[u8]) -> u64 {
-    bytes.iter().fold(0xcbf29ce484222325, |h, b| {
-        (h ^ *b as u64).wrapping_mul(0x100000001b3)
-    })
+    extend_hash(0xcbf29ce484222325, bytes)
+}
+pub(super) fn extend_hash(initial: u64, bytes: &[u8]) -> u64 {
+    bytes
+        .iter()
+        .fold(initial, |h, b| (h ^ *b as u64).wrapping_mul(0x100000001b3))
 }
 fn name(identity: &str) -> String {
     format!("track-{:016x}", hash(identity.as_bytes()))
@@ -31,7 +41,7 @@ fn temporary(filename: &str, track: &str) -> bool {
     let Some((base, tail)) = filename.split_once('.') else {
         return false;
     };
-    if base != "audio" && base != "entry" && base != track {
+    if base != "audio" && base != "entry" && base != "loudness" && base != track {
         return false;
     }
     let Some(tail) = tail.strip_suffix(".tmp") else {
@@ -69,6 +79,7 @@ struct Policy {
     active: Option<String>,
     pending: Vec<(String, String)>,
     audio_epoch: u64,
+    normalize: bool,
     lyric_epoch: u64,
 }
 #[derive(Serialize)]
@@ -76,6 +87,7 @@ struct Policy {
 pub struct Stats {
     pub audio_bytes: u64,
     pub lyric_bytes: u64,
+    pub metadata_bytes: u64,
     pub limit_bytes: u64,
     pub pending: usize,
 }
@@ -97,11 +109,14 @@ impl Cache {
             }),
         }
     }
-    pub fn set_limit(&self, gib: u8) -> Result<(), String> {
-        if ![1, 2, 4, 8].contains(&gib) {
+    pub fn configure(&self, mib: u8, normalize: bool) -> Result<(), String> {
+        if ![8, 16, 32, 64].contains(&mib) {
             return Err("缓存容量无效".into());
         }
-        self.policy.lock().unwrap().limit = gib as u64 * 1024 * 1024 * 1024;
+        let mut policy = self.policy.lock().unwrap();
+        policy.limit = mib as u64 * 1024 * 1024;
+        policy.normalize = normalize;
+        drop(policy);
         self.prune();
         Ok(())
     }
@@ -172,6 +187,7 @@ impl Cache {
         }
         let mut audio = 0;
         let mut lyrics = 0;
+        let mut metadata = 0;
         for item in fs::read_dir(&self.root).into_iter().flatten().flatten() {
             let path = item.path();
             if !item.file_type().is_ok_and(|t| t.is_dir()) || Self::read_entry(&path).is_none() {
@@ -189,7 +205,13 @@ impl Cache {
                     self.clear_directory(&path, kind);
                 }
             }
+            // Playback owns an in-memory buffer. Old audio files are never read again.
+            Self::remove_legacy_audio(&path);
             audio += fs::metadata(path.join("audio.bin")).map_or(0, |m| m.len());
+            metadata += ["entry.json", "loudness.json"]
+                .iter()
+                .map(|name| fs::metadata(path.join(name)).map_or(0, |m| m.len()))
+                .sum::<u64>();
             if let Some(name) = path.file_name().and_then(|s| s.to_str()) {
                 lyrics += fs::metadata(path.join(format!("{name}.json"))).map_or(0, |m| m.len());
             }
@@ -198,6 +220,7 @@ impl Cache {
         Ok(Stats {
             audio_bytes: audio,
             lyric_bytes: lyrics,
+            metadata_bytes: metadata,
             limit_bytes: p.limit,
             pending: p.pending.len(),
         })
@@ -285,7 +308,7 @@ impl Cache {
                 self.policy.lock().unwrap().lyric_epoch,
             )
         };
-        // Keep network requests outside the cache lock, so cached audio is immediate.
+        // Keep network requests outside the cache lock, so playback controls stay responsive.
         let document = match directory {
             Some(directory) => {
                 lyric_cache::load_guarded(&directory, track, refresh, fetch, |text| {
@@ -301,77 +324,100 @@ impl Cache {
         self.prune();
         document
     }
-    pub fn audio(&self, track: &Track, account: &str, variant: &str) -> Option<Vec<u8>> {
-        let _guard = self.gate.lock().unwrap();
-        let identity = identity(track);
-        let directory = self.directory(&identity);
-        let entry = Self::read_entry(&directory)?;
-        if entry.identity != identity || Self::expired(&entry, super::now()) {
-            self.remove(&directory);
-            return None;
-        }
-        let saved = entry.audio?;
-        if saved.scope != account
-            || saved.variant != variant
-            || saved.size == 0
-            || saved.size > MAX_AUDIO_BYTES as u64
-        {
-            return None;
-        }
-        let file = fs::File::open(directory.join("audio.bin")).ok()?;
-        if file.metadata().ok()?.len() != saved.size {
-            return None;
-        }
-        let mut bytes = Vec::with_capacity(saved.size as usize);
-        file.take(saved.size + 1).read_to_end(&mut bytes).ok()?;
-        if bytes.len() as u64 != saved.size || hash(&bytes) != saved.hash {
-            return None;
-        }
-        super::loudness::schedule(directory.join("audio.bin"), saved.size, saved.hash);
-        Some(bytes)
+    pub fn analysis_enabled(&self) -> bool {
+        self.policy.lock().unwrap().normalize
     }
-    pub fn save_audio(
+    pub fn measure_audio(
+        self: &Arc<Self>,
+        track: &Track,
+        account: &str,
+        variant: &str,
+        bytes: Arc<Vec<u8>>,
+        epoch: u64,
+        cancelled: Arc<AtomicBool>,
+    ) {
+        if !self.analysis_enabled() || bytes.is_empty() || bytes.len() > MAX_AUDIO_BYTES {
+            return;
+        }
+        let cache = self.clone();
+        let track = track.clone();
+        let account = account.to_owned();
+        let variant = variant.to_owned();
+        let guard = cancelled.clone();
+        super::loudness::schedule(
+            bytes,
+            cancelled,
+            Box::new(move |size, checksum, lufs| {
+                cache.save_measurement(
+                    &track, &account, &variant, size, checksum, lufs, epoch, &guard,
+                );
+            }),
+        );
+    }
+    fn save_measurement(
         &self,
         track: &Track,
         account: &str,
         variant: &str,
-        bytes: &[u8],
+        size: u64,
+        checksum: u64,
+        lufs: Option<f64>,
         epoch: u64,
+        cancelled: &AtomicBool,
     ) {
-        if bytes.is_empty() || bytes.len() > MAX_AUDIO_BYTES {
-            return;
-        }
         let _guard = self.gate.lock().unwrap();
-        if self.audio_epoch() != epoch {
+        if cancelled.load(Ordering::Acquire) || self.audio_epoch() != epoch {
             return;
         }
         let Ok((directory, mut entry)) = self.prepare(track) else {
             return;
         };
-        if atomic_write(&directory.join("audio.bin"), bytes).is_err() {
-            return;
-        }
-        let checksum = hash(bytes);
         entry.audio = Some(SavedAudio {
             scope: account.into(),
             variant: variant.into(),
-            size: bytes.len() as u64,
+            size,
             hash: checksum,
         });
-        let _ = Self::save_entry(&directory, &entry);
+        if Self::save_entry(&directory, &entry).is_ok() {
+            super::loudness::save(&directory, size, checksum, lufs);
+        }
         let limit = self.policy.lock().unwrap().limit;
         self.prune_inner(super::now(), limit, MAX_TRACKS);
-        super::loudness::schedule(directory.join("audio.bin"), bytes.len() as u64, checksum);
     }
-    pub fn gain(&self, track: &Track, variant: &str) -> f64 {
+    pub fn gain(&self, track: &Track, audio: &Audio) -> f64 {
+        let _guard = self.gate.lock().unwrap();
         let dir = self.directory(&identity(track));
-        let Some(entry) = Self::read_entry(&dir) else {
+        let Some(entry) = Self::read_entry(&dir).filter(|e| !Self::expired(e, super::now())) else {
             return 1.0;
         };
-        let Some(audio) = entry.audio.filter(|a| a.variant == variant) else {
+        let fingerprint = audio.stream.as_ref().map_or_else(
+            || Some((audio.bytes.len() as u64, hash(&audio.bytes))),
+            |s| s.fingerprint(),
+        );
+        let Some((size, checksum)) = fingerprint else {
             return 1.0;
         };
-        super::loudness::gain(&dir.join("audio.bin"), audio.size, audio.hash)
+        let Some(saved) = entry
+            .audio
+            .filter(|a| a.variant == audio.quality.id && a.size == size && a.hash == checksum)
+        else {
+            return 1.0;
+        };
+        super::loudness::gain(&dir.join("audio.bin"), saved.size, saved.hash)
+    }
+    fn remove_legacy_audio(directory: &Path) {
+        let _ = fs::remove_file(directory.join("audio.bin"));
+        if let Ok(files) = fs::read_dir(directory) {
+            for file in files.flatten() {
+                if file
+                    .file_name()
+                    .to_str()
+                    .is_some_and(|f| f.starts_with("audio.") && temporary(f, "audio"))
+                {
+                    let _ = fs::remove_file(file.path());
+                }
+            }
+        }
     }
     pub fn played(&self, track: &Track) {
         let _guard = self.gate.lock().unwrap();
@@ -433,6 +479,7 @@ impl Cache {
                 continue;
             }
             let directory = item.path();
+            Self::remove_legacy_audio(&directory);
             if let Ok(files) = fs::read_dir(&directory) {
                 for file in files.flatten() {
                     if file
@@ -518,7 +565,7 @@ impl Cache {
     }
 }
 
-fn atomic_write(target: &Path, bytes: &[u8]) -> std::io::Result<()> {
+pub(super) fn atomic_write(target: &Path, bytes: &[u8]) -> std::io::Result<()> {
     let nonce = SystemTime::now()
         .duration_since(UNIX_EPOCH)
         .unwrap_or_default()
@@ -561,33 +608,89 @@ mod tests {
         )
     }
     #[test]
-    fn keeps_audio_separate_by_account_and_quality_and_rejects_corruption() {
+    fn legacy_audio_is_removed_without_losing_lyrics_measurements_or_unknown_files() {
         let (cache, track) = setup();
-        cache.save_audio(
-            &track,
-            "account-a",
-            "F000",
-            b"original audio",
-            cache.audio_epoch(),
-        );
-        assert_eq!(
-            cache.audio(&track, "account-a", "F000").unwrap(),
-            b"original audio"
-        );
-        assert!(cache.audio(&track, "account-b", "F000").is_none());
-        assert!(cache.audio(&track, "account-a", "M500").is_none());
-        fs::write(
-            cache.directory(&identity(&track)).join("audio.bin"),
-            b"corrupt! audio",
-        )
-        .unwrap();
-        assert!(cache.audio(&track, "account-a", "F000").is_none());
+        cache.lyrics(&track, false, || Ok("[00:01]保留歌词".into()));
+        let directory = cache.directory(&identity(&track));
+        fs::write(directory.join("audio.bin"), b"old full song").unwrap();
+        fs::write(directory.join("audio.123-456.tmp"), b"unfinished song").unwrap();
+        fs::write(directory.join("keep.txt"), b"unrelated").unwrap();
+        super::super::loudness::save(&directory, 13, 123, Some(-12.0));
+        cache.prune();
+        assert!(!directory.join("audio.bin").exists());
+        assert!(!directory.join("audio.123-456.tmp").exists());
+        assert!(directory.join("loudness.json").exists());
+        assert!(directory.join("keep.txt").exists());
+        let stats = cache.manage(None).unwrap();
+        assert_eq!(stats.audio_bytes, 0);
+        assert!(stats.lyric_bytes > 0);
+        assert!(stats.metadata_bytes > 0);
+        let lyrics = cache.lyrics(&track, false, || panic!("must reuse lyrics"));
+        assert!(!lyrics.lines.is_empty());
         let _ = fs::remove_dir_all(cache.root.parent().unwrap());
     }
     #[test]
-    fn seven_day_expiry_removes_audio_and_lyrics_and_replay_caches_again() {
+    fn analysis_persists_only_small_measurements_and_validates_quality_and_content() {
         let (cache, track) = setup();
-        cache.save_audio(&track, "a", "F000", b"audio", cache.audio_epoch());
+        let bytes = Arc::new(super::super::loudness::test_audio());
+        let cancel = Arc::new(AtomicBool::new(false));
+        cache.measure_audio(
+            &track,
+            "a",
+            "test",
+            bytes.clone(),
+            cache.audio_epoch(),
+            cancel.clone(),
+        );
+        assert!(!cache.root.exists(), "normalization is off by default");
+        cache.configure(32, true).unwrap();
+        cache.measure_audio(
+            &track,
+            "a",
+            "test",
+            bytes.clone(),
+            cache.audio_epoch(),
+            cancel,
+        );
+        let directory = cache.directory(&identity(&track));
+        let deadline = std::time::Instant::now() + Duration::from_secs(5);
+        while !directory.join("loudness.json").exists() {
+            assert!(
+                std::time::Instant::now() < deadline,
+                "analysis did not complete"
+            );
+            std::thread::sleep(Duration::from_millis(10));
+        }
+        let mut audio = Audio {
+            bytes: bytes.as_ref().clone(),
+            mime: "audio/wav",
+            stream: None,
+            quality: super::super::model::AudioQuality {
+                id: "test".into(),
+                label: "test".into(),
+                codec: "wav".into(),
+                sample_rate: None,
+                bit_depth: None,
+                channels: None,
+                bitrate: None,
+                fallback: None,
+            },
+        };
+        assert!(cache.gain(&track, &audio) < 1.0);
+        audio.quality.id = "other".into();
+        assert_eq!(cache.gain(&track, &audio), 1.0);
+        audio.quality.id = "test".into();
+        audio.bytes[60] ^= 1;
+        assert_eq!(cache.gain(&track, &audio), 1.0);
+        assert!(!directory.join("audio.bin").exists());
+        let stats = cache.manage(None).unwrap();
+        assert_eq!(stats.audio_bytes, 0);
+        assert!(stats.metadata_bytes < 4096);
+        let _ = fs::remove_dir_all(cache.root.parent().unwrap());
+    }
+    #[test]
+    fn seven_day_expiry_removes_lyrics_and_measurements_and_replay_caches_again() {
+        let (cache, track) = setup();
         cache.lyrics(&track, false, || Ok("[00:01]原创歌词".into()));
         let directory = cache.directory(&identity(&track));
         let mut entry = Cache::read_entry(&directory).unwrap();
@@ -595,14 +698,14 @@ mod tests {
         Cache::save_entry(&directory, &entry).unwrap();
         cache.prune();
         assert!(!directory.exists());
-        cache.save_audio(&track, "a", "F000", b"replayed", cache.audio_epoch());
-        assert_eq!(cache.audio(&track, "a", "F000").unwrap(), b"replayed");
+        cache.lyrics(&track, false, || Ok("[00:01]重新缓存".into()));
+        assert!(directory.exists());
         let _ = fs::remove_dir_all(cache.root.parent().unwrap());
     }
     #[test]
     fn only_playback_renews_age_and_capacity_evicts_oldest_pair() {
         let (cache, track) = setup();
-        cache.save_audio(&track, "a", "F000", b"audio", cache.audio_epoch());
+        cache.lyrics(&track, false, || Ok("[00:01]歌词".into()));
         let directory = cache.directory(&identity(&track));
         let mut entry = Cache::read_entry(&directory).unwrap();
         entry.last_played -= 10000;
@@ -621,32 +724,51 @@ mod tests {
         let _ = fs::remove_dir_all(cache.root.parent().unwrap());
     }
     #[test]
-    fn manual_clear_protects_active_and_rejects_late_commits() {
+    fn manual_clear_protects_active_lyrics_and_rejects_late_results() {
         let (cache, track) = setup();
         let epoch = cache.audio_epoch();
         cache.active(Some(&track));
-        cache.save_audio(&track, "a", "F000", b"audio", epoch);
-        assert_eq!(cache.manage(Some("audio")).unwrap().pending, 1);
-        assert!(cache.audio(&track, "a", "F000").is_some());
+        cache.lyrics(&track, false, || Ok("[00:01]正在播放".into()));
+        let directory = cache.directory(&identity(&track));
+        let lyric_path = directory.join(format!("{}.json", name(&identity(&track))));
+        assert_eq!(cache.manage(Some("lyrics")).unwrap().pending, 1);
+        assert!(lyric_path.exists());
         cache.active(None);
         let deadline = std::time::Instant::now() + Duration::from_secs(2);
         while cache.manage(None).unwrap().pending > 0 {
             assert!(std::time::Instant::now() < deadline);
             std::thread::sleep(Duration::from_millis(10));
         }
-        cache.save_audio(&track, "a", "F000", b"late", epoch);
-        assert!(cache.audio(&track, "a", "F000").is_none());
-        cache.save_audio(&track, "a", "F000", b"new", cache.audio_epoch());
-        assert!(cache.audio(&track, "a", "F000").is_some());
+        assert!(!lyric_path.exists());
+        cache.manage(Some("audio")).unwrap();
+        cache.save_measurement(
+            &track,
+            "a",
+            "test",
+            20,
+            1,
+            Some(-12.0),
+            epoch,
+            &AtomicBool::new(false),
+        );
+        assert!(!directory.join("loudness.json").exists());
+        cache.save_measurement(
+            &track,
+            "a",
+            "test",
+            20,
+            1,
+            Some(-12.0),
+            cache.audio_epoch(),
+            &AtomicBool::new(true),
+        );
+        assert!(!directory.join("loudness.json").exists());
         let document = cache.lyrics(&track, true, || {
             cache.manage(Some("lyrics")).unwrap();
             Ok("[00:01]late lyric".into())
         });
         assert!(!document.lines.is_empty());
-        assert!(!cache
-            .directory(&identity(&track))
-            .join(format!("{}.json", name(&identity(&track))))
-            .exists());
+        assert!(!lyric_path.exists());
         let _ = fs::remove_dir_all(cache.root.parent().unwrap());
     }
     #[test]

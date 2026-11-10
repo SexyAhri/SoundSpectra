@@ -13,7 +13,7 @@ use std::{
 };
 
 type RangeReader = Box<dyn Fn(usize, usize) -> Result<Vec<u8>, String> + Send + Sync>;
-type Commit = Box<dyn FnOnce(&[u8]) + Send>;
+type Commit = Box<dyn FnOnce(Arc<Vec<u8>>) + Send>;
 
 #[derive(Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -27,6 +27,7 @@ struct Buffer {
     bytes: Arc<Vec<u8>>,
     complete: bool,
     failed: bool,
+    checksum: u64,
 }
 
 pub struct Stream {
@@ -70,6 +71,7 @@ impl Stream {
         let path = format!("/audio/{token}");
         let stream = Arc::new(Self {
             buffer: Mutex::new(Buffer {
+                checksum: super::cache::hash(&initial),
                 bytes: Arc::new(initial),
                 complete: false,
                 failed: false,
@@ -116,6 +118,10 @@ impl Stream {
     pub fn url(&self) -> String {
         self.url.clone()
     }
+    pub fn fingerprint(&self) -> Option<(u64, u64)> {
+        let b = self.buffer.lock().unwrap();
+        b.complete.then_some((b.bytes.len() as u64, b.checksum))
+    }
     pub fn progress(&self) -> Transfer {
         let b = self.buffer.lock().unwrap();
         Transfer {
@@ -144,8 +150,10 @@ impl Stream {
             match reader.read(&mut chunk[..limit]) {
                 Ok(0) => break,
                 Ok(n) if n <= remaining => {
-                    Arc::make_mut(&mut self.buffer.lock().unwrap().bytes)
-                        .extend_from_slice(&chunk[..n]);
+                    let mut b = self.buffer.lock().unwrap();
+                    b.checksum = super::cache::extend_hash(b.checksum, &chunk[..n]);
+                    Arc::make_mut(&mut b.bytes).extend_from_slice(&chunk[..n]);
+                    drop(b);
                     self.changed.notify_all();
                 }
                 _ => {
@@ -163,9 +171,9 @@ impl Stream {
         let complete = b.complete.then(|| b.bytes.clone());
         drop(b);
         self.changed.notify_all();
-        // Disk checksumming/writes must not block the player or UI snapshots.
+        // Background analysis shares the completed buffer without copying or disk writes.
         if let Some(bytes) = complete {
-            commit(&bytes);
+            commit(bytes);
         }
     }
 
@@ -325,6 +333,7 @@ mod tests {
         assert_eq!(first, [7; 1024]);
         assert!(!committed.load(Ordering::Acquire));
         assert_eq!(stream.progress().status, "downloading");
+        assert!(stream.fingerprint().is_none());
         let seek = client
             .get(stream.url())
             .header("Range", "bytes=599990-")
@@ -369,6 +378,10 @@ mod tests {
         }
         assert!(committed.load(Ordering::Acquire));
         assert_eq!(stream.progress().status, "complete");
+        assert_eq!(
+            stream.fingerprint(),
+            Some((600_000, super::super::cache::hash(&vec![7; 600_000])))
+        );
         cancel.store(true, Ordering::Release);
     }
 

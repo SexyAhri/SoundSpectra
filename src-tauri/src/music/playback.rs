@@ -68,6 +68,7 @@ pub struct Playback {
     prefetch_cancel: Arc<AtomicBool>,
     auto_skips: u8,
     automatic: bool,
+    normalization_pending: bool,
 }
 impl Default for Playback {
     fn default() -> Self {
@@ -92,6 +93,7 @@ impl Default for Playback {
             prefetch_cancel: Arc::new(AtomicBool::new(false)),
             auto_skips: 0,
             automatic: false,
+            normalization_pending: false,
         }
     }
 }
@@ -163,6 +165,8 @@ impl Playback {
         self.view.error = None;
         self.view.quality = None;
         self.audio = None;
+        self.normalization_pending = false;
+        self.view.gain = 1.0;
         self.cover = None;
         self.lyrics = None;
         self.cache_reported = None;
@@ -509,8 +513,9 @@ fn load_variant(
                     .ok()
                     .flatten()
                     .is_some_and(|s| s.normalize);
+                p.normalization_pending = normalize && audio.stream.is_some();
                 p.view.gain = if normalize {
-                    music.cache.gain(&track, &audio.quality.id)
+                    music.cache.gain(&track, &audio)
                 } else {
                     1.0
                 };
@@ -825,6 +830,12 @@ pub fn feedback(app: &AppHandle, state: &Arc<AppState>, f: Feedback) -> Result<(
             .as_ref()
             .is_none_or(|s| s.progress().status == "complete")
     });
+    if complete && p.normalization_pending {
+        if let (Some(track), Some(audio)) = (p.view.queue.get(p.view.index), p.audio.as_ref()) {
+            p.view.gain = state.music.cache.gain(track, audio);
+        }
+        p.normalization_pending = false;
+    }
     let key = (p.view.generation, p.view.queue_revision);
     if complete && p.prefetch_key != Some(key) {
         let (mode, len, index) = (p.view.mode, p.view.queue.len(), p.view.index);

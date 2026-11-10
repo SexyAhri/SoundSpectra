@@ -38,7 +38,7 @@ pub fn music_preferences(
     let provider = state.music.provider()?;
     let scope = provider.scope();
     if let Some(p) = preferences {
-        state.music.cache.set_limit(p.cache_gib)?;
+        state.music.cache.configure(p.lyric_mib, p.normalize)?;
         state.music.store.set(&scope, "preferences", &p)?;
     }
     state

@@ -30,13 +30,13 @@ impl StoredTrack {
 #[derive(Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", default)]
 pub struct Preferences {
-    pub cache_gib: u8,
+    pub lyric_mib: u8,
     pub normalize: bool,
 }
 impl Default for Preferences {
     fn default() -> Self {
         Self {
-            cache_gib: 4,
+            lyric_mib: 32,
             normalize: false,
         }
     }
@@ -349,6 +349,16 @@ impl Store {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn old_gib_preference_migrates_to_small_lyric_budget_without_losing_normalization() {
+        let prefs: Preferences =
+            serde_json::from_value(serde_json::json!({"cacheGib":8,"normalize":true})).unwrap();
+        assert_eq!(prefs.lyric_mib, 32);
+        assert!(prefs.normalize);
+        let value = serde_json::to_value(prefs).unwrap();
+        assert!(value.get("cacheGib").is_none());
+        assert_eq!(value["lyricMib"], 32);
+    }
     #[test]
     fn account_isolation_native_identifiers_and_paused_restore() {
         let path = std::env::temp_dir().join(format!(

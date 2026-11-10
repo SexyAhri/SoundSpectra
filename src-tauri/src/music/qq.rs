@@ -292,7 +292,14 @@ impl Qq {
                 Box::new(move |bytes| {
                     if !cancelled.load(std::sync::atomic::Ordering::Acquire) {
                         if let Some(cache) = cache {
-                            cache.save_audio(&track, &scope, variant.id, bytes, cache_epoch);
+                            cache.measure_audio(
+                                &track,
+                                &scope,
+                                variant.id,
+                                bytes,
+                                cache_epoch,
+                                cancelled.clone(),
+                            );
                         }
                     }
                 }),
@@ -637,24 +644,19 @@ impl Provider for Qq {
             } else {
                 None
             };
-            // Reuse bytes only after the service authorizes this exact format.
             let scope = super::cache::scope(&self.uin);
-            if let Some(bytes) = self
-                .cache
-                .as_ref()
-                .filter(|_| !request.prefetch)
-                .and_then(|c| c.audio(track, &scope, variant.id))
-            {
-                if let Ok(audio) = variant.audio(bytes, track.duration, fallback.clone()) {
-                    self.discard_prefetch();
-                    return Ok(audio);
-                }
-            }
             match self.download(url, variant, track, fallback, &request, cache_epoch) {
                 Ok(audio) => {
                     if audio.stream.is_none() && !request.prefetch {
-                        if let Some(cache) = &self.cache {
-                            cache.save_audio(track, &scope, variant.id, &audio.bytes, cache_epoch);
+                        if let Some(cache) = self.cache.as_ref().filter(|c| c.analysis_enabled()) {
+                            cache.measure_audio(
+                                track,
+                                &scope,
+                                variant.id,
+                                Arc::new(audio.bytes.clone()),
+                                cache_epoch,
+                                request.cancelled.clone(),
+                            );
                         }
                     }
                     return Ok(audio);

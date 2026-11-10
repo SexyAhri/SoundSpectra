@@ -111,7 +111,7 @@ impl MusicState {
             .value::<store::Preferences>(&scope, "preferences")?
             .unwrap_or_default();
         self.store.set(&scope, "sync-complete", &false)?;
-        self.cache.set_limit(prefs.cache_gib)?;
+        self.cache.configure(prefs.lyric_mib, prefs.normalize)?;
         let mut tracks = self.tracks.lock().unwrap();
         let mut p = self.playback.lock().unwrap();
         *self.provider.lock().unwrap() = Some(provider.clone());

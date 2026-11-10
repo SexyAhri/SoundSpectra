@@ -1,13 +1,20 @@
-//! Complete-file analysis on a single worker; never decodes a whole song to PCM.
+//! Analyze the shared playback buffer on one worker; only measurements reach disk.
 use serde::{Deserialize, Serialize};
 use std::{
     collections::VecDeque,
-    path::{Path, PathBuf},
-    sync::{Mutex, OnceLock},
+    path::Path,
+    sync::{
+        atomic::{AtomicBool, Ordering},
+        Arc, Mutex, OnceLock,
+    },
 };
 use symphonia::core::{
-    audio::SampleBuffer, codecs::DecoderOptions, formats::FormatOptions, io::MediaSourceStream,
-    meta::MetadataOptions, probe::Hint,
+    audio::SampleBuffer,
+    codecs::DecoderOptions,
+    formats::FormatOptions,
+    io::{MediaSource, MediaSourceStream},
+    meta::MetadataOptions,
+    probe::Hint,
 };
 
 #[derive(Serialize, Deserialize)]
@@ -16,18 +23,25 @@ struct Measurement {
     checksum: u64,
     lufs: Option<f64>,
 }
-type Job = (PathBuf, u64, u64);
+struct SharedBytes(Arc<Vec<u8>>);
+impl AsRef<[u8]> for SharedBytes {
+    fn as_ref(&self) -> &[u8] {
+        &self.0
+    }
+}
+type Commit = Box<dyn FnOnce(u64, u64, Option<f64>) + Send>;
+struct Job {
+    bytes: Arc<Vec<u8>>,
+    cancelled: Arc<AtomicBool>,
+    commit: Commit,
+}
 struct Worker {
     jobs: VecDeque<Job>,
     running: bool,
 }
 static WORKER: OnceLock<Mutex<Worker>> = OnceLock::new();
-pub fn schedule(path: PathBuf, size: u64, checksum: u64) {
-    if std::fs::read(path.with_file_name("loudness.json"))
-        .ok()
-        .and_then(|b| serde_json::from_slice::<Measurement>(&b).ok())
-        .is_some_and(|m| m.size == size && m.checksum == checksum)
-    {
+pub fn schedule(bytes: Arc<Vec<u8>>, cancelled: Arc<AtomicBool>, commit: Commit) {
+    if cancelled.load(Ordering::Acquire) {
         return;
     }
     let worker = WORKER.get_or_init(|| {
@@ -37,10 +51,13 @@ pub fn schedule(path: PathBuf, size: u64, checksum: u64) {
         })
     });
     let mut w = worker.lock().unwrap();
-    if w.jobs.iter().any(|j| j.0 == path) || w.jobs.len() >= 8 {
-        return;
-    }
-    w.jobs.push_back((path, size, checksum));
+    // Keep one pending buffer at most. Prefer the newest playback target.
+    w.jobs.clear();
+    w.jobs.push_back(Job {
+        bytes,
+        cancelled,
+        commit,
+    });
     if w.running {
         return;
     }
@@ -56,49 +73,38 @@ pub fn schedule(path: PathBuf, size: u64, checksum: u64) {
                 }
             }
         };
-        let (path, size, checksum) = job;
-        if !path.metadata().is_ok_and(|m| m.len() == size) {
+        let Job {
+            bytes,
+            cancelled,
+            commit,
+        } = job;
+        if cancelled.load(Ordering::Acquire) {
             continue;
         }
-        let lufs = analyze(&path);
-        // Never attach a measurement to a replacement file or resurrect cleared data.
-        if fingerprint(&path) == Some((size, checksum)) {
-            let _ = std::fs::write(
-                path.with_file_name("loudness.json"),
-                serde_json::to_vec(&Measurement {
-                    size,
-                    checksum,
-                    lufs,
-                })
-                .unwrap(),
-            );
+        let lufs = analyze(
+            Box::new(std::io::Cursor::new(SharedBytes(bytes.clone()))),
+            &cancelled,
+        );
+        if !cancelled.load(Ordering::Acquire) {
+            commit(bytes.len() as u64, super::cache::hash(&bytes), lufs);
         }
     });
 }
-fn fingerprint(path: &Path) -> Option<(u64, u64)> {
-    use std::io::Read;
-    let mut file = std::fs::File::open(path).ok()?;
-    let mut size = 0u64;
-    let mut hash = 0xcbf29ce484222325u64;
-    let mut buffer = [0u8; 64 * 1024];
-    loop {
-        let n = file.read(&mut buffer).ok()?;
-        if n == 0 {
-            break;
-        }
-        size += n as u64;
-        for b in &buffer[..n] {
-            hash = (hash ^ *b as u64).wrapping_mul(0x100000001b3);
-        }
+pub fn save(directory: &Path, size: u64, checksum: u64, lufs: Option<f64>) {
+    let measurement = Measurement {
+        size,
+        checksum,
+        lufs,
+    };
+    if let Ok(bytes) = serde_json::to_vec(&measurement) {
+        let _ = super::cache::atomic_write(&directory.join("loudness.json"), &bytes);
     }
-    Some((size, hash))
 }
-fn analyze(path: &Path) -> Option<f64> {
-    let input = std::fs::File::open(path).ok()?;
+fn analyze(input: Box<dyn MediaSource>, cancelled: &AtomicBool) -> Option<f64> {
     let probed = symphonia::default::get_probe()
         .format(
             &Hint::new(),
-            MediaSourceStream::new(Box::new(input), Default::default()),
+            MediaSourceStream::new(input, Default::default()),
             &FormatOptions::default(),
             &MetadataOptions::default(),
         )
@@ -123,6 +129,9 @@ fn analyze(path: &Path) -> Option<f64> {
     .ok()?;
     let mut frames = 0u64;
     loop {
+        if cancelled.load(Ordering::Acquire) {
+            return None;
+        }
         let packet = match format.next_packet() {
             Ok(p) => p,
             Err(symphonia::core::errors::Error::IoError(e))
@@ -168,6 +177,8 @@ pub fn gain(path: &Path, size: u64, checksum: u64) -> f64 {
         .map_or(1.0, attenuation)
 }
 #[cfg(test)]
+pub(super) use tests::test_audio;
+#[cfg(test)]
 mod tests {
     use super::*;
     #[test]
@@ -176,13 +187,7 @@ mod tests {
         assert_eq!(attenuation(f64::NAN), 1.0);
         assert!((attenuation(-12.0) - 0.501187).abs() < 0.000001);
     }
-    #[test]
-    fn measures_bounded_pcm_packets() {
-        let path = std::env::temp_dir().join(format!(
-            "music-loudness-{}-{}.wav",
-            std::process::id(),
-            super::super::now()
-        ));
+    pub fn test_audio() -> Vec<u8> {
         let rate = 48000u32;
         let count = rate * 3;
         let mut bytes = Vec::new();
@@ -203,10 +208,16 @@ mod tests {
                 ((i as f64 * std::f64::consts::TAU * 1000.0 / rate as f64).sin() * 16000.0) as i16;
             bytes.extend(s.to_le_bytes());
         }
-        std::fs::write(&path, bytes).unwrap();
-        let lufs = analyze(&path).unwrap();
+        bytes
+    }
+    #[test]
+    fn measures_bounded_pcm_packets() {
+        let bytes = test_audio();
+        let cancelled = AtomicBool::new(false);
+        let lufs = analyze(Box::new(std::io::Cursor::new(bytes.clone())), &cancelled).unwrap();
         assert!((-12.0..-7.0).contains(&lufs));
         assert!(attenuation(lufs) < 1.0);
-        let _ = std::fs::remove_file(path);
+        cancelled.store(true, Ordering::Release);
+        assert!(analyze(Box::new(std::io::Cursor::new(bytes)), &cancelled).is_none());
     }
 }
