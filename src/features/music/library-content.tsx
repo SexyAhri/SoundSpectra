@@ -1,4 +1,12 @@
-import { useState, useEffect, useRef, useMemo } from "react";
+import { SearchField } from "@/components/ui/search-field";
+import { readCoverAccent } from "../desktop-card/cover-colors";
+import {
+  useState,
+  useEffect,
+  useRef,
+  useMemo,
+  type CSSProperties,
+} from "react";
 import {
   ChevronLeft,
   Heart,
@@ -6,18 +14,26 @@ import {
   Play,
   RefreshCw,
   Search,
+  History,
+  Library,
+  ListMusic,
+  Disc3,
+  FolderHeart,
 } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { MusicButton as Button } from "./music-hint";
+import { ChoiceSelect } from "@/components/ui/choice-select";
 import { musicClient } from "./client";
 import { MusicCover } from "./music-cover";
-import { clock, trackKey, type Playback } from "./types";
-import { ContextMenu } from "@/components/ui/context-menu";
+import { trackKey, type Playback } from "./types";
+import { LibraryTrackRow } from "./library-track-row";
+import { useUiPreference } from "../settings/use-ui-preference";
 import { VirtualRows } from "./virtual-rows";
 import type { BrowseState } from "./types";
 import { useLibrary } from "./use-library";
 
 function LibraryBrowser({
   current,
+  playing,
   perform,
   initial,
   capabilities,
@@ -25,6 +41,7 @@ function LibraryBrowser({
   initial?: BrowseState;
   capabilities: string[];
   current?: Playback["queue"][number];
+  playing?: boolean;
   busy: boolean;
   perform: (action: () => Promise<unknown>) => Promise<void>;
 }) {
@@ -34,8 +51,54 @@ function LibraryBrowser({
   );
   const library = useLibrary(true, initial, searchQuery);
   const remote = library.selected?.id === "__remote";
+  const lastPlaylist = useRef(
+    initial?.selected && !["__remote", "__all"].includes(initial.selected.id)
+      ? initial.selected
+      : null,
+  );
+  if (library.selected && !["__remote", "__all"].includes(library.selected.id))
+    lastPlaylist.current = library.selected;
+  const [density, setDensity] = useUiPreference(
+    "soundspectra.music-density",
+    "comfortable",
+    (v): v is string => v === "comfortable" || v === "compact",
+  );
+  const [selectedTrack, setSelectedTrack] = useState("");
+  const scope = !library.selected
+    ? ""
+    : remote
+      ? "platform"
+      : library.selected.id === "__all"
+        ? "synced"
+        : "playlist";
+  const chooseScope = (value: string) => {
+    setQuery("");
+    setSearchQuery("");
+    if (value === "playlist" && lastPlaylist.current)
+      library.select(lastPlaylist.current);
+    else
+      library.select({
+        id: value === "platform" ? "__remote" : "__all",
+        name: value === "platform" ? "全站搜索" : "全部已同步歌曲",
+        cover: null,
+        count: 0,
+      });
+  };
   const [sort, setSort] = useState(initial?.sort ?? "default");
   const scroller = useRef<HTMLDivElement>(null);
+  const tools = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const node = tools.current;
+    if (!node) return;
+    const observer = new ResizeObserver(() =>
+      scroller.current?.style.setProperty(
+        "--track-tools-height",
+        `${node.getBoundingClientRect().height}px`,
+      ),
+    );
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, [Boolean(library.selected)]);
   const [top, setTop] = useState(initial?.top ?? 0);
   useEffect(() => {
     if (scroller.current && library.tracks)
@@ -90,51 +153,47 @@ function LibraryBrowser({
       );
     return result;
   }, [all, query, remote, sort]);
-  const play = (id: string) =>
+  const play = (key: string) =>
     void perform(() =>
       musicClient.play(
         shown.map(trackKey),
-        shown.findIndex((t) => t.id === id),
+        shown.findIndex((t) => trackKey(t) === key),
       ),
     );
   const moreTracks = library.tracks?.nextOffset;
+  const CollectionIcon = remote
+    ? Search
+    : library.selected?.id === "__recent"
+      ? History
+      : library.selected?.id === "liked"
+        ? Heart
+        : library.selected?.id === "__all"
+          ? Library
+          : Disc3;
+  const [coverImage, setCoverImage] = useState<string | null>(null);
+  const [accent, setAccent] = useState<string | null>(null);
+  useEffect(() => {
+    let disposed = false;
+    setAccent(null);
+    if (coverImage)
+      void readCoverAccent(coverImage)
+        .then((color) => {
+          if (!disposed) setAccent(color);
+        })
+        .catch(() => {});
+    return () => {
+      disposed = true;
+    };
+  }, [coverImage]);
+  const collectionCover = remote
+    ? null
+    : (library.selected?.cover ?? all[0]?.cover);
   return (
     <>
       <nav className="library-tabs" aria-label="歌单分类">
-        {capabilities.includes("search") && (
-          <Button
-            variant={remote ? "secondary" : "ghost"}
-            size="sm"
-            onClick={() => {
-              setQuery("");
-              setSearchQuery("");
-              library.select({
-                id: "__remote",
-                name: "全站搜索",
-                cover: null,
-                count: 0,
-              });
-            }}
-          >
-            全站搜索
-          </Button>
-        )}
-        <Button
-          variant={library.selected?.id === "__all" ? "secondary" : "ghost"}
-          size="sm"
-          onClick={() =>
-            library.select({
-              id: "__all",
-              name: "全部已同步歌曲",
-              cover: null,
-              count: 0,
-            })
-          }
-        >
-          本地搜索
-        </Button>
         <Button
           variant={library.selected?.id === "__recent" ? "secondary" : "ghost"}
+          aria-pressed={library.selected?.id === "__recent"}
           size="sm"
           onClick={() =>
             library.select({
@@ -145,10 +204,12 @@ function LibraryBrowser({
             })
           }
         >
+          <History size={14} />
           最近播放
         </Button>
         <Button
           variant={library.selected?.id === "liked" ? "secondary" : "ghost"}
+          aria-pressed={library.selected?.id === "liked"}
           size="sm"
           onClick={() => {
             setQuery("");
@@ -164,6 +225,7 @@ function LibraryBrowser({
           我喜欢
         </Button>
         <Button
+          aria-pressed={library.collection === "created" && !library.selected}
           variant={
             library.collection === "created" && !library.selected
               ? "secondary"
@@ -175,9 +237,11 @@ function LibraryBrowser({
             library.setCollection("created");
           }}
         >
+          <ListMusic size={14} />
           创建的歌单
         </Button>
         <Button
+          aria-pressed={library.collection === "collected" && !library.selected}
           variant={
             library.collection === "collected" && !library.selected
               ? "secondary"
@@ -189,9 +253,105 @@ function LibraryBrowser({
             library.setCollection("collected");
           }}
         >
+          <FolderHeart size={14} />
           收藏的歌单
         </Button>
       </nav>
+      <div
+        className="library-browser-toolbar"
+        data-collection={Boolean(library.selected) || undefined}
+      >
+        {library.selected && (
+          <div
+            className="library-collection-heading"
+            style={
+              {
+                "--collection-accent": collectionCover
+                  ? (accent ?? "var(--primary)")
+                  : "var(--primary)",
+              } as CSSProperties
+            }
+          >
+            <Button
+              variant="ghost"
+              size="icon-sm"
+              aria-label="返回歌单"
+              onClick={library.back}
+            >
+              <ChevronLeft size={19} />
+            </Button>
+            <span className="library-collection-art" aria-hidden="true">
+              {collectionCover ? (
+                <MusicCover src={collectionCover} onImage={setCoverImage} />
+              ) : (
+                <CollectionIcon size={18} strokeWidth={1.5} />
+              )}
+            </span>
+            <div className="library-collection-copy">
+              <h3>{library.selected.name}</h3>
+              <p>
+                已加载 {all.length} / {library.tracks?.total ?? "…"} 首
+                {Boolean(library.tracks?.filtered) &&
+                  ` · ${library.tracks!.filtered} 首不可用`}
+              </p>
+            </div>
+          </div>
+        )}
+        <div className="library-search-bar">
+          <ChoiceSelect
+            label="搜索范围"
+            placeholder="搜索范围"
+            menuClassName="library-choice-menu"
+            value={scope}
+            onChange={chooseScope}
+            options={[
+              ...(capabilities.includes("search")
+                ? [{ value: "platform", label: "平台曲库" }]
+                : []),
+              { value: "synced", label: "已同步歌曲" },
+              {
+                value: "playlist",
+                label: "当前歌单",
+                disabled: !lastPlaylist.current,
+              },
+            ]}
+          />
+          <SearchField
+            aria-label={remote ? "全站搜索关键词" : "搜索已同步歌曲"}
+            placeholder={
+              remote ? "搜索歌名、歌手，按回车搜索" : "筛选歌名、歌手或专辑"
+            }
+            value={query}
+            onChange={(e) => {
+              setQuery(e.target.value);
+              if (!library.selected)
+                library.select({
+                  id: "__all",
+                  name: "全部已同步歌曲",
+                  cover: null,
+                  count: 0,
+                });
+            }}
+            onKeyDown={(e) => {
+              if (remote && e.key === "Enter") {
+                setSearchQuery(query);
+                if (query === searchQuery) void library.loadTracks();
+              }
+            }}
+          />
+          {remote && (
+            <Button
+              size="sm"
+              onClick={() => {
+                setSearchQuery(query);
+                if (query === searchQuery) void library.loadTracks();
+              }}
+            >
+              搜索
+            </Button>
+          )}
+        </div>
+      </div>
       <div
         className="library-scroll"
         ref={scroller}
@@ -199,61 +359,18 @@ function LibraryBrowser({
       >
         {library.selected ? (
           <>
-            <div className="library-list-heading">
-              <Button
-                variant="ghost"
-                size="icon-sm"
-                aria-label="返回歌单"
-                onClick={library.back}
-              >
-                <ChevronLeft size={19} />
-              </Button>
-              <div>
-                <h3>{library.selected.name}</h3>
-                <p>
-                  已加载 {all.length} / {library.tracks?.total ?? "…"} 首
-                  {Boolean(library.tracks?.filtered) &&
-                    ` · ${library.tracks!.filtered} 首不可用`}
-                </p>
-              </div>
+            <div className="library-track-tools" ref={tools}>
               <Button
                 size="sm"
+                className="library-play-collection"
+                aria-label="播放已加载歌曲"
+                title="播放当前已加载的歌曲"
                 disabled={!shown.length}
-                onClick={() => play(shown[0].id)}
+                onClick={() => play(trackKey(shown[0]))}
               >
                 <Play size={14} />
-                播放已加载歌曲
+                播放
               </Button>
-            </div>
-            <div className="library-track-tools">
-              <label>
-                <Search size={14} />
-                <input
-                  placeholder={
-                    remote ? "输入歌名、歌手，按回车搜索" : "筛选已同步歌曲"
-                  }
-                  aria-label={remote ? "全站搜索关键词" : "搜索已同步歌曲"}
-                  onKeyDown={(e) => {
-                    if (remote && e.key === "Enter") {
-                      setSearchQuery(query);
-                      if (query === searchQuery) void library.loadTracks();
-                    }
-                  }}
-                  value={query}
-                  onChange={(e) => setQuery(e.target.value)}
-                />
-              </label>
-              {remote && (
-                <Button
-                  size="sm"
-                  onClick={() => {
-                    setSearchQuery(query);
-                    if (query === searchQuery) void library.loadTracks();
-                  }}
-                >
-                  搜索
-                </Button>
-              )}
               {!remote && (
                 <Button
                   variant="ghost"
@@ -264,17 +381,35 @@ function LibraryBrowser({
                   刷新歌曲
                 </Button>
               )}
-              <select
-                aria-label="歌曲排序"
+              <ChoiceSelect
+                label="歌曲排序"
+                className="library-sort"
+                menuClassName="library-choice-menu"
                 value={sort}
-                onChange={(e) => setSort(e.target.value)}
-              >
-                <option value="default">歌单顺序</option>
-                <option value="title">歌曲名称</option>
-                <option value="artist">歌手</option>
-                <option value="album">专辑</option>
-                <option value="duration">时长</option>
-              </select>
+                onChange={setSort}
+                options={[
+                  { value: "default", label: "歌单顺序" },
+                  { value: "title", label: "歌曲名称" },
+                  { value: "artist", label: "歌手" },
+                  { value: "album", label: "专辑" },
+                  { value: "duration", label: "时长" },
+                ]}
+              />
+              <ChoiceSelect
+                label="列表密度"
+                menuClassName="library-choice-menu"
+                value={density}
+                onChange={setDensity}
+                options={[
+                  { value: "comfortable", label: "舒适" },
+                  { value: "compact", label: "紧凑" },
+                ]}
+              />
+              <span className="library-match-count" role="status">
+                {query.trim() && !remote
+                  ? `匹配 ${shown.length} 首`
+                  : `${shown.length} 首`}
+              </span>
               {library.trackBusy ? (
                 <Button
                   variant="ghost"
@@ -316,88 +451,42 @@ function LibraryBrowser({
                   尚有数据未同步，搜索只包含已同步的歌曲；后台继续更新，可刷新结果。
                 </p>
               )}
-            <div className="library-track-head">
-              <span>#</span>
-              <span>歌曲 / 歌手</span>
-              <span>专辑</span>
-              <span>时长</span>
+            <div className="library-track-list">
+              <div className="library-track-head">
+                <span>#</span>
+                <span>歌曲 / 歌手</span>
+                <span>专辑</span>
+                <span>时长</span>
+              </div>
+              {
+                <VirtualRows
+                  count={shown.length}
+                  height={density === "compact" ? 49 : 65}
+                  row={(i) => {
+                    const t = shown[i];
+                    return (
+                      <LibraryTrackRow
+                        key={`${t.provider}:${t.id}`}
+                        track={t}
+                        index={i}
+                        density={density}
+                        playing={playing}
+                        current={
+                          current?.id === t.id &&
+                          current.provider === t.provider
+                        }
+                        selected={selectedTrack === `${t.provider}:${t.id}`}
+                        onSelect={() =>
+                          setSelectedTrack(`${t.provider}:${t.id}`)
+                        }
+                        onPlay={() => play(trackKey(t))}
+                        perform={perform}
+                      />
+                    );
+                  }}
+                />
+              }
             </div>
-            {
-              <VirtualRows
-                count={shown.length}
-                height={61}
-                row={(i) => {
-                  const t = shown[i];
-                  return (
-                    <ContextMenu
-                      title={`${t.title} · ${t.artist}`}
-                      actions={[
-                        {
-                          id: "play",
-                          label: "立即播放",
-                          run: () => play(t.id),
-                        },
-                        {
-                          id: "next",
-                          label: "下一首播放",
-                          run: () =>
-                            void perform(() =>
-                              musicClient.edit({
-                                action: "append",
-                                ids: [trackKey(t)],
-                                next: true,
-                              }),
-                            ),
-                        },
-                        {
-                          id: "append",
-                          label: "加入队列",
-                          run: () =>
-                            void perform(() =>
-                              musicClient.edit({
-                                action: "append",
-                                ids: [trackKey(t)],
-                                next: false,
-                              }),
-                            ),
-                        },
-                        {
-                          id: "cover",
-                          label: "重新加载封面",
-                          disabled: !t.cover,
-                          run: () =>
-                            window.dispatchEvent(
-                              new CustomEvent("music-cover-retry", {
-                                detail: t.cover,
-                              }),
-                            ),
-                        },
-                      ]}
-                    >
-                      <button
-                        key={t.id}
-                        className={`library-track ${current?.id === t.id ? "current" : ""}`}
-                        onClick={() => play(t.id)}
-                      >
-                        <span>{i + 1}</span>
-                        <span className="library-track-title">
-                          <MusicCover src={t.cover} small />
-                          <span>
-                            <strong title={t.title}>
-                              {t.title}
-                              {t.paid && <em>VIP</em>}
-                            </strong>
-                            <small>{t.artist}</small>
-                          </span>
-                        </span>
-                        <span className="library-track-album">{t.album}</span>
-                        <span>{clock(t.duration)}</span>
-                      </button>
-                    </ContextMenu>
-                  );
-                }}
-              />
-            }
             {!shown.length && !library.trackBusy && (
               <div className="library-empty">
                 {remote
@@ -511,6 +600,7 @@ function LibraryBrowser({
 export function LibraryContent(props: {
   capabilities: string[];
   current?: Playback["queue"][number];
+  playing?: boolean;
   busy: boolean;
   perform: (action: () => Promise<unknown>) => Promise<void>;
 }) {

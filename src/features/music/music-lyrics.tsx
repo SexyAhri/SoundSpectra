@@ -1,14 +1,10 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { LoaderCircle, RefreshCw } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import {
-  activeLine,
-  emptyLyrics,
-  trackKey,
-  type LyricDocument,
-} from "../lyrics/model";
+import { MusicButton as Button, MusicHint } from "./music-hint";
+import { emptyLyrics, trackKey, type LyricDocument } from "../lyrics/model";
 import { describeError } from "../spectrum/bridge";
 import { musicClient } from "./client";
+import { useLyricActive, useLyricFollow } from "./use-lyric-motion";
 import { presentLyrics } from "./lyric-presentation";
 import type { Playback } from "./types";
 
@@ -27,8 +23,6 @@ export function MusicLyrics({
   const generation = useRef(p.generation);
   generation.current = p.generation;
   const body = useRef<HTMLDivElement>(null);
-  const [browsing, setBrowsing] = useState(false);
-  const [followRevision, setFollowRevision] = useState(0);
   useEffect(() => {
     setDocument({
       ...emptyLyrics,
@@ -38,7 +32,8 @@ export function MusicLyrics({
     });
     setIssue(null);
     setBusy(false);
-    setBrowsing(false);
+  }, [p.generation, key]);
+  useEffect(() => {
     if (!track) return;
     let disposed = false,
       timer: ReturnType<typeof setTimeout>;
@@ -61,24 +56,18 @@ export function MusicLyrics({
       clearTimeout(timer);
     };
   }, [p.generation, key, p.lyricOffset]);
-  const lines = document.key === key ? document.lines : [];
-  const { score, credits } = presentLyrics(lines);
-  const active = activeLine(
-    score.map((item) => item.line),
-    (p.position + (p.globalLyricOffset ?? 0)) * 1000,
+  const { score, credits } = useMemo(
+    () => presentLyrics(document.key === key ? document.lines : []),
+    [document.key, document.lines, key],
   );
-  useEffect(() => {
-    const root = body.current;
-    const line = root?.querySelector<HTMLElement>('[aria-current="true"]');
-    if (root && line && !browsing) {
-      root.scrollTo({
-        top: line.offsetTop - root.clientHeight / 2 + line.clientHeight / 2,
-        behavior: matchMedia("(prefers-reduced-motion: reduce)").matches
-          ? "instant"
-          : "smooth",
-      });
-    }
-  }, [active, p.generation, browsing, followRevision]);
+  const timedLines = useMemo(() => score.map((item) => item.line), [score]);
+  const active = useLyricActive(timedLines, p);
+  const { browsing, browse, resume } = useLyricFollow(
+    body,
+    active,
+    `${p.generation}:${key}`,
+    score,
+  );
   const refresh = async () => {
     const request = p.generation;
     setBusy(true);
@@ -135,10 +124,12 @@ export function MusicLyrics({
         >
           提前 0.5 秒
         </Button>
-        <span title="正值表示延后显示">
-          {(p.lyricOffset ?? 0) > 0 ? "+" : ""}
-          {(p.lyricOffset ?? 0).toFixed(1)}s
-        </span>
+        <MusicHint text="正值表示延后显示">
+          <span tabIndex={0}>
+            {(p.lyricOffset ?? 0) > 0 ? "+" : ""}
+            {(p.lyricOffset ?? 0).toFixed(1)}s
+          </span>
+        </MusicHint>
         <Button
           size="sm"
           variant="ghost"
@@ -152,79 +143,90 @@ export function MusicLyrics({
           延后 0.5 秒
         </Button>
       </div>
-      {browsing && (
-        <Button
-          size="sm"
-          variant="outline"
-          onClick={() => {
-            setBrowsing(false);
-            setFollowRevision((v) => v + 1);
+      <div
+        className="library-lyrics-stage"
+        data-browsing={browsing || undefined}
+      >
+        <div
+          className="library-lyrics-body"
+          data-has-lyrics={Boolean(score.length) || undefined}
+          ref={body}
+          tabIndex={0}
+          role="region"
+          aria-label="歌词正文"
+          onWheel={browse}
+          onTouchMove={browse}
+          onKeyDown={(e) => {
+            if (
+              [
+                "ArrowDown",
+                "ArrowUp",
+                "PageDown",
+                "PageUp",
+                "Home",
+                "End",
+              ].includes(e.key)
+            )
+              browse();
           }}
         >
-          回到当前句
-        </Button>
-      )}
-      <div
-        className="library-lyrics-body"
-        ref={body}
-        onPointerDown={(e) => {
-          if (
-            e.currentTarget.scrollHeight > e.currentTarget.clientHeight &&
-            e.clientX >= e.currentTarget.getBoundingClientRect().right - 16
-          )
-            setBrowsing(true);
-        }}
-        onWheel={() => setBrowsing(true)}
-        onTouchMove={() => setBrowsing(true)}
-        onKeyDown={(e) => {
-          if (
-            [
-              "ArrowDown",
-              "ArrowUp",
-              "PageDown",
-              "PageUp",
-              "Home",
-              "End",
-            ].includes(e.key)
-          )
-            setBrowsing(true);
-        }}
-      >
-        {score.length ? (
-          score.map(({ line, index }, position) => (
-            <button
-              key={`${line.start}-${index}`}
-              aria-current={position === active ? "true" : undefined}
-              disabled={
-                !p.quality ||
-                p.suspended ||
-                p.phase === "loading" ||
-                p.phase === "error"
-              }
-              title="点击跳转到这一句"
-              onClick={() =>
-                command("seek", line.start / 1000 - (p.globalLyricOffset ?? 0))
-              }
-            >
-              {line.text}
-            </button>
-          ))
-        ) : (
-          <div className="library-empty library-lyrics-empty">
-            {document.status === "loading" && (
-              <LoaderCircle className="spinning" size={16} />
-            )}
-            <p>
-              {credits.length
-                ? "这首歌暂未提供正文歌词"
-                : track
-                  ? document.message
-                  : "选择一首歌曲查看歌词"}
-            </p>
-            {credits.length > 0 && (
-              <small>已收到歌曲制作信息，可在下方查看</small>
-            )}
-          </div>
+          {score.length ? (
+            score.map(({ line, index }, position) => (
+              <button
+                key={`${line.start}-${index}`}
+                aria-current={position === active ? "true" : undefined}
+                data-distance={
+                  Math.abs(position - active) <= 1
+                    ? "near"
+                    : Math.abs(position - active) <= 2
+                      ? "middle"
+                      : "far"
+                }
+                disabled={
+                  !p.quality ||
+                  p.suspended ||
+                  p.phase === "loading" ||
+                  p.phase === "error"
+                }
+                aria-description="点击跳转到这一句"
+                onClick={() => {
+                  command(
+                    "seek",
+                    line.start / 1000 - (p.globalLyricOffset ?? 0),
+                  );
+                  resume();
+                }}
+              >
+                <span className="library-lyric-text">{line.text}</span>
+              </button>
+            ))
+          ) : (
+            <div className="library-empty library-lyrics-empty">
+              {document.status === "loading" && (
+                <LoaderCircle className="spinning" size={16} />
+              )}
+              <p>
+                {credits.length
+                  ? "这首歌暂未提供正文歌词"
+                  : track
+                    ? document.message
+                    : "选择一首歌曲查看歌词"}
+              </p>
+              {credits.length > 0 && (
+                <small>已收到歌曲制作信息，可在下方查看</small>
+              )}
+            </div>
+          )}
+        </div>
+        {browsing && (
+          <Button
+            className="library-lyrics-return"
+            size="sm"
+            variant="outline"
+            onClick={resume}
+          >
+            回到当前句
+          </Button>
         )}
       </div>
       {credits.length > 0 && (

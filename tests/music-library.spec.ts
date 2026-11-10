@@ -51,6 +51,7 @@ async function fixture(page: Page, loggedIn = true) {
       window.commands.push({command,args});
       if(command==='music_snapshot')return structuredClone(window.musicState);
       if(command==='music_login'){
+        if(args.action==='cancel' && window.rejectLoginCancel)throw new Error('取消登录失败');
         window.musicState.login=args.action==='cancel'?{phase:'',qr:null,message:''}:{phase:'waiting',qr:'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=',message:'使用手机 QQ 扫码'};
         return;
       }
@@ -60,8 +61,8 @@ async function fixture(page: Page, loggedIn = true) {
         return {items:[{id:'song'+args.offset,provider:'qq',title:'歌曲'+args.offset,artist:'示例歌手',album:'示例专辑',cover:null,duration:180,paid:false}],total:201,nextOffset:args.offset<200?args.offset+100:null,filtered:args.offset===100?1:0};
       }
       if(command==='music_search')return {items:[{id:'result'+args.offset,provider:'qq',title:args.query+' (Live)',artist:'歌手',album:'专辑',duration:180,cover:null,paid:true}],total:31,nextOffset:args.offset===0?30:null,filtered:0};
-      if(command==='music_preferences'){window.prefs=args.preferences??window.prefs??{cacheGib:4,normalize:false};return window.prefs;}
-      if(command==='music_cache')return {audioBytes:1024,lyricBytes:20,limitBytes:4294967296,pending:args.clear?1:0};
+      if(command==='music_preferences'){window.prefs=args.preferences??window.prefs??{lyricMib:32,normalize:false};return window.prefs;}
+      if(command==='music_cache')return {audioBytes:0,lyricBytes:20,metadataBytes:100,limitBytes:33554432,pending:args.clear?1:0};
       if(command==='music_browse'){window.browse=args.value??window.browse??null;return window.browse;}
       if(command==='music_library_data')return window.localIndex??{items:[],total:0,synced:0,complete:false,updated:0,nextOffset:0};
       if(command==='music_offset'){window.musicState.playback.lyricOffset=args.value;return args.value;}
@@ -70,7 +71,7 @@ async function fixture(page: Page, loggedIn = true) {
       return null;
     }};
     window.musicState=structuredClone(emptySnapshot);
-    window.musicState.providers=[{id:"qq",name:"QQ 音乐",capabilities:["search","playlists","playback","lyrics"]}];
+    window.musicState.providers=[{id:"qq",name:"QQ 音乐",capabilities:["qr-login","search","playlists","playback","lyrics"]}];
     if(${loggedIn})window.musicState.account={provider:'qq',nickname:'示例账号',avatar:null,membership:{active:true,name:'SVIP',level:8,expires:'2099-01-01 00:00:00'},membershipIssue:null};
     ReactDOM.createRoot(document.getElementById('root')).render(React.createElement('div',{className:'studio-shell',style:{height:'100dvh',display:'flex'}},React.createElement(MusicLibrary)));
   `,
@@ -276,6 +277,7 @@ test("music library uses the existing workspace and honestly disables browser lo
   await expect(
     page.getByRole("button", { name: "获取登录二维码" }),
   ).toHaveCount(0);
+  await page.getByRole("button", { name: "桌面与性能", exact: true }).click();
   await expect(
     page
       .getByRole("button", { name: "显示到桌面", exact: false })
@@ -336,7 +338,201 @@ test("QR login stays inside the library and can refresh and cancel", async ({
         .map((r: any) => r.args.action),
     ),
   ).toEqual(["start", "start", "cancel"]);
+  expect(
+    await page.evaluate(() =>
+      (window as any).commands
+        .filter((r: any) => r.command === "music_login")
+        .map((r: any) => r.args.provider),
+    ),
+  ).toEqual(["qq", "qq", "qq"]);
 });
+
+test("platform connections follow provider capabilities and cancel the old login before switching", async ({
+  page,
+}) => {
+  await fixture(page, false);
+  const platforms = page.getByRole("complementary", { name: "音乐平台" });
+  await expect(
+    platforms.getByRole("button", { name: "QQ 音乐 可连接" }),
+  ).toHaveAttribute("aria-pressed", "true");
+  await expect(
+    platforms.getByRole("button", { name: "网易云音乐 待接入" }),
+  ).toBeDisabled();
+  await expect(
+    platforms.getByRole("button", { name: "酷狗音乐 待接入" }),
+  ).toBeDisabled();
+  await expect(
+    platforms.getByRole("button", { name: "汽水音乐 待接入" }),
+  ).toBeDisabled();
+  await expect(platforms.getByText("酷我音乐")).toHaveCount(0);
+  expect(
+    await page.evaluate(() =>
+      (window as any).commands.filter((r: any) => r.command === "music_login"),
+    ),
+  ).toEqual([]);
+  // A fixture-only provider proves the view does not route every platform to QQ.
+  await page.evaluate(() =>
+    (window as any).musicState.providers.push({
+      id: "test-provider",
+      name: "测试平台",
+      capabilities: ["qr-login"],
+    }),
+  );
+  const other = platforms.getByRole("button", { name: "测试平台 可连接" });
+  await expect(other).toBeEnabled();
+  await page.getByRole("button", { name: "获取登录二维码" }).click();
+  await expect(
+    page.getByRole("img", { name: "QQ 音乐登录二维码" }),
+  ).toBeVisible();
+  await page.evaluate(() => ((window as any).rejectLoginCancel = true));
+  await other.click();
+  await expect(page.getByRole("alert")).toContainText("取消登录失败");
+  await expect(other).toHaveAttribute("aria-pressed", "false");
+  await expect(
+    page.getByRole("img", { name: "QQ 音乐登录二维码" }),
+  ).toBeVisible();
+  await page.evaluate(() => ((window as any).rejectLoginCancel = false));
+  await other.click();
+  await expect(other).toHaveAttribute("aria-pressed", "true");
+  await expect(
+    page.getByRole("img", { name: "QQ 音乐登录二维码" }),
+  ).toHaveCount(0);
+  await page.getByRole("button", { name: "获取登录二维码" }).click();
+  await expect(
+    page.getByRole("img", { name: "测试平台登录二维码" }),
+  ).toBeVisible();
+  expect(
+    await page.evaluate(() =>
+      (window as any).commands
+        .filter((r: any) => r.command === "music_login")
+        .map((r: any) => r.args),
+    ),
+  ).toEqual([
+    { action: "start", provider: "qq" },
+    { action: "cancel", provider: "qq" },
+    { action: "cancel", provider: "qq" },
+    { action: "start", provider: "test-provider" },
+  ]);
+});
+
+test("login shows recovery, scanned, expired and error states with working recovery actions", async ({
+  page,
+}) => {
+  await fixture(page, false);
+  await page.evaluate(
+    () =>
+      ((window as any).musicState.login = {
+        phase: "restoring",
+        qr: null,
+        message: "正在恢复上次的登录…",
+      }),
+  );
+  await expect(
+    page.getByRole("button", { name: "正在恢复登录…" }),
+  ).toBeDisabled();
+  await expect(
+    page.getByRole("button", { name: "QQ 音乐 可连接" }),
+  ).toBeDisabled();
+  await page.evaluate(
+    () =>
+      ((window as any).musicState.login = {
+        phase: "scanned",
+        qr: null,
+        message: "扫码成功，请在手机上确认",
+      }),
+  );
+  await expect(
+    page.getByRole("status").filter({ hasText: "扫码成功" }),
+  ).toBeVisible();
+  await expect(page.locator(".library-qr .spinning")).toHaveCount(0);
+  await page.evaluate(
+    () =>
+      ((window as any).musicState.login = {
+        phase: "expired",
+        qr: null,
+        message: "二维码已过期",
+      }),
+  );
+  await page.getByRole("button", { name: "刷新二维码", exact: true }).click();
+  await expect(
+    page.getByRole("img", { name: "QQ 音乐登录二维码" }),
+  ).toBeVisible();
+  await page.evaluate(
+    () =>
+      ((window as any).musicState.login = {
+        phase: "error",
+        qr: null,
+        message: "网络连接失败",
+      }),
+  );
+  await expect(
+    page.getByRole("status").filter({ hasText: "网络连接失败" }),
+  ).toBeVisible();
+  await expect(page.locator(".library-qr .spinning")).toHaveCount(0);
+  await page.getByRole("button", { name: "重试", exact: true }).click();
+  await expect(
+    page.getByRole("img", { name: "QQ 音乐登录二维码" }),
+  ).toBeVisible();
+  await page.getByRole("button", { name: "打开官方授权" }).click();
+  expect(
+    await page.evaluate(() =>
+      (window as any).commands
+        .filter((r: any) => r.command === "music_login")
+        .map((r: any) => r.args),
+    ),
+  ).toEqual([
+    { action: "start", provider: "qq" },
+    { action: "start", provider: "qq" },
+    { action: "official", provider: "qq" },
+  ]);
+});
+
+for (const layout of [
+  { name: "light", theme: "light", width: 1280, height: 840 },
+  { name: "dark", theme: "dark", width: 1280, height: 840 },
+  { name: "compact", theme: "light", width: 760, height: 620 },
+  { name: "narrow", theme: "light", width: 390, height: 740 },
+]) {
+  test(`${layout.name} platform login fits the music workspace`, async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: layout.width, height: layout.height });
+    await fixture(page, false);
+    await page.evaluate(
+      (theme) => (document.documentElement.dataset.theme = theme),
+      layout.theme,
+    );
+    await expect(
+      page.getByRole("button", { name: "QQ 音乐 可连接" }),
+    ).toBeEnabled();
+    await page.screenshot({ path: `artifacts/music-login-${layout.name}.png` });
+    const bounds = await page.locator(".library-connect-panel").boundingBox();
+    expect(bounds!.x).toBeGreaterThanOrEqual(0);
+    expect(bounds!.x + bounds!.width).toBeLessThanOrEqual(layout.width);
+    expect(
+      await page
+        .locator(".library-login-layout")
+        .evaluate((el) => el.scrollWidth <= el.clientWidth),
+    ).toBe(true);
+    await page.getByRole("button", { name: "获取登录二维码" }).click();
+    await expect(
+      page.getByRole("img", { name: "QQ 音乐登录二维码" }),
+    ).toBeVisible();
+    await page
+      .getByRole("button", { name: "打开官方授权" })
+      .scrollIntoViewIfNeeded();
+    await expect(
+      page.getByRole("button", { name: "打开官方授权" }),
+    ).toBeInViewport();
+    const login = await page.locator(".library-login-card").boundingBox();
+    const transport = await page.locator(".library-player").boundingBox();
+    const official = await page
+      .getByRole("button", { name: "打开官方授权" })
+      .boundingBox();
+    expect(login!.x + login!.width).toBeLessThanOrEqual(layout.width);
+    expect(official!.y + official!.height).toBeLessThanOrEqual(transport!.y);
+  });
+}
 
 test("background player uses a valid range resource and seeks only on a seek command", async ({
   page,
@@ -432,7 +628,9 @@ test("transport shows actual decoded quality and explains automatic fallback", a
   });
   await expect(badge).toContainText("16bit · 44.1kHz");
   await expect(badge).toContainText("已自动降级");
-  await expect(badge).toHaveAttribute("title", /较高音质未获授权/);
+  await expect(badge).not.toHaveAttribute("title");
+  await badge.hover();
+  await expect(page.getByRole("tooltip")).toContainText("较高音质未获授权");
   await expect(badge).not.toContainText("192kHz");
 });
 
@@ -802,6 +1000,7 @@ test("transport keeps controls usable and contained on wide and narrow windows",
 test("drawers close outside and with Escape while inside and toggle clicks stay predictable", async ({
   page,
 }) => {
+  await page.setViewportSize({ width: 1000, height: 840 });
   await fixture(page);
   await activePlayback(page);
   const lyrics = page.getByRole("complementary", { name: "歌曲歌词面板" });
@@ -824,6 +1023,7 @@ test("drawers close outside and with Escape while inside and toggle clicks stay 
   await toggle.click();
   await lyrics.getByRole("button", { name: "收起面板" }).click();
   await expect(lyrics).toHaveCount(0);
+  await expect(toggle).toBeFocused();
 });
 
 test("timeline combines playback, download and seek states and separates time ranges from byte progress", async ({
@@ -1099,11 +1299,14 @@ test("authenticated provider search paginates independently and plays the select
   page,
 }) => {
   await fixture(page);
-  await page.getByRole("button", { name: "全站搜索", exact: true }).click();
-  const input = page.getByRole("textbox", { name: "全站搜索关键词" });
+  await page.getByRole("combobox", { name: "搜索范围" }).click();
+  await page.getByRole("option", { name: "平台曲库", exact: true }).click();
+  const input = page.getByRole("searchbox", { name: "全站搜索关键词" });
   await input.fill("晴天");
   await input.press("Enter");
-  await expect(page.locator(".library-track strong").filter({hasText:"晴天 (Live)"})).toBeVisible();
+  await expect(
+    page.locator(".library-track strong").filter({ hasText: "晴天 (Live)" }),
+  ).toBeVisible();
   await page.getByRole("button", { name: "加载下一页", exact: true }).click();
   await expect(
     page.getByText("已加载 2 / 31 首", { exact: true }),
@@ -1149,7 +1352,8 @@ test("local index virtualizes large lists, preserves keyboard navigation and sor
       updated: 1,
     };
   });
-  await page.getByRole("button", { name: "本地搜索", exact: true }).click();
+  await page.getByRole("combobox", { name: "搜索范围" }).click();
+  await page.getByRole("option", { name: "已同步歌曲", exact: true }).click();
   await expect(
     page.getByText("已加载 3000 / 3000 首", { exact: true }),
   ).toBeVisible();
@@ -1159,9 +1363,8 @@ test("local index virtualizes large lists, preserves keyboard navigation and sor
   await expect(
     page.locator(".library-track").filter({ hasText: "歌曲2999" }),
   ).toBeFocused();
-  await page
-    .getByRole("combobox", { name: "歌曲排序" })
-    .selectOption("duration");
+  await page.getByRole("combobox", { name: "歌曲排序" }).click();
+  await page.getByRole("option", { name: "时长", exact: true }).click();
   await page.getByRole("button", { name: "播放已加载歌曲" }).click();
   expect(
     await page.evaluate(() =>
@@ -1206,7 +1409,10 @@ test("native loading keeps controls operable and queue context actions preserve 
     ),
   ).toBe(true);
   await page.getByRole("button", { name: "我喜欢", exact: true }).click();
-  await page.locator(".library-track").first().click({ button: "right" });
+  await page
+    .locator(".library-track")
+    .first()
+    .click({ button: "right", position: { x: 75, y: 20 } });
   await page.getByRole("menuitem", { name: "下一首播放", exact: true }).click();
   expect(
     await page.evaluate(
@@ -1218,9 +1424,7 @@ test("native loading keeps controls operable and queue context actions preserve 
   ).toEqual({ action: "append", ids: ["qq:song0"], next: true });
 });
 
-test("lyric browsing stays manual and per-song offsets are stored separately", async ({
-  page,
-}) => {
+async function longLyricsFixture(page: Page) {
   await fixture(page);
   await page.evaluate(() => {
     const w = window as any;
@@ -1257,10 +1461,99 @@ test("lyric browsing stays manual and per-song offsets are stored separately", a
   });
   await page.getByRole("button", { name: "歌曲歌词", exact: true }).click();
   await expect(page.getByText("测试歌词10", { exact: true })).toBeVisible();
+}
+
+test("lyric follow animates without changing row heights and respects reduced motion", async ({
+  page,
+}) => {
+  await page.emulateMedia({ reducedMotion: "no-preference" });
+  await longLyricsFixture(page);
+  const body = page.locator(".library-lyrics-body");
+  const samples = await body.evaluate(async (root) => {
+    (window as any).musicState.playback.position = 20;
+    const values: number[] = [];
+    const at = performance.now();
+    await new Promise<void>((resolve) => {
+      const sample = () => {
+        values.push(root.scrollTop);
+        if (performance.now() - at < 1600) requestAnimationFrame(sample);
+        else resolve();
+      };
+      requestAnimationFrame(sample);
+    });
+    return values;
+  });
+  expect(new Set(samples.map(Math.round)).size).toBeGreaterThan(8);
+  expect(samples.at(-1)! - samples[0]).toBeGreaterThan(400);
+  const centered = () =>
+    body.evaluate((root) => {
+      const line = root.querySelector<HTMLElement>('[aria-current="true"]')!;
+      return Math.abs(
+        line.offsetTop +
+          line.offsetHeight / 2 -
+          root.scrollTop -
+          root.clientHeight / 2,
+      );
+    });
+  await expect.poll(centered).toBeLessThan(2);
+  const heights = await body
+    .locator("button")
+    .evaluateAll((lines) =>
+      lines.map((line) => (line as HTMLElement).offsetHeight),
+    );
+  expect(new Set(heights).size).toBe(1);
+  await expect(
+    body.locator('[aria-current="true"] .library-lyric-text'),
+  ).toHaveCSS("transition-duration", "0.52s, 0.42s");
+  await page.screenshot({ path: "artifacts/music-lyrics-smooth.png" });
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  await page.evaluate(
+    () => ((window as any).musicState.playback.position = 30),
+  );
+  await expect(body.locator('[aria-current="true"]')).toHaveText("测试歌词30");
+  await expect.poll(centered).toBeLessThan(2);
+  expect(
+    await body
+      .locator('[aria-current="true"] .library-lyric-text')
+      .evaluate((node) =>
+        parseFloat(getComputedStyle(node).transitionDuration),
+      ),
+  ).toBeLessThan(0.001);
+  await page.evaluate(() =>
+    Object.assign((window as any).musicState.playback, {
+      position: 30.8,
+      playing: true,
+      phase: "playing",
+    }),
+  );
+  await expect(body.locator('[aria-current="true"]')).toHaveText("测试歌词31");
+});
+
+test("lyric browsing stays manual and per-song offsets are stored separately", async ({
+  page,
+}) => {
+  await longLyricsFixture(page);
+  await expect(page.getByText("测试歌词10", { exact: true })).toBeVisible();
+  const body = page.locator(".library-lyrics-body");
+  const height = await body.evaluate((root) => root.clientHeight);
   await page
     .locator(".library-lyrics-body")
     .dispatchEvent("wheel", { deltaY: 200 });
   await expect(page.getByRole("button", { name: "回到当前句" })).toBeVisible();
+  const top = await body.evaluate((root) => {
+    root.scrollTop = 100;
+    return root.scrollTop;
+  });
+  await page.evaluate(
+    () => ((window as any).musicState.playback.position = 20),
+  );
+  await expect(body.locator('[aria-current="true"]')).toHaveText("测试歌词20");
+  expect(await body.evaluate((root) => root.scrollTop)).toBe(top);
+  expect(await body.evaluate((root) => root.clientHeight)).toBe(height);
+  await page.getByRole("button", { name: "回到当前句" }).click();
+  await expect
+    .poll(() => body.evaluate((root) => root.scrollTop))
+    .toBeGreaterThan(top + 500);
   await page.getByRole("button", { name: "延后 0.5 秒" }).click();
   expect(
     await page.evaluate(
@@ -1271,16 +1564,340 @@ test("lyric browsing stays manual and per-song offsets are stored separately", a
   ).toBe(0.5);
 });
 
+test("cache settings default normalization off and expose typed controls", async ({
+  page,
+}) => {
+  await fixture(page);
+  await page.getByRole("button", { name: "音乐库设置", exact: true }).click();
+  await expect(
+    page.getByRole("tablist", { name: "音乐库设置分类" }).getByRole("tab"),
+  ).toHaveCount(3);
+  await expect(
+    page.getByRole("tab", { name: "缓存", exact: true }),
+  ).toHaveAttribute("aria-selected", "true");
+  await expect(page.getByRole("switch", { name: "歌曲响度平衡" })).toHaveCount(
+    0,
+  );
+  await page.getByRole("combobox", { name: "歌词缓存容量" }).click();
+  await page.getByRole("option", { name: "16 MiB", exact: true }).click();
+  await expect(
+    page.getByRole("button", { name: "清理音频", exact: true }),
+  ).toHaveCount(0);
+  await expect(
+    page.getByText("保存歌词与封面，歌曲不占用磁盘缓存"),
+  ).toBeVisible();
+  await expect(page.locator(".library-settings")).toHaveCSS(
+    "scrollbar-width",
+    "none",
+  );
+  await page.getByRole("button", { name: "清理歌词", exact: true }).click();
+  await expect(
+    page.getByText("当前歌曲正在使用的缓存会在释放后清理。"),
+  ).toBeVisible();
+  await page.getByRole("tab", { name: "播放", exact: true }).click();
+  await expect(
+    page.getByRole("switch", { name: "歌曲响度平衡" }),
+  ).not.toBeChecked();
+  await page.getByRole("switch", { name: "歌曲响度平衡" }).check();
+  await page.getByRole("combobox", { name: "睡眠定时" }).click();
+  await page.getByRole("option", { name: "15 分钟", exact: true }).click();
+  const calls = await page.evaluate(() => (window as any).commands);
+  expect(
+    calls.filter((c: any) => c.command === "music_preferences").at(-1).args
+      .preferences,
+  ).toEqual({ lyricMib: 16, normalize: true });
+  expect(
+    calls.some(
+      (c: any) =>
+        c.command === "music_control" &&
+        c.args.action === "sleep" &&
+        c.args.value === 900,
+    ),
+  ).toBe(true);
+});
 
-test('cache settings default normalization off and expose typed controls',async({page})=>{
-  await fixture(page);await page.getByRole('button',{name:'音乐库设置',exact:true}).click();
-  await expect(page.getByRole('checkbox',{name:'歌曲响度平衡'})).not.toBeChecked();
-  await page.getByRole('combobox',{name:'缓存容量'}).selectOption('2');
-  await page.getByRole('checkbox',{name:'歌曲响度平衡'}).check();
-  await page.getByRole('button',{name:'清理歌词',exact:true}).click();
-  await expect(page.getByText('当前歌曲正在使用的缓存会在释放后清理。')).toBeVisible();
-  await page.getByRole('combobox',{name:'睡眠定时'}).selectOption('900');
-  const calls=await page.evaluate(()=>(window as any).commands);
-  expect(calls.filter((c:any)=>c.command==='music_preferences').at(-1).args.preferences).toEqual({cacheGib:2,normalize:true});
-  expect(calls.some((c:any)=>c.command==='music_control'&&c.args.action==='sleep'&&c.args.value===900)).toBe(true);
+test("settings dropdowns stay inside the drawer interaction and Escape closes one layer", async ({
+  page,
+}) => {
+  await fixture(page);
+  await page.getByRole("button", { name: "音乐库设置", exact: true }).click();
+  const panel = page.getByRole("complementary", { name: "音乐库设置面板" });
+  const capacity = page.getByRole("combobox", { name: "歌词缓存容量" });
+  await capacity.click();
+  await expect(page.getByRole("listbox")).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(page.getByRole("listbox")).toHaveCount(0);
+  await expect(panel).toBeVisible();
+  await capacity.click();
+  await page.getByRole("option", { name: "64 MiB", exact: true }).click();
+  await expect(capacity).toHaveText("64 MiB");
+  await expect(panel).toBeVisible();
+  await expect
+    .poll(() => page.evaluate(() => (window as any).prefs.lyricMib))
+    .toBe(64);
+  await page.getByRole("tab", { name: "工具", exact: true }).click();
+  await expect(
+    page.getByRole("button", { name: "导出播放诊断" }),
+  ).toBeVisible();
+  await page.keyboard.press("ArrowLeft");
+  await expect(
+    page.getByRole("tab", { name: "播放", exact: true }),
+  ).toHaveAttribute("aria-selected", "true");
+  await expect(page.getByRole("combobox", { name: "睡眠定时" })).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(panel).toHaveCount(0);
+  await page.getByRole("button", { name: "音乐库设置", exact: true }).click();
+  await expect(
+    page.getByRole("tab", { name: "播放", exact: true }),
+  ).toHaveAttribute("aria-selected", "true");
+});
+
+for (const layout of [
+  { name: "light", theme: "light", width: 1280, height: 840 },
+  { name: "dark", theme: "dark", width: 1280, height: 840 },
+  { name: "compact", theme: "light", width: 520, height: 600 },
+]) {
+  test(`${layout.name} music overlays and hover hints remain readable within the viewport`, async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: layout.width, height: layout.height });
+    await page.emulateMedia({ reducedMotion: "reduce" });
+    await fixture(page);
+    await page.evaluate(
+      (theme) => (document.documentElement.dataset.theme = theme),
+      layout.theme,
+    );
+    const withinViewport = async (selector: string) => {
+      await expect
+        .poll(async () => {
+          const bounds = await page.locator(selector).boundingBox();
+          return Boolean(
+            bounds &&
+              bounds.x >= 0 &&
+              bounds.y >= 0 &&
+              bounds.x + bounds.width <= layout.width &&
+              bounds.y + bounds.height <= layout.height,
+          );
+        })
+        .toBe(true);
+    };
+    const settings = page.getByRole("button", {
+      name: "音乐库设置",
+      exact: true,
+    });
+    await settings.hover();
+    await expect(page.getByRole("tooltip")).toHaveText("音乐库设置");
+    await expect(settings).not.toHaveAttribute("title");
+    await withinViewport(".library-tooltip");
+    await page.screenshot({
+      path: `artifacts/music-ui-${layout.name}-tooltip.png`,
+    });
+    await settings.click();
+    await expect(page.getByRole("tooltip")).toHaveCount(0);
+    await withinViewport(".library-panel");
+    await expect(page.getByRole("heading", { name: "本地缓存" })).toBeVisible();
+    await page.getByRole("combobox", { name: "歌词缓存容量" }).click();
+    await withinViewport(".library-choice-menu");
+    await page.screenshot({
+      path: `artifacts/music-ui-${layout.name}-settings.png`,
+    });
+    await page.keyboard.press("Escape");
+    await page.getByRole("tab", { name: "工具", exact: true }).click();
+    await page
+      .getByRole("button", { name: "导出播放诊断" })
+      .scrollIntoViewIfNeeded();
+    await expect(
+      page.getByRole("button", { name: "导出播放诊断" }),
+    ).toBeInViewport();
+    await page.getByRole("tab", { name: "播放", exact: true }).click();
+    await expect(
+      page.getByRole("combobox", { name: "睡眠定时" }),
+    ).toBeVisible();
+    await withinViewport(".library-settings-tabs");
+    await page.screenshot({
+      path: `artifacts/music-tabs-${layout.name}-playback.png`,
+    });
+    await page.getByRole("button", { name: "收起面板" }).click();
+    await page.getByRole("button", { name: "我喜欢", exact: true }).click();
+    const track = page.locator(".library-track").first();
+    await expect(track).toBeVisible();
+    await track.click({ button: "right", position: { x: 75, y: 20 } });
+    await expect(
+      page.getByRole("menuitem", { name: "加入队列", exact: true }),
+    ).toBeVisible();
+    await withinViewport(".library-context-menu");
+    await page.screenshot({
+      path: `artifacts/music-ui-${layout.name}-context.png`,
+    });
+    await page.getByRole("menuitem", { name: "加入队列", exact: true }).click();
+    await expect
+      .poll(() =>
+        page.evaluate(() =>
+          (window as any).commands.some(
+            (c: any) =>
+              c.command === "music_queue_edit" && c.args.edit.next === false,
+          ),
+        ),
+      )
+      .toBe(true);
+    const lyrics = page.getByRole("button", { name: "歌曲歌词", exact: true });
+    await lyrics.hover();
+    await expect(page.getByRole("tooltip")).toContainText("查看歌词");
+    await withinViewport(".library-tooltip");
+    await page.mouse.move(0, 0);
+    await expect(page.getByRole("tooltip")).toHaveCount(0);
+    await expect(page.locator(".workspace-music [title]")).toHaveCount(0);
+  });
+}
+
+test("track selection, inline actions and density remain independent of playback", async ({
+  page,
+}) => {
+  await fixture(page);
+  await page.getByRole("button", { name: "我喜欢", exact: true }).click();
+  const row = page.locator(".library-track").first();
+  await row.click({ position: { x: 75, y: 20 } });
+  await expect(row).toHaveAttribute("aria-pressed", "true");
+  const rowBox = (await page
+    .locator(".library-track-row")
+    .first()
+    .boundingBox())!;
+  const actionsBox = (await page
+    .locator(".library-row-actions")
+    .first()
+    .boundingBox())!;
+  expect(
+    Math.abs(actionsBox.x + actionsBox.width / 2 - rowBox.x - rowBox.width / 2),
+  ).toBeLessThan(1);
+  const titleBox = (await row.locator(".library-track-title").boundingBox())!;
+  const albumBox = (await row.locator(".library-track-album").boundingBox())!;
+  expect(titleBox.x + titleBox.width).toBeLessThanOrEqual(actionsBox.x);
+  expect(actionsBox.x + actionsBox.width).toBeLessThanOrEqual(albumBox.x);
+  expect(
+    await page.evaluate(
+      () =>
+        (window as any).commands.filter((c: any) => c.command === "music_play")
+          .length,
+    ),
+  ).toBe(0);
+  await page
+    .getByRole("button", { name: "下一首播放 歌曲0", exact: true })
+    .click();
+  await expect
+    .poll(() =>
+      page.evaluate(
+        () =>
+          (window as any).commands.find(
+            (c: any) => c.command === "music_queue_edit",
+          )?.args.edit,
+      ),
+    )
+    .toEqual({ action: "append", ids: ["qq:song0"], next: true });
+  await page
+    .getByRole("button", { name: "歌曲0 更多操作", exact: true })
+    .click();
+  await page.getByRole("menuitem", { name: "加入队列", exact: true }).click();
+  await expect
+    .poll(() =>
+      page.evaluate(
+        () =>
+          (window as any).commands.filter(
+            (c: any) => c.command === "music_queue_edit",
+          ).length,
+      ),
+    )
+    .toBe(2);
+  await page.getByRole("combobox", { name: "列表密度" }).click();
+  await page.getByRole("option", { name: "紧凑", exact: true }).click();
+  expect(
+    await row.evaluate((node) => node.getBoundingClientRect().height),
+  ).toBe(49);
+  await row.press("Enter");
+  await expect
+    .poll(() =>
+      page.evaluate(
+        () =>
+          (window as any).commands.filter(
+            (c: any) => c.command === "music_play",
+          ).length,
+      ),
+    )
+    .toBe(1);
+  await page.reload();
+  await page.getByRole("button", { name: "我喜欢", exact: true }).click();
+  await expect(page.getByRole("combobox", { name: "列表密度" })).toContainText(
+    "紧凑",
+  );
+});
+
+test("pinned lyrics and queue overlay without resizing the browser and narrow panels dismiss outside", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await fixture(page);
+  await activePlayback(page);
+  const browser = page.locator(".library-browser");
+  const before = await browser.boundingBox();
+  const toggle = page.getByRole("button", { name: "歌曲歌词", exact: true });
+  await toggle.click();
+  const panel = page.getByRole("complementary", { name: "歌曲歌词面板" });
+  await expect(panel).toHaveAttribute("data-docked", "true");
+  expect(await browser.boundingBox()).toEqual(before);
+  await page.getByRole("heading", { name: "音乐库", exact: true }).click();
+  await expect(panel).toBeVisible();
+  const layout = await panel.evaluate((node) => ({
+    left: node.getBoundingClientRect().left,
+    browserRight: document
+      .querySelector(".library-browser")!
+      .getBoundingClientRect().right,
+  }));
+  expect(layout.left).toBeLessThan(layout.browserRight);
+  expect(layout.left).toBeGreaterThan(before!.x);
+  await page.getByRole("button", { name: "收起面板", exact: true }).click();
+  await page.getByRole("button", { name: "播放队列", exact: true }).click();
+  const queue = page.getByRole("complementary", { name: "播放队列面板" });
+  await expect(queue).toBeVisible();
+  expect(await browser.boundingBox()).toEqual(before);
+  const queueBox = await queue.boundingBox();
+  expect(queueBox!.x).toBeLessThan(layout.browserRight);
+  await queue.getByRole("button", { name: "收起面板", exact: true }).click();
+  await toggle.click();
+  await panel.getByRole("button", { name: "停靠面板" }).click();
+  await page.getByRole("heading", { name: "音乐库", exact: true }).click();
+  await expect(panel).toHaveCount(0);
+  await toggle.click();
+  await panel.getByRole("button", { name: "停靠面板" }).click();
+  await page.setViewportSize({ width: 760, height: 800 });
+  await page.getByRole("heading", { name: "音乐库", exact: true }).click();
+  await expect(panel).toHaveCount(0);
+});
+
+test("music search has a single focus border in light, dark and narrow layouts", async ({
+  page,
+}) => {
+  await fixture(page);
+  const search = page.getByRole("searchbox", { name: "搜索已同步歌曲" });
+  for (const [theme, width] of [
+    ["light", 1440],
+    ["dark", 390],
+  ] as const) {
+    await page.setViewportSize({ width, height: 850 });
+    await page.evaluate(
+      (value) => (document.documentElement.dataset.theme = value),
+      theme,
+    );
+    await search.focus();
+    const style = await search.evaluate((input) => ({
+      outline: getComputedStyle(input).outlineStyle,
+      border: getComputedStyle(input).borderWidth,
+      shadow: getComputedStyle(input).boxShadow,
+      outerShadow: getComputedStyle(input.parentElement!).boxShadow,
+      overflow: document.documentElement.scrollWidth > innerWidth,
+    }));
+    expect(style.outline).toBe("none");
+    expect(style.border).toBe("0px");
+    expect(style.shadow).toBe("none");
+    expect(style.outerShadow).not.toBe("none");
+    expect(style.overflow).toBe(false);
+  }
 });

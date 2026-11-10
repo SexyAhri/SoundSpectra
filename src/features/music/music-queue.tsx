@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { ArrowUp, ArrowDown, X } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { MusicButton as Button, MusicHint } from "./music-hint";
 import { musicClient } from "./client";
 import { MusicCover } from "./music-cover";
 import { VirtualRows } from "./virtual-rows";
@@ -103,7 +103,9 @@ export function MusicQueue({
                   <span>{i + 1}</span>
                   <MusicCover src={t.cover} small />
                   <div>
-                    <strong title={t.title}>{t.title}</strong>
+                    <MusicHint text={t.title}>
+                      <strong>{t.title}</strong>
+                    </MusicHint>
                     <small>{t.artist}</small>
                   </div>
                 </button>

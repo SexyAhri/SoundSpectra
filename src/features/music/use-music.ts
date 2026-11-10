@@ -1,9 +1,17 @@
-import { useEffect, useRef, useState } from "react";
+import {
+  createContext,
+  useContext,
+  useEffect,
+  useRef,
+  useState,
+  createElement,
+  type ReactNode,
+} from "react";
 import { native, describeError } from "../spectrum/bridge";
 import { musicClient, setMusicProvider } from "./client";
 import { emptySnapshot } from "./types";
 
-export function useMusic() {
+function useMusicSession(enabled = true) {
   const [snapshot, setSnapshot] = useState(emptySnapshot);
   const [error, setError] = useState<string | null>(null),
     [busy, setBusy] = useState(false);
@@ -26,7 +34,7 @@ export function useMusic() {
     musicClient.snapshot(latest.current.playback.queueRevision);
   const epoch = useRef(0);
   useEffect(() => {
-    if (!native) return;
+    if (!native || !enabled) return;
     let disposed = false,
       timer: ReturnType<typeof setTimeout>;
     const read = async () => {
@@ -43,7 +51,7 @@ export function useMusic() {
       disposed = true;
       clearTimeout(timer);
     };
-  }, []);
+  }, [enabled]);
   const perform = async (action: () => Promise<unknown>) => {
     const request = ++epoch.current;
     setBusy(true);
@@ -70,4 +78,18 @@ export function useMusic() {
       void perform(() => musicClient.control(action, value));
     },
   };
+}
+
+const MusicContext = createContext<ReturnType<typeof useMusicSession> | null>(
+  null,
+);
+export function MusicProvider({ children }: { children: ReactNode }) {
+  const music = useMusicSession();
+  return createElement(MusicContext.Provider, { value: music }, children);
+}
+/** Standalone views remain usable in fixtures; the workspace shares one subscription. */
+export function useMusic() {
+  const shared = useContext(MusicContext);
+  const standalone = useMusicSession(!shared);
+  return shared ?? standalone;
 }

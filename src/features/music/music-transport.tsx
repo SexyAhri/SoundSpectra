@@ -15,7 +15,7 @@ import {
   Volume2,
   VolumeX,
 } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { MusicButton as Button, MusicHint } from "./music-hint";
 import { MusicCover } from "./music-cover";
 import { type Playback } from "./types";
 import { MusicProgress } from "./music-progress";
@@ -29,11 +29,13 @@ const modes = {
 
 export function MusicTransport({
   playback: p,
+  compact = false,
   command,
   panel,
   onPanel,
 }: {
   playback: Playback;
+  compact?: boolean;
   busy: boolean;
   command: (action: string, value?: number) => void;
   panel: "queue" | "lyrics" | null;
@@ -63,36 +65,53 @@ export function MusicTransport({
     setVolume(null);
   };
   return (
-    <footer className="library-player" aria-label="音乐播放栏">
+    <footer
+      className={`library-player${compact ? " library-player-compact" : ""}`}
+      aria-label="音乐播放栏"
+    >
       <div className="library-playing-track">
-        <MusicCover src={current?.cover} small />
+        <button
+          className="library-open-track"
+          aria-label="打开音乐库"
+          onClick={() => {
+            location.hash = "music";
+          }}
+        >
+          <MusicCover src={current?.cover} small />
+        </button>
         <div className="library-track-info">
-          <strong title={current?.title}>
-            {current?.title ?? "选择一首歌曲开始播放"}
-          </strong>
-          <span
-            title={
+          <MusicHint text={current?.title}>
+            <strong>{current?.title ?? "选择一首歌曲开始播放"}</strong>
+          </MusicHint>
+          <MusicHint
+            text={
               p.suspended
                 ? "点击播放即可从保留的进度恢复内置音源"
                 : current?.artist
             }
           >
-            {p.suspended
-              ? "外部音源中 · 点击播放恢复内置音源"
-              : (current?.artist ?? "音频与歌词自动缓存 · 7 天未播清理")}
-          </span>
-          {quality ? (
-            <small
-              className="library-quality"
-              aria-label="当前播放音质"
-              title={["自动选择最高可用音质", details, quality.fallback]
+            <span>
+              {p.suspended
+                ? "外部音源中 · 点击播放恢复内置音源"
+                : (current?.artist ?? "歌曲在线播放 · 歌词缓存 7 天")}
+            </span>
+          </MusicHint>
+          {quality && !compact ? (
+            <MusicHint
+              text={["自动选择最高可用音质", details, quality.fallback]
                 .filter(Boolean)
                 .join("\n")}
             >
-              <b>{quality.label}</b>
-              <span>{details}</span>
-              {quality.fallback && <em>已自动降级</em>}
-            </small>
+              <small
+                className="library-quality"
+                aria-label="当前播放音质"
+                tabIndex={0}
+              >
+                <b>{quality.label}</b>
+                <span>{details}</span>
+                {quality.fallback && <em>已自动降级</em>}
+              </small>
+            </MusicHint>
           ) : null}
         </div>
       </div>

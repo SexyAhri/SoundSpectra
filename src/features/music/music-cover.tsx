@@ -2,13 +2,16 @@ import { useEffect, useRef, useState } from "react";
 import { Disc3 } from "lucide-react";
 import { native } from "../spectrum/bridge";
 import { musicClient } from "./client";
+import { MusicHint } from "./music-hint";
 const flights = new Map<string, Promise<string | null>>();
 export function MusicCover({
   src,
   small = false,
+  onImage,
 }: {
   src?: string | null;
   small?: boolean;
+  onImage?: (src: string | null) => void;
 }) {
   const [broken, setBroken] = useState(false);
   const [image, setImage] = useState<string | null>(null);
@@ -54,6 +57,9 @@ export function MusicCover({
     };
   }, [src, revision]);
   useEffect(() => {
+    onImage?.(broken ? null : image);
+  }, [image, broken, onImage]);
+  useEffect(() => {
     const retry = (event: Event) => {
       if ((event as CustomEvent).detail === src) setRevision((v) => v + 1);
     };
@@ -61,22 +67,22 @@ export function MusicCover({
     return () => window.removeEventListener("music-cover-retry", retry);
   }, [src]);
   return (
-    <span
-      ref={root}
-      className={`library-cover ${small ? "small" : ""}`}
-      title={broken ? "封面加载失败，可在歌曲右键菜单中重试" : undefined}
+    <MusicHint
+      text={broken ? "封面加载失败，可在歌曲右键菜单中重试" : undefined}
     >
-      {image && !broken ? (
-        <img
-          src={image}
-          alt=""
-          loading="lazy"
-          referrerPolicy="no-referrer"
-          onError={() => setBroken(true)}
-        />
-      ) : (
-        <Disc3 size={small ? 21 : 36} />
-      )}
-    </span>
+      <span ref={root} className={`library-cover ${small ? "small" : ""}`}>
+        {image && !broken ? (
+          <img
+            src={image}
+            alt=""
+            loading="lazy"
+            referrerPolicy="no-referrer"
+            onError={() => setBroken(true)}
+          />
+        ) : (
+          <Disc3 size={small ? 21 : 36} />
+        )}
+      </span>
+    </MusicHint>
   );
 }

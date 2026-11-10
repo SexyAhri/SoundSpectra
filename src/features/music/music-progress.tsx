@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { clock, type Playback } from "./types";
+import { MusicHint } from "./music-hint";
 
 const percent = (value: number, total: number) =>
   Math.max(
@@ -82,72 +83,74 @@ export function MusicProgress({
     >
       <div className="library-progress">
         <span>{clock(position)}</span>
-        <div className="library-progress-rail" title={tooltip}>
-          <div className="library-progress-track">
-            {downloading && (
-              <div
-                className="library-progress-download"
-                role="progressbar"
-                aria-label="音频下载进度"
-                aria-valuemin={0}
-                aria-valuemax={100}
-                aria-valuenow={Math.floor(downloaded)}
-                aria-valuetext={`${Math.floor(downloaded)}% · ${transferDetails}`}
-                style={{ width: `${downloaded}%` }}
-              />
-            )}
-            {(p.buffered ?? []).map(([start, end], index) => (
+        <MusicHint text={tooltip}>
+          <div className="library-progress-rail">
+            <div className="library-progress-track">
+              {downloading && (
+                <div
+                  className="library-progress-download"
+                  role="progressbar"
+                  aria-label="音频下载进度"
+                  aria-valuemin={0}
+                  aria-valuemax={100}
+                  aria-valuenow={Math.floor(downloaded)}
+                  aria-valuetext={`${Math.floor(downloaded)}% · ${transferDetails}`}
+                  style={{ width: `${downloaded}%` }}
+                />
+              )}
+              {(p.buffered ?? []).map(([start, end], index) => (
+                <i
+                  className="library-progress-buffer"
+                  aria-hidden="true"
+                  key={index}
+                  style={{
+                    left: `${percent(start, p.duration)}%`,
+                    width: `${percent(end - start, p.duration)}%`,
+                  }}
+                />
+              ))}
               <i
-                className="library-progress-buffer"
+                className="library-progress-played"
                 aria-hidden="true"
-                key={index}
-                style={{
-                  left: `${percent(start, p.duration)}%`,
-                  width: `${percent(end - start, p.duration)}%`,
-                }}
+                style={{ width: `${percent(position, p.duration)}%` }}
               />
-            ))}
-            <i
-              className="library-progress-played"
-              aria-hidden="true"
-              style={{ width: `${percent(position, p.duration)}%` }}
+              {(authorizing || buffering || seeking) && (
+                <i className="library-progress-loading" aria-hidden="true" />
+              )}
+            </div>
+            <input
+              aria-label="播放进度"
+              aria-valuetext={`${clock(position)} / ${clock(p.duration)}${summary ? `；${summary}` : ""}`}
+              type="range"
+              min="0"
+              max={p.duration || 1}
+              step=".1"
+              value={position}
+              disabled={!ready}
+              onChange={(e) => setSeek(Number(e.target.value))}
+              onPointerUp={(e) => {
+                if (seek !== null) commit(Number(e.currentTarget.value));
+              }}
+              onKeyUp={(e) => {
+                if (
+                  seek !== null &&
+                  [
+                    "ArrowLeft",
+                    "ArrowRight",
+                    "ArrowUp",
+                    "ArrowDown",
+                    "Home",
+                    "End",
+                    "PageUp",
+                    "PageDown",
+                  ].includes(e.key)
+                )
+                  commit(Number(e.currentTarget.value));
+              }}
+              onPointerCancel={() => setSeek(null)}
             />
-            {(authorizing || buffering || seeking) && (
-              <i className="library-progress-loading" aria-hidden="true" />
-            )}
           </div>
-          <input
-            aria-label="播放进度"
-            aria-valuetext={`${clock(position)} / ${clock(p.duration)}${summary ? `；${summary}` : ""}`}
-            type="range"
-            min="0"
-            max={p.duration || 1}
-            step=".1"
-            value={position}
-            disabled={!ready}
-            onChange={(e) => setSeek(Number(e.target.value))}
-            onPointerUp={(e) => {
-              if (seek !== null) commit(Number(e.currentTarget.value));
-            }}
-            onKeyUp={(e) => {
-              if (
-                seek !== null &&
-                [
-                  "ArrowLeft",
-                  "ArrowRight",
-                  "ArrowUp",
-                  "ArrowDown",
-                  "Home",
-                  "End",
-                  "PageUp",
-                  "PageDown",
-                ].includes(e.key)
-              )
-                commit(Number(e.currentTarget.value));
-            }}
-            onPointerCancel={() => setSeek(null)}
-          />
-        </div>
+        </MusicHint>
         <span>{clock(p.duration)}</span>
       </div>
     </div>

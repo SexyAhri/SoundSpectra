@@ -78,12 +78,17 @@ export interface AudioQuality {
   bitrate: number | null;
   fallback: string | null;
 }
+export interface MusicProviderInfo {
+  id: string;
+  name: string;
+  capabilities: string[];
+}
 export interface MusicSnapshot {
   libraryKey?: string | null;
   account: Account | null;
   login: { phase: string; qr: string | null; message: string };
   playback: Playback;
-  providers: { id: string; name: string; capabilities: string[] }[];
+  providers: MusicProviderInfo[];
 }
 export const emptySnapshot: MusicSnapshot = {
   account: null,
@@ -120,12 +125,13 @@ export function clock(value: number) {
 }
 
 export interface MusicPreferences {
-  cacheGib: number;
+  lyricMib: number;
   normalize: boolean;
 }
 export interface CacheStats {
   audioBytes: number;
   lyricBytes: number;
+  metadataBytes: number;
   limitBytes: number;
   pending: number;
 }
