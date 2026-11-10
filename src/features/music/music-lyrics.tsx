@@ -83,17 +83,17 @@ export function MusicLyrics({
       if (generation.current === request) setBusy(false);
     }
   };
+  const source =
+    document.key === key && document.status === "ready"
+      ? document.message
+      : "歌词独立获取 · 本地优先";
   return (
     <>
       <div className="library-lyrics-heading">
-        <strong>{track?.title ?? "暂无歌曲"}</strong>
-        <p>{track?.artist}</p>
-        <div>
-          <span>
-            {document.key === key && document.status === "ready"
-              ? document.message
-              : "歌词独立获取 · 本地优先"}
-          </span>
+        <div className="library-lyrics-title-row">
+          <MusicHint text={track?.title}>
+            <strong>{track?.title ?? "暂无歌曲"}</strong>
+          </MusicHint>
           <Button
             variant="ghost"
             size="icon-xs"
@@ -104,6 +104,16 @@ export function MusicLyrics({
           >
             <RefreshCw size={13} className={busy ? "spinning" : ""} />
           </Button>
+        </div>
+        <div className="library-lyrics-meta">
+          {track?.artist && (
+            <MusicHint text={track.artist}>
+              <span className="library-lyrics-artist">{track.artist}</span>
+            </MusicHint>
+          )}
+          <MusicHint text={source}>
+            <span className="library-lyrics-source">{source}</span>
+          </MusicHint>
         </div>
       </div>
       {(issue || document.issue) && (

@@ -772,6 +772,7 @@ test("cached lyrics support seek and refresh independently of the queue panel", 
   await page.getByRole("button", { name: "歌曲歌词", exact: true }).click();
   const panel = page.getByRole("complementary", { name: "歌曲歌词面板" });
   await expect(panel.getByText("本地歌词缓存")).toBeVisible();
+  await page.screenshot({ path: "artifacts/music-lyrics-compact.png" });
   await expect(
     panel.getByRole("button", { name: "第二句原创歌词" }),
   ).toHaveAttribute("aria-current", "true");
@@ -1893,11 +1894,14 @@ test("pinned lyrics and queue overlay without resizing the browser and narrow pa
   expect(queueBox!.x).toBeLessThan(layout.browserRight);
   await queue.getByRole("button", { name: "收起面板", exact: true }).click();
   await toggle.click();
-  await panel.getByRole("button", { name: "停靠面板" }).click();
+  await expect(panel.getByRole("button", { name: "取消固定面板" })).toHaveText("已固定");
+  await panel.getByRole("button", { name: "取消固定面板" }).click();
+  await expect(panel.getByRole("button", { name: "固定面板", exact: true })).toHaveAttribute("aria-pressed", "false");
   await page.getByRole("heading", { name: "音乐库", exact: true }).click();
   await expect(panel).toHaveCount(0);
   await toggle.click();
-  await panel.getByRole("button", { name: "停靠面板" }).click();
+  await panel.getByRole("button", { name: "固定面板", exact: true }).click();
+  await expect(panel.getByRole("button", { name: "取消固定面板" })).toHaveAttribute("aria-pressed", "true");
   await page.setViewportSize({ width: 760, height: 800 });
   await page.getByRole("heading", { name: "音乐库", exact: true }).click();
   await expect(panel).toHaveCount(0);

@@ -4,7 +4,8 @@ import {
   Settings2,
   Trash2,
   X,
-  PanelRight,
+  Pin,
+  PinOff,
 } from "lucide-react";
 import { MusicButton as Button } from "./music-hint";
 import { MusicLyrics } from "./music-lyrics";
@@ -141,14 +142,20 @@ export function MusicDrawer({
         <div>
           {panel !== "settings" && setDocked && (
             <Button
-              variant="ghost"
-              size="icon-sm"
+              variant={docked ? "secondary" : "ghost"}
+              size="sm"
               className="library-dock-toggle"
-              aria-label="停靠面板"
+              aria-label={docked ? "取消固定面板" : "固定面板"}
+              title={
+                docked
+                  ? "取消固定后，点击面板外部会收起"
+                  : "固定后，点击面板外部仍保持打开"
+              }
               aria-pressed={docked}
               onClick={() => setDocked(!docked)}
             >
-              <PanelRight size={15} />
+              {docked ? <Pin size={14} /> : <PinOff size={14} />}
+              {docked ? "已固定" : "固定"}
             </Button>
           )}
           {panel === "queue" && (
