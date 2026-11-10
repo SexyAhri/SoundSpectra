@@ -1,3 +1,4 @@
+import { Hint } from "@/components/ui/hint";
 import { useEffect, useRef, useState } from "react";
 import { Headphones, RefreshCw } from "lucide-react";
 import { ChoiceSelect } from "@/components/ui/choice-select";
@@ -33,7 +34,7 @@ export function AudioSourcePanel({
   const lastAttempt = useRef<AudioSource | null>(null);
   useEffect(() => {
     mounted.current = true;
-    const changed = () => setRetry(value => value + 1);
+    const changed = () => setRetry((value) => value + 1);
     window.addEventListener("music-source-change", changed);
     return () => {
       mounted.current = false;
@@ -77,7 +78,17 @@ export function AudioSourcePanel({
       const saved = await setAudioSource(selection);
       if (mounted.current) {
         setSnapshot((current) =>
-          current ? { ...current, selection: saved, error: null, builtin: current.builtin && { ...current.builtin, active: false } } : current,
+          current
+            ? {
+                ...current,
+                selection: saved,
+                error: null,
+                builtin: current.builtin && {
+                  ...current.builtin,
+                  active: false,
+                },
+              }
+            : current,
         );
         lastAttempt.current = null;
         setError(null);
@@ -102,8 +113,13 @@ export function AudioSourcePanel({
       await musicClient.control("play");
       setSnapshot(await getAudioSources());
       setError(null);
-    } catch (reason) { setError(`恢复内置播放失败：${String(reason)}`); }
-    finally { pending.current = false; setSaving(false); setRetry(value => value + 1); }
+    } catch (reason) {
+      setError(`恢复内置播放失败：${String(reason)}`);
+    } finally {
+      pending.current = false;
+      setSaving(false);
+      setRetry((value) => value + 1);
+    }
   };
   const message = !native
     ? "仅预览设置"
@@ -144,36 +160,55 @@ export function AudioSourcePanel({
             : sync?.phase === "unavailable"
               ? "兼容同步"
               : message;
+  const statusText = `${native && (status.sourceName || kugou) ? `${status.sourceName || "酷狗音乐"} · ` : ""}${syncMessage}`;
+  const sourceDetail = [statusText, sync?.message || status.message]
+    .filter(Boolean)
+    .join("\n");
+  const indicator = problem
+    ? "error"
+    : saving || status.state === "connecting"
+      ? "connecting"
+      : native && (running || status.state === "silent")
+        ? "connected"
+        : "idle";
   return (
     <section
       className="source-section audio-source-panel"
       aria-label="音频来源"
     >
-      <Headphones size={18} className="source-icon" />
-      <div className="audio-source-choice">
-        <span>音乐来源</span>
-        {snapshot ? (
-          <ChoiceSelect
-            label="音乐来源"
-            value={snapshot.builtin?.active ? "builtin" : sourceKey(snapshot.selection)}
-            options={sourceOptions(snapshot)}
-            disabled={saving}
-            onChange={(value) => value === "builtin" ? void resumeBuiltin() : void save(sourceFromKey(value))}
-          />
-        ) : (
-          <span className="source-placeholder">正在读取…</span>
-        )}
-      </div>
-      <span
-        className={`source-status ${running && native ? "connected" : ""}`}
-        title={sync?.message || status.message}
-        role="status"
-      >
-        <span />
-        {native && (status.sourceName || kugou)
-          ? `${status.sourceName || "酷狗音乐"} · `
-          : ""}
-        {syncMessage}
+      <Hint text={sourceDetail}>
+        <div className="audio-source-choice">
+          <span
+            className="audio-source-indicator"
+            data-state={indicator}
+            aria-hidden="true"
+          >
+            <Headphones size={16} />
+            <i />
+          </span>
+          {snapshot ? (
+            <ChoiceSelect
+              label="音乐来源"
+              value={
+                snapshot.builtin?.active
+                  ? "builtin"
+                  : sourceKey(snapshot.selection)
+              }
+              options={sourceOptions(snapshot)}
+              disabled={saving}
+              onChange={(value) =>
+                value === "builtin"
+                  ? void resumeBuiltin()
+                  : void save(sourceFromKey(value))
+              }
+            />
+          ) : (
+            <span className="source-placeholder">正在读取…</span>
+          )}
+        </div>
+      </Hint>
+      <span className="source-status" role="status">
+        {statusText}
       </span>
       {problem && (
         <div className="audio-source-message">
