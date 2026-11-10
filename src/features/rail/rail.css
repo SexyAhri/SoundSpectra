@@ -472,12 +472,8 @@
 .rail-controls select:focus-visible,
 .rail-controls summary:focus-visible,
 .rail-controls textarea:focus-visible {
-  outline: 2px solid var(--primary);
-  outline-offset: 2px;
-}
-
-.rail-controls .rail-desktop-search>input:focus-visible {
-  outline: none;
+  outline: var(--focus-width) solid var(--primary);
+  outline-offset: var(--focus-offset);
 }
 
 .studio-shell .rail-controls.inspector-content {

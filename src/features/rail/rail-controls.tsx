@@ -1,3 +1,4 @@
+import { Hint } from "@/components/ui/hint";
 import { Fragment, useEffect, useRef, useState, type FormEvent } from "react";
 import {
   Check,
@@ -34,6 +35,8 @@ import { RailAudioSettings } from "./rail-audio-settings";
 import { RailLayoutSettings, RailNameField } from "./rail-layout-settings";
 import "./rail-settings.css";
 
+import { useUiPreference } from "../settings/use-ui-preference";
+
 type RailSettingsTab = "items" | "appearance" | "position";
 const settingsTabs = [
   { value: "items", label: "挂件", icon: GalleryHorizontalEnd },
@@ -55,7 +58,12 @@ export function RailControls({
   onSelect: (groupId: string, itemId?: string) => void;
 }) {
   const [targetPath, setTargetPath] = useState("");
-  const [tab, setTab] = useState<RailSettingsTab>("items");
+  const [tab, setTab] = useUiPreference<RailSettingsTab>(
+    "soundspectra.rail-tab",
+    "items",
+    (v): v is RailSettingsTab =>
+      ["items", "appearance", "position"].includes(String(v)),
+  );
   const [addOpen, setAddOpen] = useState(false);
   const [manageOpen, setManageOpen] = useState(false);
   const root = useRef<HTMLDivElement>(null);
@@ -385,53 +393,54 @@ export function RailControls({
                           data-control-item={value.id}
                           className={`rail-control-item${item?.id === value.id ? " is-selected" : ""}`}
                         >
-                          <button
-                            className="rail-control-select"
-                            title={`${value.name}\nAlt + ↑ / ↓ 调整顺序`}
-                            aria-keyshortcuts="Alt+ArrowUp Alt+ArrowDown"
-                            aria-pressed={item?.id === value.id}
-                            onKeyDown={(event) => {
-                              if (
-                                !event.altKey ||
-                                busy ||
-                                !["ArrowUp", "ArrowDown"].includes(event.key)
-                              )
-                                return;
-                              event.preventDefault();
-                              const target =
-                                index + (event.key === "ArrowUp" ? -1 : 1);
-                              if (target >= 0 && target < group.items.length)
-                                void change({
-                                  type: "move",
-                                  id: value.id,
-                                  groupId: group.id,
-                                  index: target,
-                                });
-                            }}
-                            onClick={() =>
-                              onSelect(
-                                group.id,
-                                item?.id === value.id ? undefined : value.id,
-                              )
-                            }
-                          >
-                            <span className="rail-control-icon">
-                              <RailMedia
-                                item={value}
-                                unavailable={controller.missing.includes(
-                                  value.id,
-                                )}
-                              />
-                            </span>
-                            <span>
-                              <strong>{value.name}</strong>
-                              <small>
-                                {controller.missing.includes(value.id)
-                                  ? "目标失效，请重新关联"
-                                  : kindLabels[value.kind]}
-                              </small>
-                            </span>
-                          </button>
+                          <Hint text={`${value.name}\nAlt + ↑ / ↓ 调整顺序`}>
+                            <button
+                              className="rail-control-select"
+                              aria-keyshortcuts="Alt+ArrowUp Alt+ArrowDown"
+                              aria-pressed={item?.id === value.id}
+                              onKeyDown={(event) => {
+                                if (
+                                  !event.altKey ||
+                                  busy ||
+                                  !["ArrowUp", "ArrowDown"].includes(event.key)
+                                )
+                                  return;
+                                event.preventDefault();
+                                const target =
+                                  index + (event.key === "ArrowUp" ? -1 : 1);
+                                if (target >= 0 && target < group.items.length)
+                                  void change({
+                                    type: "move",
+                                    id: value.id,
+                                    groupId: group.id,
+                                    index: target,
+                                  });
+                              }}
+                              onClick={() =>
+                                onSelect(
+                                  group.id,
+                                  item?.id === value.id ? undefined : value.id,
+                                )
+                              }
+                            >
+                              <span className="rail-control-icon">
+                                <RailMedia
+                                  item={value}
+                                  unavailable={controller.missing.includes(
+                                    value.id,
+                                  )}
+                                />
+                              </span>
+                              <span>
+                                <strong>{value.name}</strong>
+                                <small>
+                                  {controller.missing.includes(value.id)
+                                    ? "目标失效，请重新关联"
+                                    : kindLabels[value.kind]}
+                                </small>
+                              </span>
+                            </button>
+                          </Hint>
                         </div>
                         {item?.id === value.id && (
                           <ItemControls
@@ -543,6 +552,9 @@ function ItemControls({
 }) {
   return (
     <section className="rail-item-controls" aria-label="选中挂件属性">
+      <p className="module-editing-target">
+        正在编辑：{item.name || kindLabels[item.kind]} · {group.name}
+      </p>
       <div className="rail-item-controls-heading">
         <span className="section-label">{kindLabels[item.kind]}设置</span>
         <button type="button" aria-label="收起挂件属性" onClick={onClose}>
@@ -622,9 +634,11 @@ function ItemControls({
           open={controller.missing.includes(item.id) || undefined}
         >
           <summary>目标与重新关联</summary>
-          <p className="rail-target-path" title={item.path}>
-            {item.path}
-          </p>
+          <Hint text={item.path}>
+            <p className="rail-target-path" tabIndex={0}>
+              {item.path}
+            </p>
+          </Hint>
           <Button
             variant="outline"
             size="sm"

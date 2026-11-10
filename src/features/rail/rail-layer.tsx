@@ -17,6 +17,7 @@ function RailLayerContent({
   selected,
   editing,
   arranging = false,
+  locked = [],
   interactive = true,
   onSelect,
   desktopWidth,
@@ -25,6 +26,7 @@ function RailLayerContent({
   selected: string | null;
   editing: boolean;
   arranging?: boolean;
+  locked?: string[];
   interactive?: boolean;
   onSelect: (groupId: string, itemId?: string) => void;
   desktopWidth?: number;
@@ -71,7 +73,13 @@ function RailLayerContent({
     group: RailGroup,
     resize = false,
   ) => {
-    if (!canEdit || event.button !== 0 || gesture.current) return;
+    if (
+      !canEdit ||
+      locked.includes(group.id) ||
+      event.button !== 0 ||
+      gesture.current
+    )
+      return;
     event.preventDefault();
     event.stopPropagation();
     onSelect(group.id);
@@ -172,6 +180,7 @@ function RailLayerContent({
               if (
                 !arranging ||
                 !canEdit ||
+                locked.includes(group.id) ||
                 gesture.current ||
                 !event.key.startsWith("Arrow")
               )
@@ -234,7 +243,7 @@ function RailLayerContent({
               selected={selected}
               onSelect={onSelect}
               onDragGroup={begin}
-              editing={editing && !arranging}
+              editing={editing && !arranging && !locked.includes(group.id)}
             />
             {arranging && (
               <>
@@ -242,7 +251,7 @@ function RailLayerContent({
                   className="rail-placement-move"
                   aria-label={`移动${group.name}`}
                   tabIndex={-1}
-                  disabled={!canEdit}
+                  disabled={!canEdit || locked.includes(group.id)}
                   onPointerDown={(event) => begin(event, group)}
                 />
                 <span className="rail-placement-label" aria-hidden="true">
@@ -252,7 +261,7 @@ function RailLayerContent({
                   className="rail-placement-resize"
                   aria-label={`调整${group.name}宽度`}
                   title="拖动调整宽度；左右方向键微调"
-                  disabled={!canEdit}
+                  disabled={!canEdit || locked.includes(group.id)}
                   onPointerDown={(event) => begin(event, group, true)}
                 />
               </>

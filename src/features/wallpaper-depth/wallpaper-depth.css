@@ -154,7 +154,7 @@
 }
 
 .wallpaper-area-editor:focus-visible {
-  outline: 2px solid var(--primary);
+  outline: var(--focus-width) solid var(--primary);
 }
 
 .wallpaper-area-label {

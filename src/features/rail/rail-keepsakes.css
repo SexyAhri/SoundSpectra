@@ -410,8 +410,8 @@
 }
 
 .rail-surface .rail-hanging .rail-item:focus-visible {
-  outline: 2px solid #596c50;
-  outline-offset: 3px;
+  outline: var(--focus-width) solid #596c50;
+  outline-offset: var(--focus-offset);
 }
 
 .rail-slot-ghost {

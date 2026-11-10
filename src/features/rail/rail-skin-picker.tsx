@@ -133,6 +133,7 @@ export function RailSkinPicker({
     <div className="rail-skin-entry">
       <StylePicker
         label="拾光绳皮肤"
+        renderCandidate={(skin) => <RailSkinPreview skin={railSkin(skin)} />}
         value={railSkin(value)}
         disabled={disabled}
         onChange={(skin) => onChange(railSkin(skin))}

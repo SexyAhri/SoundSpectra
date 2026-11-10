@@ -105,7 +105,7 @@
 }
 
 .studio-shell .module-inspector .rail-settings-tab-list>button:focus-visible {
-  outline: 2px solid var(--primary);
+  outline: var(--focus-width) solid var(--primary);
   outline-offset: -4px;
 }
 

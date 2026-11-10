@@ -12,15 +12,15 @@
 
 .card-style-preview .mc {
   width: 432px;
-  height: 152px;
-  transform: translate(24px, 54px);
+  height: var(--preview-card-height, 152px);
+  transform: translate(24px, var(--preview-card-y, 54px));
 }
 
 .card-style-preview .mc-progress-fill {
-  transform: scaleX(.305);
+  transform: scaleX(var(--preview-progress, 0.305));
 }
 
 .card-style-preview .mc-arc-fill {
   stroke-dasharray: 1;
-  stroke-dashoffset: .695;
+  stroke-dashoffset: calc(1 - var(--preview-progress, 0.305));
 }

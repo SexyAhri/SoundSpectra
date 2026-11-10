@@ -1,5 +1,6 @@
+import { SearchField } from "@/components/ui/search-field";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Link2, Search, X } from "lucide-react";
+import { Link2, X } from "lucide-react";
 import { kindLabels, type RailItem } from "./model";
 import { RailMedia } from "./rail-media";
 
@@ -43,22 +44,20 @@ export function RailItemPicker({
   }, [items, query]);
   return (
     <>
-      <div className="rail-picker-search">
-        <Search size={14} aria-hidden="true" />
-        <input
-          type="search"
-          aria-label="搜索挂件"
-          placeholder="搜索名称或路径"
-          value={query}
-          onChange={(event) => setQuery(event.target.value)}
-          onKeyDown={(event) => {
-            if (event.key === "Escape" && query) {
-              event.stopPropagation();
-              event.preventDefault();
-              setQuery("");
-            }
-          }}
-        />
+      <SearchField
+        className="rail-picker-search"
+        aria-label="搜索挂件"
+        placeholder="搜索名称或路径"
+        value={query}
+        onChange={(event) => setQuery(event.target.value)}
+        onKeyDown={(event) => {
+          if (event.key === "Escape" && query) {
+            event.stopPropagation();
+            event.preventDefault();
+            setQuery("");
+          }
+        }}
+      >
         {query && (
           <button
             type="button"
@@ -71,7 +70,7 @@ export function RailItemPicker({
         <small aria-live="polite">
           {filtered.length} / {items.length}
         </small>
-      </div>
+      </SearchField>
       <div className="rail-overflow-items">
         {filtered.map((item) => {
           const unavailable = missing.includes(item.id);

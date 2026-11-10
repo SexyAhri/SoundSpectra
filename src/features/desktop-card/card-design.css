@@ -287,8 +287,8 @@
 }
 
 .mc-control:focus-visible {
-  outline: 2px solid var(--mc-accent);
-  outline-offset: 2px;
+  outline: var(--focus-width) solid var(--mc-accent);
+  outline-offset: var(--focus-offset);
 }
 
 .mc-control:disabled {

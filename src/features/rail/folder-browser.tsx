@@ -1,3 +1,4 @@
+import { SearchField } from "@/components/ui/search-field";
 import { useEffect, useRef, useState } from "react";
 import {
   ArrowUp,
@@ -7,7 +8,6 @@ import {
   Folder,
   LoaderCircle,
   RefreshCw,
-  Search,
 } from "lucide-react";
 import { describeError } from "../spectrum/bridge";
 import {
@@ -165,19 +165,16 @@ export function FolderBrowser({ item }: { item: RailItem }) {
           <ExternalLink size={14} />
         </button>
       </div>
-      <label className="rail-desktop-search">
-        <Search size={13} aria-hidden="true" />
-        <input
-          type="search"
-          aria-label="搜索当前文件夹"
-          placeholder="搜索当前文件夹…"
-          value={query}
-          onChange={(event) => {
-            setQuery(event.target.value);
-            select(null);
-          }}
-        />
-      </label>
+      <SearchField
+        className="rail-desktop-search"
+        aria-label="搜索当前文件夹"
+        placeholder="搜索当前文件夹…"
+        value={query}
+        onChange={(event) => {
+          setQuery(event.target.value);
+          select(null);
+        }}
+      />
       {error && (
         <div className="rail-folder-error" role="alert">
           <p>{error}</p>

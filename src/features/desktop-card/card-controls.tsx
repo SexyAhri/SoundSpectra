@@ -1,3 +1,4 @@
+import type { NowPlaying } from "./use-now-playing";
 import { SettingToggle } from "@/components/ui/setting-toggle";
 import { Button } from "@/components/ui/button";
 import { Parameter } from "@/components/ui/parameter";
@@ -8,14 +9,20 @@ import { CardStylePreview } from "./card-style-preview";
 
 export function CardControls({
   settings,
+  info,
   update,
   disabled,
 }: {
   settings: SpectrumSettings;
+  info?: NowPlaying;
   update: (patch: Partial<SpectrumSettings>) => void;
   disabled: boolean;
 }) {
   const card = settings.desktopCard;
+  const previewRatio =
+    (card.bounds.width *
+      (window.screen.width / Math.max(1, window.screen.height))) /
+    card.bounds.height;
   const bounds = (key: "x" | "y" | "width", value: number) => {
     const b = { ...card.bounds, [key]: value / 100 };
     if (key === "width")
@@ -39,6 +46,13 @@ export function CardControls({
       />
       <StylePicker
         label="卡片样式"
+        renderCandidate={(variant) => (
+          <CardStylePreview
+            variant={variant as typeof card.variant}
+            info={info}
+            ratio={previewRatio}
+          />
+        )}
         value={card.variant}
         disabled={disabled}
         onChange={(variant) =>
@@ -56,11 +70,27 @@ export function CardControls({
         ).map(([value, label]) => ({
           value,
           label,
-          preview: <CardStylePreview variant={value} />,
+          preview: <CardStylePreview variant={value} info={info} />,
         }))}
       />
       <section className="module-section" aria-label="卡片配色">
         <h3>配色</h3>
+        <Button
+          variant="ghost"
+          size="sm"
+          disabled={disabled}
+          onClick={() =>
+            update({
+              desktopCard: {
+                ...defaultDesktopCard,
+                enabled: card.enabled,
+                bounds: card.bounds,
+              },
+            })
+          }
+        >
+          恢复卡片样式
+        </Button>
         <CardColorControls
           settings={settings}
           update={update}

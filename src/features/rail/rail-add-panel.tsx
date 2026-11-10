@@ -1,3 +1,4 @@
+import { SearchField } from "@/components/ui/search-field";
 import { useEffect, useRef, useState } from "react";
 import {
   AppWindow,
@@ -7,7 +8,6 @@ import {
   FolderPlus,
   Monitor,
   RefreshCw,
-  Search,
   StickyNote,
   X,
 } from "lucide-react";
@@ -243,17 +243,15 @@ export function RailAddPanel({
           )}
           {data && (
             <>
-              <div className="rail-desktop-search">
-                <Search size={14} aria-hidden="true" />
-                <input
-                  ref={search}
-                  type="search"
-                  aria-label="搜索桌面图标"
-                  placeholder="搜索桌面图标…"
-                  value={query}
-                  disabled={saving}
-                  onChange={(event) => setQuery(event.target.value)}
-                />
+              <SearchField
+                className="rail-desktop-search"
+                ref={search}
+                aria-label="搜索桌面图标"
+                placeholder="搜索桌面图标…"
+                value={query}
+                disabled={saving}
+                onChange={(event) => setQuery(event.target.value)}
+              >
                 {query && (
                   <button
                     type="button"
@@ -266,7 +264,7 @@ export function RailAddPanel({
                     <X size={13} />
                   </button>
                 )}
-              </div>
+              </SearchField>
               <div className="rail-desktop-picker-tools">
                 <label>
                   <input

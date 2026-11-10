@@ -9,12 +9,12 @@
   cursor: move;
   touch-action: none;
   outline: 1px dashed #ffb075;
-  outline-offset: 3px;
+  outline-offset: var(--focus-offset);
   border-radius: 4%;
 }
 
 .music-card-layer.arrange-card:focus-visible {
-  outline: 2px solid #ffb075;
+  outline: var(--focus-width) solid #ffb075;
 }
 
 .live-meter {
