@@ -104,11 +104,6 @@ export function LyricControls({
           checked={lyrics.enabled}
           onChange={(enabled) => change({ enabled })}
         />
-        {lyrics.enabled && (
-          <p className="lyric-status" role="status">
-            {document.status === "ready" ? "歌词已就绪" : document.message}
-          </p>
-        )}
         {document.issue && (
           <p className="lyric-status" role="alert">
             {document.issue}
