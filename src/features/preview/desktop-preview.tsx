@@ -977,6 +977,15 @@ export function DesktopPreview(props: Props) {
       onChange={(masks) => props.update({ masks })}
     />
   );
+  const playbackStatus = props.demo
+    ? "演示音源"
+    : props.nowPlaying?.title
+      ? `${props.nowPlaying.source || "当前音源"} · ${props.nowPlaying.playing ? "播放中" : "已暂停"}`
+      : props.audioState === "silent"
+        ? "音源已连接 · 静音"
+        : props.running
+          ? "实时音源 · 已连接"
+          : "等待音源";
   const objectControls = arranging && !props.disabled && (
     <div className="preview-arrange-toolbar">
       <PreviewObjectList
@@ -1039,17 +1048,7 @@ export function DesktopPreview(props: Props) {
         </div>
         <div className="preview-tools">
           <span className="preview-state-control">
-            <strong>
-              {props.demo
-                ? "演示音源"
-                : props.nowPlaying?.title
-                  ? `${props.nowPlaying.source || "当前音源"} · ${props.nowPlaying.playing ? "播放中" : "已暂停"}`
-                  : props.audioState === "silent"
-                    ? "音源已连接 · 静音"
-                    : props.running
-                      ? "实时音源 · 已连接"
-                      : "等待音源"}
-            </strong>
+            <strong title={playbackStatus}>{playbackStatus}</strong>
           </span>
           <label className="demo-control" htmlFor="demo-switch">
             模拟预览

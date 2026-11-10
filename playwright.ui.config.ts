@@ -22,6 +22,7 @@ export default defineConfig({
         "**/studio.spec.ts",
         "**/workspace-experience.spec.ts",
         "**/workspace-layout.spec.ts",
+        "**/music-dock-layout.spec.ts",
         "**/settings.spec.ts",
         "**/application.spec.ts",
         "**/theme.spec.ts",

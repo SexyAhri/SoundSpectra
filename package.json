@@ -14,7 +14,7 @@
     "dev": "vite --host 127.0.0.1",
     "build": "tsc -b && vite build",
     "build:ui": "tsc -b && vite build --outDir artifacts/ui-build",
-    "test:ui": "npm run build:ui && playwright test --config=playwright.ui.config.ts tests/effect-settings.spec.ts tests/performance-placement.spec.ts tests/inspector-layout.spec.ts tests/rail.spec.ts tests/studio.spec.ts tests/wallpaper-depth.spec.ts tests/music-card.spec.ts tests/workspace-experience.spec.ts tests/workspace-layout.spec.ts tests/settings.spec.ts tests/application.spec.ts tests/desktop-scenes.spec.ts tests/valley-library.spec.ts tests/theme.spec.ts tests/lyrics.spec.ts tests/audio-sources.spec.ts tests/workspace-polish.spec.ts tests/music-library.spec.ts tests/music-readonly.spec.ts tests/music-kugou.spec.ts tests/music-recovery.spec.ts",
+    "test:ui": "npm run build:ui && playwright test --config=playwright.ui.config.ts tests/effect-settings.spec.ts tests/performance-placement.spec.ts tests/inspector-layout.spec.ts tests/rail.spec.ts tests/studio.spec.ts tests/wallpaper-depth.spec.ts tests/music-card.spec.ts tests/workspace-experience.spec.ts tests/workspace-layout.spec.ts tests/music-dock-layout.spec.ts tests/settings.spec.ts tests/application.spec.ts tests/desktop-scenes.spec.ts tests/valley-library.spec.ts tests/theme.spec.ts tests/lyrics.spec.ts tests/audio-sources.spec.ts tests/workspace-polish.spec.ts tests/music-library.spec.ts tests/music-readonly.spec.ts tests/music-kugou.spec.ts tests/music-recovery.spec.ts",
     "preview": "vite preview --host 127.0.0.1",
     "tauri": "tauri",
     "desktop": "node scripts/desktop.mjs",
