@@ -30,6 +30,8 @@
   --art-background: #141b21;
   --art-scrim: #111a23d9;
   --radius: 9px;
+  --focus-width: 1px;
+  --focus-offset: 2px;
   color: var(--foreground);
   background: var(--background);
 }

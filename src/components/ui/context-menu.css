@@ -7,3 +7,6 @@
 .context-menu-item[data-disabled] { opacity: .4; pointer-events: none; }
 .context-menu-item[data-danger] { color: var(--destructive); }
 .context-menu-separator { height: 1px; background: var(--border); margin: 4px; }
+
+/* Menu focus uses the highlighted row rather than a second outer frame. */
+.context-menu .context-menu-item:focus-visible { outline: none; box-shadow: none; }

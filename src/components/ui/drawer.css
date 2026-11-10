@@ -1,33 +1,25 @@
 .drawer-content {
   position: fixed;
-  inset: 0 0 0 auto;
+  inset: 12px 12px 12px auto;
   z-index: 100;
   display: flex;
   flex-direction: column;
-  width: min(640px, 100vw);
-  height: 100dvh;
+  width: min(356px, calc(100vw - 24px));
   min-height: 0;
   overflow: hidden;
-  border-left: 1px solid var(--border);
+  border: 1px solid var(--border);
+  border-radius: 14px;
   background: var(--card);
   color: var(--foreground);
-  box-shadow: -16px 0 64px var(--shadow-strong);
+  box-shadow: -8px 12px 36px var(--shadow-strong);
 }
 
-.drawer-content[data-state=open] {
+.drawer-content[data-state="open"] {
   animation: drawer-enter 180ms ease-out;
 }
 
-.drawer-content[data-state=closed] {
+.drawer-content[data-state="closed"] {
   animation: drawer-exit 140ms ease-in;
-}
-
-.drawer-backdrop[data-state=open] {
-  animation: drawer-backdrop-enter 180ms ease-out;
-}
-
-.drawer-backdrop[data-state=closed] {
-  animation: drawer-backdrop-exit 140ms ease-in;
 }
 
 @keyframes drawer-enter {
@@ -50,30 +42,8 @@
   }
 }
 
-@keyframes drawer-backdrop-enter {
-  from {
-    opacity: 0;
-  }
-
-  to {
-    opacity: 1;
-  }
-}
-
-@keyframes drawer-backdrop-exit {
-  from {
-    opacity: 1;
-  }
-
-  to {
-    opacity: 0;
-  }
-}
-
 @media (prefers-reduced-motion: reduce) {
-
-  .drawer-content[data-state],
-  .drawer-backdrop[data-state] {
+  .drawer-content[data-state] {
     animation: none;
   }
 }

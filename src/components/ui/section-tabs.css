@@ -1,0 +1,46 @@
+.module-section-nav {
+  display: flex;
+  gap: 8px;
+  border-bottom: 1px solid var(--border);
+  padding: 0 0 8px;
+  margin-block: 12px;
+}
+
+.module-section-nav>button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  flex: 1;
+  height: 40px;
+  position: relative;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: var(--muted-foreground);
+  font-size: 12px;
+}
+
+.module-section-nav>button:hover {
+  color: var(--foreground);
+}
+
+.module-section-nav>button[data-state="active"] {
+  color: var(--primary);
+}
+
+.module-section-nav>button[data-state="active"]::after {
+  content: "";
+  position: absolute;
+  bottom: -1px;
+  left: 8px;
+  right: 8px;
+  height: 2px;
+  border-radius: 2px;
+  background: var(--primary);
+}
+.module-section-nav > button:focus,
+.module-section-nav > button:focus-visible {
+  outline: none;
+  box-shadow: none;
+}
