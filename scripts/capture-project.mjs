@@ -5,6 +5,7 @@ import { mkdir } from "node:fs/promises";
 const base = process.env.SHOWCASE_URL ?? "http://127.0.0.1:1420";
 const output = "docs/images";
 await mkdir(output, { recursive: true });
+await mkdir("artifacts", { recursive: true });
 const browser = await chromium.launch({
   channel: "chrome",
   headless: true,
@@ -41,7 +42,8 @@ try {
   await page.locator("canvas[data-preparing=false]").first().waitFor();
   await page.evaluate(() => document.fonts.ready);
   await page.waitForTimeout(2500);
-  await page.screenshot({ path: `${output}/workspace-current.png` });
+  // Author-provided showcase images must never be replaced by a simulation.
+  await page.screenshot({ path: "artifacts/workspace-simulation.png", animations: "disabled" });
 
   // Render the actual login component with only public platform capabilities.
   await page.addInitScript(() => {
@@ -69,10 +71,10 @@ try {
   await page.getByRole("button", { name: "网易云音乐 可连接" }).waitFor();
   await page.getByRole("button", { name: "网易云音乐 可连接" }).click();
   await page.evaluate(() => document.fonts.ready);
-  await page.screenshot({ path: `${output}/music-login.png` });
+  await page.screenshot({ path: `${output}/music-login.png`, animations: "disabled" });
   if (errors.length) throw new Error(errors.join("\n"));
   console.log(
-    "Captured workspace simulation and three-platform login without personal data.",
+    "Captured public login to docs/images and workspace simulation to artifacts; author screenshots preserved.",
   );
 } finally {
   await browser.close();
