@@ -477,26 +477,6 @@ pub fn run() {
             reset_settings
         ])
         .setup(|app| {
-            // Keep the roomier default inside smaller or high-DPI work areas.
-            if let Some(window) = app.get_webview_window("settings") {
-                if let Ok(Some(monitor)) = window.current_monitor() {
-                    let area = monitor.work_area();
-                    let scale = monitor.scale_factor();
-                    let width = (area.size.width as f64 / scale - 48.0).clamp(1.0, 1440.0);
-                    let height = (area.size.height as f64 / scale - 48.0).clamp(1.0, 940.0);
-                    let _ = window.set_min_size(Some(tauri::LogicalSize::new(
-                        width.min(900.0),
-                        height.min(620.0),
-                    )));
-                    let _ = window.set_size(tauri::LogicalSize::new(width, height));
-                    let _ = window.set_position(tauri::PhysicalPosition::new(
-                        area.position.x
-                            + ((area.size.width as f64 - width * scale) / 2.0).round() as i32,
-                        area.position.y
-                            + ((area.size.height as f64 - height * scale) / 2.0).round() as i32,
-                    ));
-                }
-            }
             let path = app.path().app_config_dir()?.join("settings.json");
             let (settings, error) = match settings::read(&path) {
                 Ok(value) => (value, None),
@@ -529,9 +509,35 @@ pub fn run() {
             state.music.restore();
             app.manage(rail::RailState::new(app.handle()));
             system_tray::setup(app)?;
-            if std::env::args().any(|arg| arg == "--autostart") {
-                if let Some(window) = app.get_webview_window("settings") {
-                    let _ = window.hide();
+            // Configured WebViews normally load before this setup hook. Defer
+            // their creation until every IPC state is registered, so even the
+            // first get_settings / rail_get request sees initialized state.
+            let autostart = std::env::args().any(|arg| arg == "--autostart");
+            for config in &app.config().app.windows {
+                let mut builder = tauri::WebviewWindowBuilder::from_config(app.handle(), config)?;
+                if autostart && config.label == "settings" {
+                    builder = builder.visible(false);
+                }
+                builder.build()?;
+            }
+            // Keep the roomier default inside smaller or high-DPI work areas.
+            if let Some(window) = app.get_webview_window("settings") {
+                if let Ok(Some(monitor)) = window.current_monitor() {
+                    let area = monitor.work_area();
+                    let scale = monitor.scale_factor();
+                    let width = (area.size.width as f64 / scale - 48.0).clamp(1.0, 1440.0);
+                    let height = (area.size.height as f64 / scale - 48.0).clamp(1.0, 940.0);
+                    let _ = window.set_min_size(Some(tauri::LogicalSize::new(
+                        width.min(900.0),
+                        height.min(620.0),
+                    )));
+                    let _ = window.set_size(tauri::LogicalSize::new(width, height));
+                    let _ = window.set_position(tauri::PhysicalPosition::new(
+                        area.position.x
+                            + ((area.size.width as f64 - width * scale) / 2.0).round() as i32,
+                        area.position.y
+                            + ((area.size.height as f64 - height * scale) / 2.0).round() as i32,
+                    ));
                 }
             }
             start_desktop_recovery(app.handle().clone(), state.clone());

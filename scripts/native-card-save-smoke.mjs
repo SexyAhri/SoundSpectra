@@ -29,6 +29,9 @@ async function start() {
   let portBusy = false
   try { portBusy = (await fetch(`http://127.0.0.1:${port}/json/version`)).ok } catch {}
   assert.equal(portBusy, false, 'Test port is already in use')
+  // Keep the isolated run away from automatic KuGou restart/control paths.
+  mkdirSync(config, { recursive: true })
+  writeFileSync(join(config, 'audio-source.json'), JSON.stringify({ mode: 'player', id: 'qqmusic' }))
   child = spawn(executable, [], {
     windowsHide: true,
     env: { ...process.env,
@@ -50,6 +53,10 @@ async function start() {
     .find(p => p.url().startsWith('http://tauri.localhost') && !new URL(p.url()).searchParams.has('window'))
   page.on('pageerror', error => report.errors.push(error.message))
   await expect(page.locator('.app-shell')).toBeAttached()
+  await expect(page.locator('.save-status')).toHaveText('设置已保存', { timeout: 15000 })
+  await expect(page.getByText(/state not managed/)).toHaveCount(0)
+  await expect(page.getByRole('button', { name: '备份并恢复默认设置', exact: true })).toHaveCount(0)
+  report.checks.push('Startup loads settings without unmanaged state or a reset prompt')
   const info = await invoke('application_info')
   assert.equal(info.development, true, 'Requires debug commands')
   // Check the native configuration path before changing any setting.
