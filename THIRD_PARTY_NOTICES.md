@@ -2,6 +2,8 @@
 
 Package licenses are distributed with their dependencies; versions are locked in the npm and Cargo lockfiles.
 
+KuGou website login uses `aes` 0.8.4, `cbc` 0.1.2, `md-5` 0.11.0, `num-bigint` 0.4.8 and `qrcode` 0.14.1 (each MIT OR Apache-2.0). Their Apache-2.0 terms are included in `licenses/Apache-2.0.txt`.
+
 SoundSpectra itself is Copyright (C) 2026 SexyAhri, licensed under GPL-3.0-only (see LICENSE and COPYRIGHT). Third-party licenses are independent of the project notice. The licenses directory accompanies this file in packaged builds.
 
 Frontend runtime license texts from the installed, locked npm packages are collected in `licenses/frontend.txt`. Tauri's MIT notice is in `licenses/tauri-MIT.txt`; its alternative Apache-2.0 terms and the Apache-2.0 terms for `lyrics-crypto` are in `licenses/Apache-2.0.txt`. These files do not change any dependency's license choice.
@@ -14,7 +16,7 @@ Windows clipboard image import uses `arboard` 3.7.0 (MIT OR Apache-2.0), Copyrig
 
 KuGou enhanced synchronization uses `tungstenite` 0.28.0 (MIT OR Apache-2.0), Copyright (c) 2017 Alexey Galakhov and (c) 2016 Jason Housley, and `windows-registry` 0.6.1 (MIT OR Apache-2.0), Copyright (c) Microsoft Corporation. Their MIT notices are in `licenses/tungstenite-MIT.txt` and `licenses/windows-registry-MIT.txt`.
 
-The deferred KuGou native status query and progress-unit conversion reference shenruyang123456/kugo-mcp, commit `e045890b322d7bfb1b57892cdfe53215c23f2124` (MIT), Copyright (c) 2026 kugo-mcp contributors. Temporary client launch parameters reference yuan-yannick/kugou-native-mcp, commit `2c3104a417864146ea8c8360f844d44f5e4bcc95` (MIT), Copyright (c) 2026 yuan-yannick. Complete notices are in `licenses/kugo-mcp-MIT.txt` and `licenses/kugou-native-mcp-MIT.txt`. Process ownership checks, graceful restart, source selection, playback preservation and validated clock integration are implemented in SoundSpectra.
+KuGou integration includes MIT attributions: Copyright (c) 2026 kugo-mcp contributors and Copyright (c) 2026 yuan-yannick. Complete notices are in `licenses/kugo-mcp-MIT.txt` and `licenses/kugou-native-mcp-MIT.txt`.
 
 TTML parsing uses `roxmltree` 0.20.0 (MIT OR Apache-2.0), Copyright (c) 2018 Yevhenii Reizner. Its MIT notice is in `licenses/roxmltree-MIT.txt`.
 
