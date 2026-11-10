@@ -371,6 +371,12 @@ mod tests {
             &serde_json::json!({"mid":"native","id":123,"title":"原版 (Live)","interval":90}),
         )
         .unwrap();
+        // Existing caches may contain metadata from the retired cloud editor.
+        let mut legacy = serde_json::to_value(StoredTrack::from(&t)).unwrap();
+        legacy["song_type"] = serde_json::json!(111);
+        let t = serde_json::from_value::<StoredTrack>(legacy)
+            .unwrap()
+            .track();
         let view = View {
             queue: vec![t],
             entry_ids: vec!["stable".into()],

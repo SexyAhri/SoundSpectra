@@ -2,15 +2,21 @@
 mod artwork;
 mod cache;
 mod diagnostics;
+mod kugou;
+mod kugou_audio;
+mod kugou_login;
 pub mod login;
 mod loudness;
 mod lyric_cache;
 pub mod model;
+mod netease;
+mod netease_quality;
 pub mod operations;
 pub mod playback;
 mod qq;
 mod qq_quality;
 mod queue;
+mod session;
 mod store;
 mod stream;
 mod sync;
@@ -28,7 +34,7 @@ use std::{
     },
     time::{SystemTime, UNIX_EPOCH},
 };
-use tauri::{AppHandle, Manager, State, WebviewWindow};
+use tauri::{AppHandle, State, WebviewWindow};
 
 pub struct MusicState {
     provider: Mutex<Option<Arc<dyn Provider>>>,
@@ -38,7 +44,7 @@ pub struct MusicState {
     session_gate: Mutex<()>,
     tracks: Mutex<HashMap<String, Track>>,
     pub playback: Mutex<playback::Playback>,
-    vault_path: PathBuf,
+    directory: PathBuf,
     cache: Arc<cache::Cache>,
     store: Arc<store::Store>,
     diagnostics: diagnostics::Diagnostics,
@@ -55,12 +61,12 @@ impl MusicState {
             session_gate: Mutex::new(()),
             tracks: Mutex::new(HashMap::new()),
             playback: Mutex::new(playback::Playback::default()),
-            vault_path: directory.join("qq-session.dpapi"),
             cache: Arc::new(cache::Cache::new(&directory)),
             store: Arc::new(store::Store::new(directory.join("library.sqlite"))),
             diagnostics: diagnostics::Diagnostics::default(),
             artwork: artwork::Artwork::new(directory.join("covers")),
             dispatch: Mutex::new(()),
+            directory,
         }
     }
     pub fn persist(&self) {
@@ -77,7 +83,7 @@ impl MusicState {
             .lock()
             .unwrap()
             .clone()
-            .ok_or("请先扫码登录 QQ 音乐".into())
+            .ok_or("请先扫码连接音乐平台".into())
     }
     fn same_provider(&self, provider: &Arc<dyn Provider>) -> Result<(), String> {
         if self
@@ -92,18 +98,21 @@ impl MusicState {
             Err("登录账号已变化，请重新打开歌单".into())
         }
     }
-    fn attach(self: &Arc<Self>, session: qq::Session, generation: u64) -> Result<(), String> {
-        let provider: Arc<dyn Provider> =
-            Arc::new(qq::Qq::new(&session)?.with_cache(self.cache.clone()));
+    fn attach(
+        self: &Arc<Self>,
+        mut session: session::Session,
+        generation: u64,
+    ) -> Result<(), String> {
+        if self.login_generation.load(Ordering::SeqCst) != generation {
+            return Err("本次登录已取消".into());
+        }
+        session.validate()?;
+        let provider = session.provider(self.cache.clone())?;
         let account = provider.account()?;
         let _gate = self.session_gate.lock().unwrap();
         if self.login_generation.load(Ordering::SeqCst) != generation {
             return Err("本次登录已取消".into());
         }
-        vault::write(
-            &self.vault_path,
-            &serde_json::to_vec(&session).map_err(|_| "无法保存登录会话")?,
-        )?;
         let scope = provider.scope();
         let restored = self.store.restore(&scope)?;
         let prefs = self
@@ -112,6 +121,7 @@ impl MusicState {
             .unwrap_or_default();
         self.store.set(&scope, "sync-complete", &false)?;
         self.cache.configure(prefs.lyric_mib, prefs.normalize)?;
+        session.save(&self.directory)?;
         let mut tracks = self.tracks.lock().unwrap();
         let mut p = self.playback.lock().unwrap();
         *self.provider.lock().unwrap() = Some(provider.clone());
@@ -139,34 +149,43 @@ impl MusicState {
             std::thread::sleep(std::time::Duration::from_secs(3600));
         });
         let state = self.clone();
+        let generation = state.login_generation.load(Ordering::SeqCst);
         std::thread::spawn(move || {
-            let Some(bytes) = vault::read(&state.vault_path) else {
+            let Some(session) = session::Session::restore(&state.directory) else {
                 return;
             };
-            let Ok(session) = serde_json::from_slice::<qq::Session>(&bytes) else {
+            let id = session.id();
+            let name = session::name(id);
+            let gate = state.session_gate.lock().unwrap();
+            if state.login_generation.load(Ordering::SeqCst) != generation {
                 return;
-            };
-            let generation = state.login_generation.load(Ordering::SeqCst);
+            }
             *state.login.lock().unwrap() = login::Login {
+                provider: Some(id.into()),
                 phase: "restoring".into(),
                 qr: None,
-                message: "正在恢复 QQ 音乐登录…".into(),
+                message: format!("正在恢复{name}登录…"),
             };
+            drop(gate);
             let result = state.attach(session, generation);
-            if state.login_generation.load(Ordering::SeqCst) == generation {
-                *state.login.lock().unwrap() = match result {
+            login::update(
+                &state,
+                generation,
+                match result {
                     Ok(()) => login::Login {
+                        provider: Some(id.into()),
                         phase: "connected".into(),
                         qr: None,
-                        message: "QQ 音乐已连接".into(),
+                        message: format!("{name}已连接"),
                     },
                     Err(message) => login::Login {
+                        provider: Some(id.into()),
                         phase: "error".into(),
                         qr: None,
                         message,
                     },
-                };
-            }
+                },
+            );
         });
     }
 }
@@ -178,7 +197,10 @@ pub fn now() -> u64 {
         .as_millis() as u64
 }
 fn china_timestamp() -> String {
-    let seconds = now() / 1000 + 8 * 3600;
+    china_timestamp_at(now())
+}
+fn china_timestamp_at(milliseconds: u64) -> String {
+    let seconds = milliseconds / 1000 + 8 * 3600;
     let days = (seconds / 86400) as i64 + 719468;
     let era = days / 146097;
     let doe = days - era * 146097;
@@ -229,10 +251,16 @@ pub fn music_snapshot(
     queue_revision: Option<u64>,
 ) -> Result<Snapshot, String> {
     library_window(&window)?;
+    // End each guard before taking another lock. Login attaches the playback
+    // and account state together; retaining an account guard while waiting for
+    // playback would invert that order and could stall the status subscription.
+    let account = state.music.account.lock().unwrap().clone();
+    let library_key = state.music.provider().ok().map(|p| p.scope());
+    let login = state.music.login.lock().unwrap().clone();
     Ok(Snapshot {
-        account: state.music.account.lock().unwrap().clone(),
-        library_key: state.music.provider().ok().map(|p| p.scope()),
-        login: state.music.login.lock().unwrap().clone(),
+        account,
+        library_key,
+        login,
         playback: {
             let p = state.music.playback.lock().unwrap();
             let mut view = p.snapshot(queue_revision);
@@ -244,15 +272,20 @@ pub fn music_snapshot(
             }
             view
         },
-        providers: vec![ProviderInfo {
-            id: state.music.provider().ok().map_or("qq", |p| p.id()),
-            name: state.music.provider().ok().map_or("QQ 音乐", |p| p.name()),
-            capabilities: state
-                .music
-                .provider()
-                .ok()
-                .map_or(&["qr-login"][..], |p| p.capabilities()),
-        }],
+        providers: {
+            let current = state.music.provider().ok();
+            session::PROVIDERS
+                .iter()
+                .map(|(id, name)| ProviderInfo {
+                    id,
+                    name,
+                    capabilities: current
+                        .as_ref()
+                        .filter(|p| p.id() == *id)
+                        .map_or_else(|| &["qr-login"][..], |p| p.capabilities()),
+                })
+                .collect()
+        },
     })
 }
 
@@ -272,30 +305,42 @@ pub async fn music_login(
             if playback::active(&state) {
                 playback::control(&app, &state, "stop", None)?;
             }
-            login::start(app, state.music.clone())
+            login::start(
+                app,
+                state.music.clone(),
+                provider.as_deref().unwrap_or("qq"),
+            )
         }
         "cancel" => {
-            login::cancel(&app, &state.music);
+            login::cancel_for(&app, &state.music, provider.as_deref())?;
             Ok(())
         }
-        "official" => {
-            let w = app
-                .get_webview_window(login::LABEL)
-                .ok_or("请先获取二维码")?;
-            w.set_skip_taskbar(false).map_err(|_| "无法显示授权窗口")?;
-            w.show().map_err(|_| "无法显示授权窗口")?;
-            w.set_focus().map_err(|_| "无法聚焦授权窗口".into())
-        }
+        "official" => login::official(app, state.music.clone(), provider.as_deref()),
         "logout" => {
+            if provider
+                .as_deref()
+                .is_some_and(|id| state.music.provider().is_ok_and(|p| p.id() != id))
+            {
+                return Err("音乐平台已变化，请刷新账号状态".into());
+            }
             playback::control(&app, &state, "clear", None)?;
             login::logout(&app, &state.music)?;
             playback::control(&app, &state, "clear", None)
         }
         "refresh-account" => {
-            let provider = state.music.provider()?;
-            let account = provider.account()?;
+            let current = state.music.provider()?;
+            if provider.as_deref().is_some_and(|id| current.id() != id) {
+                return Err("音乐平台已变化，请刷新账号状态".into());
+            }
+            let account = current.account()?;
             let _gate = state.music.session_gate.lock().unwrap();
-            state.music.same_provider(&provider)?;
+            state.music.same_provider(&current)?;
+            if let Some(bytes) = current.refreshed_session()? {
+                vault::write(
+                    &session::vault_path(&state.music.directory, current.id())?,
+                    &bytes,
+                )?;
+            }
             *state.music.account.lock().unwrap() = Some(account);
             Ok(())
         }
@@ -318,7 +363,14 @@ pub async fn music_playlists(
     validate_page(&provider, offset, limit)?;
     let state = state.music.clone();
     tauri::async_runtime::spawn_blocking(move || {
-        let provider = state.provider()?;
+        let current = state.provider()?;
+        if current.id() != provider {
+            return Err("音乐平台已变化，请重新打开歌单".into());
+        }
+        let provider = current;
+        if !provider.supports("playlists") {
+            return Err("当前平台歌单暂未开放".into());
+        }
         let mut page = provider.playlists(&collection, offset, limit)?;
         if let Some(liked) = page.items.iter_mut().find(|p| p.id == "liked") {
             // The liked collection always represents the first track's album;
@@ -347,7 +399,14 @@ pub async fn music_tracks(
     validate_page(&provider, offset, limit)?;
     let state = state.music.clone();
     tauri::async_runtime::spawn_blocking(move || {
-        let provider = state.provider()?;
+        let current = state.provider()?;
+        if current.id() != provider {
+            return Err("音乐平台已变化，请重新打开歌单".into());
+        }
+        let provider = current;
+        if !provider.supports("playlists") {
+            return Err("当前平台歌单暂未开放".into());
+        }
         let page = provider.tracks(&playlist, offset, limit)?;
         let _gate = state.session_gate.lock().unwrap();
         state.same_provider(&provider)?;
@@ -364,7 +423,10 @@ pub async fn music_tracks(
     .map_err(|_| "歌曲加载失败")?
 }
 fn validate_page(provider: &str, offset: usize, limit: usize) -> Result<(), String> {
-    if !["qq"].contains(&provider) || offset > 100_000 || !(1..=100).contains(&limit) {
+    if !["qq", "netease", "kugou"].contains(&provider)
+        || offset > 100_000
+        || !(1..=100).contains(&limit)
+    {
         Err("音乐平台或分页参数无效".into())
     } else {
         Ok(())
@@ -382,6 +444,9 @@ pub async fn music_play(
     library_window(&window)?;
     if ids.is_empty() || ids.len() > 20_000 || index >= ids.len() {
         return Err("播放队列无效".into());
+    }
+    if !state.music.provider()?.supports("playback") {
+        return Err("当前平台播放暂未开放".into());
     }
     let queue = {
         let tracks = state.music.tracks.lock().unwrap();
@@ -498,7 +563,7 @@ pub fn current_lyrics(state: &AppState) -> Option<crate::lyrics::LyricDocument> 
         .clone()
         .unwrap_or_else(|| crate::lyrics::LyricDocument {
             status: "loading".into(),
-            message: "正在获取 QQ 音乐歌词…".into(),
+            message: "正在获取歌曲歌词…".into(),
             key: p
                 .view
                 .queue

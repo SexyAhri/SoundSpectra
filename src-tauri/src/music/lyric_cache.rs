@@ -167,7 +167,15 @@ fn load_inner(
                     || Some("本地缓存不可用，本次歌词未保存".into()),
                     |_| commit(&text).err(),
                 );
-                (text, "QQ 音乐歌词", issue)
+                (
+                    text,
+                    match track.provider.as_str() {
+                        "netease" => "网易云音乐歌词",
+                        "kugou" => "酷狗音乐歌词",
+                        _ => "QQ 音乐歌词",
+                    },
+                    issue,
+                )
             }
             Err(error) => match cached {
                 Some(text) => (text, "本地歌词缓存", Some(error)),

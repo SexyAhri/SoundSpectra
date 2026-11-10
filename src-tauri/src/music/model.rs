@@ -103,20 +103,6 @@ pub trait Provider: Send + Sync {
     fn search(&self, _query: &str, _offset: usize, _limit: usize) -> Result<Page<Track>, String> {
         Err("该平台未提供搜索能力".into())
     }
-    fn set_favorite(&self, _track: &Track, _favorite: bool) -> Result<(), String> {
-        Err("该平台未提供收藏写入能力".into())
-    }
-    fn favorite(&self, _track: &Track) -> Result<bool, String> {
-        Err("该平台未提供收藏读取能力".into())
-    }
-    fn update_playlist(
-        &self,
-        _playlist: &str,
-        _tracks: &[Track],
-        _add: bool,
-    ) -> Result<(), String> {
-        Err("该平台未提供歌单写入能力".into())
-    }
     fn capabilities(&self) -> &'static [&'static str] {
         &["account", "playlists", "playback", "lyrics"]
     }
@@ -139,4 +125,9 @@ pub trait Provider: Send + Sync {
         None
     }
     fn discard_prefetch(&self) {}
+    /// A provider that rotates credentials may return a native-only update.
+    /// Callers persist it only while holding the account replacement gate.
+    fn refreshed_session(&self) -> Result<Option<Vec<u8>>, String> {
+        Ok(None)
+    }
 }

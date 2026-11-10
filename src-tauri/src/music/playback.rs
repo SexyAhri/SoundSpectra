@@ -383,8 +383,11 @@ fn load_variant(
     automatic: bool,
     expected: Option<(u64, u64)>,
 ) -> Result<(), String> {
-    ensure_player(app)?;
     let provider = state.music.provider()?;
+    if !provider.supports("playback") {
+        return Err("当前平台播放暂未开放".into());
+    }
+    ensure_player(app)?;
     let was_active = active(state);
     let (generation, track, cancelled) = {
         let _gate = state.music.session_gate.lock().unwrap();

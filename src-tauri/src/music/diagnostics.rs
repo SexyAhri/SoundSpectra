@@ -10,9 +10,24 @@ pub struct Failure {
 }
 impl Failure {
     pub fn classify(message: &str) -> Self {
-        let kind = if ["登录", "会话失效", "凭证"]
-            .iter()
-            .any(|s| message.contains(s))
+        let kind = if message.starts_with("[protected]") {
+            "protected"
+        } else if message.starts_with("[risk]") {
+            "risk"
+        } else if message.starts_with("[rate_limit]") {
+            "rate_limit"
+        } else if message.starts_with("[permission]") {
+            "permission"
+        } else if message.starts_with("[unavailable]") {
+            "unavailable"
+        } else if message.starts_with("[decode]") {
+            "decode"
+        } else if message.starts_with("[cancelled]") || message == "播放请求已取消" {
+            "cancelled"
+        } else if message.starts_with("[authentication]")
+            || ["登录", "会话失效", "凭证"]
+                .iter()
+                .any(|s| message.contains(s))
         {
             "authentication"
         } else if [
@@ -80,5 +95,8 @@ mod tests {
         assert!(Failure::classify("请重新登录").login_required);
         assert!(Failure::classify("音频传输中断").retryable);
         assert!(!Failure::classify("版权不可用").retryable);
+        let protected = Failure::classify("[protected] 音源受保护");
+        assert_eq!(protected.kind, "protected");
+        assert!(!protected.retryable && !protected.login_required);
     }
 }

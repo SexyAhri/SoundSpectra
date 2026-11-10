@@ -2,6 +2,9 @@
 use super::{model::Provider, MusicState};
 use std::sync::{Arc, Weak};
 pub fn start(state: Weak<MusicState>, provider: Arc<dyn Provider>) {
+    if !provider.supports("playlists") {
+        return;
+    }
     std::thread::spawn(move || {
         let valid = || {
             state
@@ -18,7 +21,10 @@ pub fn start(state: Weak<MusicState>, provider: Arc<dyn Provider>) {
                 }
                 let page = match provider.playlists(collection, offset, 100) {
                     Ok(p) => p,
-                    Err(_) => {
+                    Err(error) => {
+                        if stop(&error) {
+                            return;
+                        }
                         complete = false;
                         break;
                     }
@@ -51,7 +57,10 @@ pub fn start(state: Weak<MusicState>, provider: Arc<dyn Provider>) {
                 drop(music);
                 let page = match provider.tracks(&playlist, offset, 100) {
                     Ok(p) => p,
-                    Err(_) => {
+                    Err(error) => {
+                        if stop(&error) {
+                            return;
+                        }
                         complete = false;
                         break;
                     }
@@ -94,4 +103,11 @@ pub fn start(state: Weak<MusicState>, provider: Arc<dyn Provider>) {
             }
         }
     });
+}
+
+fn stop(error: &str) -> bool {
+    matches!(
+        super::diagnostics::Failure::classify(error).kind,
+        "authentication" | "risk" | "rate_limit" | "cancelled"
+    )
 }

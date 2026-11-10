@@ -418,7 +418,7 @@ pub fn run() {
             music::operations::music_artwork,
             music::operations::music_browse,
             music::operations::music_search,
-            music::operations::music_cloud_edit,
+            music::operations::music_track_lyrics,
             music::operations::music_preferences,
             music::operations::music_queue_edit,
             music::operations::music_cache,

@@ -63,6 +63,9 @@ pub fn music_queue_edit(
 ) -> Result<(), String> {
     library_window(&window)?;
     let _dispatch = state.music.dispatch.lock().unwrap();
+    if !state.music.provider()?.supports("playback") {
+        return Err("当前平台队列暂未开放".into());
+    }
     let tracks = state.music.tracks.lock().unwrap();
     let mut p = state.music.playback.lock().unwrap();
     apply_queue_edit(&mut p, &tracks, edit)?;
@@ -278,92 +281,112 @@ pub async fn music_search(
         for t in &page.items {
             tracks.insert(format!("{}:{}", t.provider, t.id), t.clone());
         }
+        drop(tracks);
+        let changed = update_queue_artwork(&mut music.playback.lock().unwrap(), &page.items);
+        if changed {
+            music.persist();
+        }
         Ok(page)
     })
     .await
     .map_err(|_| "搜索失败")?
 }
-#[derive(Deserialize)]
-#[serde(tag = "action", rename_all = "kebab-case")]
-pub enum CloudEdit {
-    Favorite {
-        id: String,
-        enabled: bool,
-    },
-    Playlist {
-        playlist: String,
-        ids: Vec<String>,
-        add: bool,
-    },
+
+fn update_queue_artwork(p: &mut playback::Playback, items: &[super::model::Track]) -> bool {
+    let mut changed = false;
+    for queued in p.view.queue.iter_mut().filter(|t| t.cover.is_none()) {
+        if let Some(cover) = items
+            .iter()
+            .find(|t| t.provider == queued.provider && t.id == queued.id)
+            .and_then(|t| t.cover.as_ref())
+        {
+            queued.cover = Some(cover.clone());
+            changed = true;
+        }
+    }
+    if changed {
+        // Publish repaired metadata without restarting audio or moving the queue.
+        p.view.queue_revision += 1;
+    }
+    changed
 }
 #[tauri::command]
-pub async fn music_cloud_edit(
+pub async fn music_track_lyrics(
     window: WebviewWindow,
     state: State<'_, Arc<AppState>>,
-    edit: CloudEdit,
-) -> Result<(), String> {
+    id: String,
+    refresh: bool,
+) -> Result<crate::lyrics::LyricDocument, String> {
     library_window(&window)?;
     let music = state.music.clone();
     tauri::async_runtime::spawn_blocking(move || {
         let provider = music.provider()?;
-        match edit {
-            CloudEdit::Favorite { id, enabled } => {
-                if !provider.supports("favorite-write") {
-                    return Err("当前平台云端收藏尚未通过验证".into());
-                }
-                let track = music
-                    .tracks
-                    .lock()
-                    .unwrap()
-                    .get(&id)
-                    .cloned()
-                    .ok_or("歌曲未同步")?;
-                provider.set_favorite(&track, enabled)?;
-                if provider.favorite(&track)? != enabled {
-                    return Err("云端重新读取的收藏状态不一致".into());
-                }
-            }
-            CloudEdit::Playlist { playlist, ids, add } => {
-                if !provider.supports("playlist-write") {
-                    return Err("当前平台歌单写入尚未通过验证".into());
-                }
-                if ids.is_empty() || ids.len() > 100 {
-                    return Err("歌单写入数量无效".into());
-                }
-                let tracks = {
-                    let known = music.tracks.lock().unwrap();
-                    ids.iter()
-                        .map(|id| known.get(id).cloned().ok_or("歌曲未同步"))
-                        .collect::<Result<Vec<_>, _>>()?
-                };
-                provider.update_playlist(&playlist, &tracks, add)?;
-                let mut found = std::collections::HashSet::new();
-                let mut offset = 0;
-                loop {
-                    let page = provider.tracks(&playlist, offset, 100)?;
-                    for t in page.items {
-                        found.insert(format!("{}:{}", t.provider, t.id));
-                    }
-                    match page.next_offset {
-                        Some(next) if next > offset && next <= 100_000 => offset = next,
-                        Some(_) => return Err("云端分页无法完成验证".into()),
-                        None => break,
-                    }
-                }
-                if ids.iter().any(|id| found.contains(id) != add) {
-                    return Err("云端重新读取的歌单结果不一致".into());
-                }
-            }
+        if !provider.supports("lyrics") {
+            return Err("当前平台歌词暂未开放".into());
         }
-        music.same_provider(&provider)
+        let track = music
+            .tracks
+            .lock()
+            .unwrap()
+            .get(&id)
+            .cloned()
+            .ok_or("歌曲已过期，请重新搜索")?;
+        if track.provider != provider.id() {
+            return Err("音乐平台已变化，请重新搜索".into());
+        }
+        let document = music
+            .cache
+            .lyrics(&track, refresh, || provider.lyrics(&track));
+        music.same_provider(&provider)?;
+        Ok(document)
     })
     .await
-    .map_err(|_| "云端更新失败")?
+    .map_err(|_| "歌词读取失败")?
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn repaired_artwork_updates_restored_queue_without_restarting_playback() {
+        let track = |provider: &str, cover: Option<&str>| {
+            let mut t =
+                super::super::netease::track(&serde_json::json!({"id":5,"name":"曲目"})).unwrap();
+            t.provider = provider.into();
+            t.cover = cover.map(str::to_owned);
+            t
+        };
+        let mut p = playback::Playback::default();
+        p.view.queue = vec![
+            track("netease", None),
+            track("qq", None),
+            track("netease", Some("existing")),
+        ];
+        p.view.entry_ids = vec!["a".into(), "b".into(), "c".into()];
+        p.view.position = 42.0;
+        p.view.generation = 9;
+        p.view.revision = 3;
+        p.view.playing = true;
+        let details = [track("netease", Some("repaired"))];
+        assert!(update_queue_artwork(&mut p, &details));
+        assert_eq!(p.view.queue[0].cover.as_deref(), Some("repaired"));
+        assert!(p.view.queue[1].cover.is_none());
+        assert_eq!(p.view.queue[2].cover.as_deref(), Some("existing"));
+        assert_eq!(
+            (
+                p.view.position,
+                p.view.generation,
+                p.view.revision,
+                p.view.index
+            ),
+            (42.0, 9, 3, 0)
+        );
+        assert!(p.view.playing);
+        assert_eq!(p.view.entry_ids, vec!["a", "b", "c"]);
+        assert_eq!(p.view.queue_revision, 1);
+        assert!(!update_queue_artwork(&mut p, &details));
+        assert_eq!(p.view.queue_revision, 1);
+    }
     #[test]
     fn stable_queue_edits_preserve_current_audio_position_and_generation() {
         let track =
