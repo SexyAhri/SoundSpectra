@@ -1,6 +1,7 @@
 import { useCallback, useMemo, useState } from "react";
 import { AudioLines, Check, Settings2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { DrawerHost } from "@/components/ui/drawer";
 import { SceneInspector } from "./scene-inspector";
 import { useSettings } from "./use-settings";
 import { native } from "../spectrum/bridge";
@@ -24,9 +25,21 @@ import { WorkspaceTools } from "./workspace-tools";
 import { PerformanceProvider } from "../performance/runtime";
 import { PerformancePanel } from "../performance/panel";
 import { Wordmark } from "./wordmark";
+import { MusicProvider } from "../music/use-music";
+import { MusicDock } from "../music/music-dock";
+import { useUiPreference } from "./use-ui-preference";
+import type { LyricSettingsTab } from "../lyrics/lyric-controls";
+import { InspectorLayout } from "./inspector-layout";
 import { MusicLibrary } from "../music/music-library";
 
 export function SettingsWorkspace() {
+  return (
+    <MusicProvider>
+      <Workspace />
+    </MusicProvider>
+  );
+}
+function Workspace() {
   const {
     settings: sceneSettings,
     status,
@@ -35,7 +48,6 @@ export function SettingsWorkspace() {
     saveState,
     error,
     update: persistScene,
-    edit,
     recover,
     flush,
     commitScene,
@@ -82,6 +94,14 @@ export function SettingsWorkspace() {
   const [demo, setDemo] = useState(false);
   const [applicationOpen, setApplicationOpen] = useState(false);
   const navigation = useWorkspaceNavigation();
+  const [lyricTab, selectLyricTab] = useUiPreference<LyricSettingsTab>(
+    "soundspectra.lyrics-tab",
+    "effect",
+    (value): value is LyricSettingsTab =>
+      value === "effect" || value === "appearance" || value === "position",
+  );
+  const inspectorTab =
+    navigation.panel === "lyrics" ? lyricTab : navigation.tab;
   const rail = useRail();
   const [selectedRail, selectRail] = useState<string | null>("apps");
   const [selectedRailItem, selectRailItem] = useState<string | null>(null);
@@ -117,11 +137,6 @@ export function SettingsWorkspace() {
     nowPlaying,
     !applicationOpen,
   );
-  const previewArrange =
-    sceneSettings.regions.length ||
-    !sceneSettings.regionVisible ||
-    sceneSettings.desktopCard.enabled ||
-    sceneSettings.lyrics.enabled;
   return (
     <PerformanceProvider info={nowPlaying}>
       <div className="app-shell studio-shell">
@@ -190,7 +205,10 @@ export function SettingsWorkspace() {
             onChange={navigation.selectPanel}
             mobile
           />
-          <div className="workspace-body">
+          <DrawerHost
+            className="workspace-body"
+            scope={`${navigation.panel}:${inspectorTab}:${applicationOpen}`}
+          >
             {navigation.panel === "music" ? (
               <MusicLibrary />
             ) : (
@@ -275,6 +293,7 @@ export function SettingsWorkspace() {
                     }}
                     onEditLyrics={() => navigation.selectPanel("lyrics")}
                     onEditCard={() => navigation.selectPanel("card")}
+                    onEditWallpaper={() => navigation.selectPanel("wallpaper")}
                     arrangeRequest={arrangeRequest}
                     update={updateScene}
                     bands={bands}
@@ -283,33 +302,43 @@ export function SettingsWorkspace() {
                     demo={demo}
                     onDemoChange={setDemo}
                     running={running}
+                    audioState={status.state}
                     disabled={!loaded || busy || status.editing}
                     active={!applicationOpen}
                   />
                 </main>
-                <SceneInspector
-                  sceneSettings={sceneSettings}
-                  settings={settings}
-                  lyricDocument={lyricDocument}
-                  selected={selected}
-                  onSelect={selectRegion}
-                  rail={rail}
-                  selectedRail={selectedRail}
-                  selectedRailItem={selectedRailItem}
-                  railSelectionRevision={railSelectionRevision}
-                  onSelectRail={onSelectRail}
-                  panel={navigation.panel}
-                  tab={navigation.tab}
-                  onTabChange={navigation.selectTab}
-                  disabled={!loaded || busy}
-                  editing={status.editing}
-                  updateScene={updateScene}
-                  update={update}
-                />
+                <InspectorLayout
+                  scope={`${navigation.panel}:${inspectorTab}:${selected}`}
+                >
+                  <SceneInspector
+                    sceneSettings={sceneSettings}
+                    settings={settings}
+                    lyricDocument={lyricDocument}
+                    nowPlaying={nowPlaying}
+                    selected={selected}
+                    onSelect={selectRegion}
+                    rail={rail}
+                    selectedRail={selectedRail}
+                    selectedRailItem={selectedRailItem}
+                    railSelectionRevision={railSelectionRevision}
+                    onSelectRail={onSelectRail}
+                    panel={navigation.panel}
+                    tab={inspectorTab}
+                    onTabChange={navigation.selectTab}
+                    lyricTab={lyricTab}
+                    onLyricTabChange={selectLyricTab}
+                    disabled={!loaded || busy}
+                    editing={status.editing}
+                    updateScene={updateScene}
+                    update={update}
+                  />
+                </InspectorLayout>
               </>
             )}
-          </div>
+          </DrawerHost>
+          {navigation.panel !== "music" && <MusicDock />}
           <WorkspaceFooter
+            compact={navigation.panel === "music"}
             rail={rail}
             settings={sceneSettings}
             status={status}
@@ -317,12 +346,6 @@ export function SettingsWorkspace() {
             busy={busy}
             saveState={saveState}
             update={updateScene}
-            onArrange={
-              status.editing || !previewArrange
-                ? edit
-                : () => requestArrange((value) => value + 1)
-            }
-            previewArrange={!!previewArrange}
             active={!applicationOpen}
             bands={bands}
             receivedAt={receivedAt}

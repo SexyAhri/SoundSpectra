@@ -161,7 +161,6 @@
   margin: 0;
 }
 
-.studio-shell .workspace-footer .desktop-actions>button,
 .studio-shell .workspace-footer .choice-trigger,
 .studio-shell .workspace-footer .audio-source-choice {
   font-size: var(--ui-caption);
@@ -449,20 +448,7 @@
 }
 
 .library-search {
-  display: block;
   margin-bottom: 12px;
-}
-
-.library-search input {
-  width: 100%;
-  min-width: 0;
-  padding: 9px 11px;
-  border: 1px solid var(--border);
-  border-radius: 7px;
-  background: var(--card);
-  color: var(--foreground);
-  font-size: 13px;
-  user-select: text;
 }
 
 .scene-library-options .auto-scene-choice {
@@ -838,14 +824,6 @@
     grid-row: 1;
   }
 
-  .studio-shell .workspace-footer .audio-source-panel {
-    grid-template-columns: 18px minmax(0, auto) minmax(0, 1fr);
-  }
-
-  .studio-shell .workspace-footer .audio-source-panel .source-status {
-    grid-column: auto;
-  }
-
   .studio-shell .workspace-footer .desktop-actions {
     grid-column: 1;
     grid-row: 2;
@@ -911,14 +889,6 @@
 
   .studio-shell .workspace-footer .audio-source-panel {
     grid-column: 1 / -1;
-  }
-
-  .studio-shell .workspace-footer .audio-source-panel {
-    grid-template-columns: 18px minmax(0, 1fr);
-  }
-
-  .studio-shell .workspace-footer .audio-source-panel .source-status {
-    grid-column: 2 / -1;
   }
 
   .studio-shell .workspace-footer .inspector-performance {

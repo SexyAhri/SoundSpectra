@@ -25,6 +25,7 @@ test('the font selector persists through reload and reaches each production rend
   await setDemo(page)
   await page.getByRole('button', { name: '歌词', exact: true }).click()
   await page.getByRole('switch', { name: '显示桌面歌词', exact: true }).check()
+  await page.getByRole('tab', { name: '外观', exact: true }).click()
   await page.getByRole('button', { name: '唱片诗页', exact: false }).click()
   const layer = page.getByTestId('lyric-layer'), canvas = layer.locator('canvas')
   for (const label of ['文字漫游', '错落排版', '弧形流转', '折幕字场']) {
@@ -36,6 +37,7 @@ test('the font selector persists through reload and reaches each production rend
   await page.reload()
   await setDemo(page)
   await page.getByRole('button', { name: '歌词', exact: true }).click()
+  await page.getByRole('tab', { name: '外观', exact: true }).click()
   await expect(page.getByRole('button', { name: /唱片诗页/ })).toHaveAttribute('aria-pressed', 'true')
   await expect(canvas).toHaveAttribute('data-font-style', 'poetry')
   await page.getByRole('button', { name: /现代黑体/ }).click()

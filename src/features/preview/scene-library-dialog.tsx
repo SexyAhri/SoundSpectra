@@ -1,3 +1,4 @@
+import { SearchField } from "@/components/ui/search-field";
 import { ModalContent } from "@/components/ui/modal";
 import { IconButton } from "@/components/ui/icon-button";
 import { useEffect, useRef, useState, type ReactNode } from "react";
@@ -356,20 +357,17 @@ export function SceneLibraryDialog(props: Props) {
                 我的收藏
               </Button>
             </div>
-            <label className="library-search">
-              <span className="sr-only">搜索场景</span>
-              <input
-                type="search"
-                aria-label="搜索场景"
-                placeholder="搜索场景名称"
-                value={query}
-                onChange={(event) => {
-                  setQuery(event.target.value);
-                  select(null);
-                  selectPreset(null);
-                }}
-              />
-            </label>
+            <SearchField
+              className="library-search"
+              aria-label="搜索场景"
+              placeholder="搜索场景名称"
+              value={query}
+              onChange={(event) => {
+                setQuery(event.target.value);
+                select(null);
+                selectPreset(null);
+              }}
+            />
             {tab === "featured" ? (
               <div className="library-featured">
                 {desktopPresets
@@ -629,6 +627,18 @@ export function SceneLibraryDialog(props: Props) {
                 : "应用动效、布局和遮罩，保留其他模块，可撤销。"}{" "}
               导出仍仅包含灯效。
             </p>
+            {chosen && (
+              <div className="scene-includes" aria-label="场景应用内容">
+                <span>灯效与布局</span>
+                <span>遮罩</span>
+                {chosen.scene.desktop && (
+                  <>
+                    <span>歌词编排</span>
+                    <span>音乐卡片</span>
+                  </>
+                )}
+              </div>
+            )}
             {error && <p role="alert">{error}</p>}
             {notice && <p role="status">{notice}</p>}
           </div>

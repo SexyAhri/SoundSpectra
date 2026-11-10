@@ -149,6 +149,7 @@ test('card preview resizes with the keyboard and can restore its previous size',
 test('lyric timing nudges have the correct sign and reset without changing layout', async ({ page }) => {
   await openWorkspace(page, { lyrics: { ...defaults.lyrics, enabled: true } })
   await page.getByRole('button', { name: '歌词', exact: true }).click()
+  await page.getByRole('tab', { name: '同步与位置', exact: true }).click()
   await page.getByText('位置与高级设置', { exact: true }).click()
   await page.getByRole('button', { name: '提前 0.1 秒', exact: true }).click()
   await expect.poll(async () => (await stored(page)).lyrics.offsetMs).toBe(100)

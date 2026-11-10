@@ -1,6 +1,8 @@
 import { expect, type Page } from "@playwright/test";
 
 export async function openDetails(page: Page, label: string) {
+  if (label === "位置与高级设置")
+    await page.getByRole("tab", { name: "同步与位置", exact: true }).click();
   const details = page
     .locator("details")
     .filter({
@@ -20,7 +22,7 @@ export async function settingsSection(page: Page, section: string) {
 }
 
 export async function chooseStyle(page: Page, module: string, name: string) {
-  if (module === "灯效")
+  if (module === "灯效" || module === "歌词编排")
     await page.getByRole("tab", { name: "动效", exact: true }).click();
   await page
     .getByRole("button", { name: `更换${module}`, exact: true })

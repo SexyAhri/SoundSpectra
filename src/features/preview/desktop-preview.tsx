@@ -1,3 +1,4 @@
+import { useUiPreference } from "../settings/use-ui-preference";
 import { ModalContent } from "@/components/ui/modal";
 import { IconButton } from "@/components/ui/icon-button";
 import {
@@ -98,6 +99,7 @@ interface Props {
   demo: boolean;
   onDemoChange: (value: boolean) => void;
   running: boolean;
+  audioState?: string;
   disabled: boolean;
   active: boolean;
   selectedRegion: string;
@@ -107,6 +109,7 @@ interface Props {
   lyricDocument?: LyricDocument;
   onEditLyrics?: () => void;
   onEditCard?: () => void;
+  onEditWallpaper?: () => void;
   rail?: RailController;
   selectedRail?: string | null;
   railEditing?: boolean;
@@ -128,6 +131,8 @@ interface StageProps extends Props {
   masking: boolean;
   selectedMask: string | null;
   onSelectMask: (id: string) => void;
+  wallpaperGuides: boolean;
+  locks: string[];
   selection: string;
   selectObject: (key: string, itemId?: string) => void;
 }
@@ -162,6 +167,11 @@ function PreviewStage(props: StageProps) {
           selectObject(selectedObject),
         )
       : previewObjectActions(settings, selectedObject, update, selectObject);
+  if (props.locks.includes(selectedObject))
+    menu.actions = menu.actions.map((action) => ({
+      ...action,
+      disabled: action.id !== "settings" || action.disabled,
+    }));
   const logicalScreen = {
     width: screen.width / window.devicePixelRatio,
     height: screen.height / window.devicePixelRatio,
@@ -233,7 +243,14 @@ function PreviewStage(props: StageProps) {
     resize: boolean,
     region: string,
   ) => {
-    if (!arranging || disabled || event.button !== 0 || gesture.current) return;
+    if (
+      !arranging ||
+      disabled ||
+      props.locks.includes(`effect:${region}`) ||
+      event.button !== 0 ||
+      gesture.current
+    )
+      return;
     event.preventDefault();
     event.stopPropagation();
     event.currentTarget.focus();
@@ -305,6 +322,7 @@ function PreviewStage(props: StageProps) {
     if (
       disabled ||
       !arranging ||
+      props.locks.includes(`effect:${region}`) ||
       gesture.current ||
       !["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown"].includes(event.key)
     )
@@ -396,7 +414,9 @@ function PreviewStage(props: StageProps) {
                 ? "模拟音频"
                 : props.running
                   ? "实时输入"
-                  : "等待音乐播放"}
+                  : props.audioState === "silent"
+                    ? "音源已连接 · 静音"
+                    : "等待音乐播放"}
             </div>
             {regions
               .filter((region) => region.visible || arranging)
@@ -454,7 +474,11 @@ function PreviewStage(props: StageProps) {
                         demo={props.demo}
                         active={props.active}
                         interactive={
-                          !disabled && !arranging && !props.masking && selected
+                          !disabled &&
+                          !arranging &&
+                          !props.masking &&
+                          selected &&
+                          !props.locks.includes(`effect:${region.id}`)
                         }
                         onViewChange={
                           props.viewPreviewOnly
@@ -526,7 +550,9 @@ function PreviewStage(props: StageProps) {
                     logicalScreen.height * settings.desktopCard.bounds.height,
                   scale: size.width / logicalScreen.width,
                 }}
-                arranging={arranging && !disabled}
+                arranging={
+                  arranging && !disabled && !props.locks.includes("card")
+                }
                 onSelect={() => selectObject("card")}
                 onChange={(bounds) =>
                   update({ desktopCard: { ...settings.desktopCard, bounds } })
@@ -552,7 +578,10 @@ function PreviewStage(props: StageProps) {
                 zIndex={layerIndex(settings, "lyrics")}
                 selected={selectedObject === "lyrics"}
                 draggable={
-                  !disabled && !props.masking && !props.viewPreviewOnly
+                  !disabled &&
+                  !props.masking &&
+                  !props.viewPreviewOnly &&
+                  !props.locks.includes("lyrics")
                 }
                 onSelect={() => selectObject("lyrics")}
                 onBoundsChange={(bounds, resized) =>
@@ -585,6 +614,9 @@ function PreviewStage(props: StageProps) {
               <RailLayer
                 desktopWidth={logicalScreen.width}
                 controller={props.rail}
+                locked={props.locks
+                  .filter((key) => key.startsWith("rail:"))
+                  .map((key) => key.slice(5))}
                 selected={
                   arranging
                     ? selectedObject.startsWith("rail:")
@@ -624,6 +656,30 @@ function PreviewStage(props: StageProps) {
               </div>
             )}
             {props.wallpaperEditing &&
+              props.wallpaperGuides &&
+              !props.viewPreviewOnly &&
+              !arranging &&
+              !props.masking && (
+                <div
+                  className="wallpaper-composition-guides"
+                  aria-label="壁纸构图辅助"
+                >
+                  <i />
+                  <i />
+                  <i />
+                  <i />
+                  <span
+                    style={{
+                      left: `${settings.wallpaperDepth.focusX}%`,
+                      top: `${settings.wallpaperDepth.focusY}%`,
+                    }}
+                  >
+                    ＋
+                  </span>
+                </div>
+              )}
+            {props.wallpaperEditing &&
+              props.wallpaperGuides &&
               settings.wallpaperDepth.ambientEnabled &&
               !disabled &&
               !arranging &&
@@ -664,12 +720,22 @@ export function DesktopPreview(props: Props) {
   const custom = useDepthImage(
     wallpaper.source === "custom" ? wallpaper.revision : "",
   );
+  const [wallpaperGuides, setWallpaperGuides] = useState(true);
   const [arranging, setArranging] = useState(false),
     [expanded, setExpanded] = useState(false);
+  const [locks, setLocks] = useUiPreference<string[]>(
+    "soundspectra.preview-locks",
+    [],
+    (v): v is string[] =>
+      Array.isArray(v) &&
+      v.every((key) => typeof key === "string") &&
+      v.length <= 100,
+  );
   const [selection, setSelection] = useState(`effect:${props.selectedRegion}`);
   useEffect(() => {
     if (props.activePanel === "lyrics") setSelection("lyrics");
     else if (props.activePanel === "card") setSelection("card");
+    else if (props.activePanel === "wallpaper") setSelection("wallpaper");
     else if (props.activePanel === "scene")
       setSelection(`effect:${props.selectedRegion}`);
   }, [props.activePanel, props.selectedRegion]);
@@ -677,6 +743,7 @@ export function DesktopPreview(props: Props) {
     setSelection(key);
     if (key === "lyrics") props.onEditLyrics?.();
     else if (key === "card") props.onEditCard?.();
+    else if (key === "wallpaper") props.onEditWallpaper?.();
     else if (key.startsWith("rail:"))
       props.onSelectRail?.(key.slice(5), itemId);
     else if (key.startsWith("effect:")) props.onSelectRegion(key.slice(7));
@@ -829,6 +896,8 @@ export function DesktopPreview(props: Props) {
   const stageProps: StageProps = {
     ...props,
     selection,
+    locks,
+    wallpaperGuides,
     selectObject,
     screen,
     desktop,
@@ -893,7 +962,9 @@ export function DesktopPreview(props: Props) {
   const presets = (
     <LayoutPresets
       bounds={selectedSettings.bounds}
-      disabled={props.disabled}
+      disabled={
+        props.disabled || locks.includes(`effect:${props.selectedRegion}`)
+      }
       onChange={(bounds) => updateSelected({ bounds })}
     />
   );
@@ -913,6 +984,14 @@ export function DesktopPreview(props: Props) {
         update={props.update}
         rail={props.rail}
         selected={selection}
+        locks={locks}
+        onToggleLock={(key) =>
+          setLocks((old) =>
+            old.includes(key)
+              ? old.filter((value) => value !== key)
+              : [...old, key],
+          )
+        }
         onSelect={selectObject}
         disabled={props.disabled}
       />
@@ -959,6 +1038,19 @@ export function DesktopPreview(props: Props) {
           {props.editActions}
         </div>
         <div className="preview-tools">
+          <span className="preview-state-control">
+            <strong>
+              {props.demo
+                ? "演示音源"
+                : props.nowPlaying?.title
+                  ? `${props.nowPlaying.source || "当前音源"} · ${props.nowPlaying.playing ? "播放中" : "已暂停"}`
+                  : props.audioState === "silent"
+                    ? "音源已连接 · 静音"
+                    : props.running
+                      ? "实时音源 · 已连接"
+                      : "等待音源"}
+            </strong>
+          </span>
           <label className="demo-control" htmlFor="demo-switch">
             模拟预览
             <Switch
@@ -967,6 +1059,16 @@ export function DesktopPreview(props: Props) {
               onCheckedChange={props.onDemoChange}
             />
           </label>
+          {props.wallpaperEditing && (
+            <Button
+              size="sm"
+              variant="ghost"
+              aria-pressed={wallpaperGuides}
+              onClick={() => setWallpaperGuides((value) => !value)}
+            >
+              {wallpaperGuides ? "完成构图" : "显示构图辅助"}
+            </Button>
+          )}
           {arrangementButton}
           {maskButton}
           <IconButton

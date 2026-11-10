@@ -192,11 +192,6 @@
   padding: 20px 22px;
 }
 
-.global-inspector-scroll>.lyric-controls {
-  border-bottom: 0;
-  padding-top: 4px;
-}
-
 .global-inspector-scroll>.card-controls {
   padding-top: 4px;
 }
@@ -250,8 +245,8 @@
 }
 
 .inspector-advanced>summary:focus-visible {
-  outline: 2px solid var(--primary);
-  outline-offset: 3px;
+  outline: var(--focus-width) solid var(--primary);
+  outline-offset: var(--focus-offset);
 }
 
 .workspace-footer {
@@ -271,7 +266,6 @@
   margin: 0;
   padding: 0;
   border: 0;
-  grid-template-columns: 18px minmax(0, auto) minmax(0, 1fr);
   gap: 8px;
 }
 
@@ -285,17 +279,6 @@
   width: 145px;
   height: 31px;
   font-size: 11px;
-}
-
-.workspace-footer .source-status {
-  font-size: 10px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.workspace-footer .source-icon {
-  width: 18px;
 }
 
 .workspace-meter {
@@ -324,11 +307,6 @@
 .studio-shell .workspace-footer .desktop-toggle {
   font-size: 11px;
   gap: 7px;
-}
-
-.studio-shell .workspace-footer .desktop-actions>button {
-  padding: 0 9px;
-  font-size: 10px;
 }
 
 .workspace-footer .inspector-performance {
@@ -383,17 +361,6 @@
 
   .preview-section>.section-toolbar {
     align-items: flex-start;
-  }
-}
-
-@media (max-width: 1000px) {
-  .workspace-footer .audio-source-panel .source-status {
-    grid-column: 2 / -1;
-  }
-
-  .studio-shell .workspace-footer .audio-source-panel {
-    grid-template-columns: 18px minmax(0, 1fr);
-    row-gap: 2px;
   }
 }
 

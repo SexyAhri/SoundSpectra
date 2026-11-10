@@ -241,7 +241,6 @@
   font-size: 11px
 }
 
-.studio-shell .module-inspector .lyric-controls,
 .studio-shell .module-inspector .card-controls {
   padding-top: 16px
 }
@@ -502,39 +501,6 @@
   gap: 4px
 }
 
-.module-section-nav>button {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 7px;
-  flex: 1;
-  height: 40px;
-  position: relative;
-  border: 0;
-  border-radius: 0;
-  background: transparent;
-  color: var(--muted-foreground);
-  font-size: 12px
-}
-
-.module-section-nav>button:hover {
-  color: var(--foreground)
-}
-
-.module-section-nav>button[data-state=active] {
-  color: var(--primary)
-}
-
-.module-section-nav>button[data-state=active]::after {
-  content: '';
-  position: absolute;
-  bottom: -1px;
-  left: 8px;
-  right: 8px;
-  height: 2px;
-  border-radius: 2px;
-  background: var(--primary)
-}
 
 .studio-shell .module-inspector .module-settings-content>div>.inspector-content {
   padding: 0
@@ -598,15 +564,21 @@
   }
 }
 
-.studio-shell .module-inspector .module-section-nav>button:focus,
-.studio-shell .module-inspector .module-section-nav>button:focus-visible {
-  outline: none;
-  box-shadow: none
-}
 
 .module-inspector .appearance-controls>.effect-settings-block:last-child,
 .module-inspector .effect-position-controls>.effect-settings-block {
   border-bottom: 0;
   margin-bottom: 0;
   padding-bottom: 16px
+}
+.studio-shell .module-inspector .lyric-controls-status {
+  width: 100%;
+  flex-shrink: 0;
+  padding-bottom: 8px;
+}
+
+.studio-shell .module-inspector .lyric-controls-status .module-enable {
+  border-bottom: 0;
+  padding-bottom: 0;
+  min-height: 28px;
 }

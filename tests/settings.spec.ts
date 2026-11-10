@@ -1,5 +1,5 @@
 import { setDemo } from './helpers/demo'
-import { settingsSection } from './helpers/module-settings'
+import { openDetails, settingsSection } from './helpers/module-settings'
 import { test, expect } from '@playwright/test'
 
 test('source effect renders actual pixels, source parameters persist, and silence clears the preview', async ({ page }) => {
@@ -8,7 +8,7 @@ test('source effect renders actual pixels, source parameters persist, and silenc
   await page.goto('/'); await setDemo(page)
   await expect(page.getByText('已保存到此浏览器')).toBeVisible()
   await expect(page.getByRole('switch', { name: '显示到桌面' })).toBeDisabled()
-  await expect(page.getByRole('button', { name: '调整桌面位置' })).toBeDisabled()
+  await expect(page.getByRole('button', { name: /调整桌面位置|在预览中布置/ })).toHaveCount(0)
   const alphaPixels = () => page.locator('canvas').evaluate((canvas: HTMLCanvasElement) => {
     const gl = canvas.getContext('webgl2')!
     return new Promise<number>(resolve => {
@@ -34,7 +34,7 @@ test('source effect renders actual pixels, source parameters persist, and silenc
   await opacity.focus(); await opacity.press('ArrowRight')
   await expect(opacity).toHaveAttribute('aria-valuenow', '86')
   await settingsSection(page, '动效')
-  await page.getByText('造型细节', { exact: true }).click()
+  await openDetails(page, '造型细节')
   const speed = page.getByRole('slider', { name: '伞体大小', exact: true })
   await speed.focus(); await speed.press('ArrowLeft')
   await expect(speed).toHaveAttribute('aria-valuenow', '2.3')
@@ -43,7 +43,7 @@ test('source effect renders actual pixels, source parameters persist, and silenc
   await settingsSection(page, '外观')
   await expect(page.getByRole('slider', { name: '不透明度', exact: true })).toHaveAttribute('aria-valuenow', '86')
   await settingsSection(page, '动效')
-  await page.getByText('造型细节', { exact: true }).click()
+  await openDetails(page, '造型细节')
   await expect(page.getByRole('slider', { name: '伞体大小', exact: true })).toHaveAttribute('aria-valuenow', '2.3')
   await page.getByRole('switch', { name: '模拟预览' }).click()
   await expect(page.getByText('等待音乐播放', { exact: true })).toBeVisible()
@@ -55,7 +55,7 @@ test('width changes preserve the center after full width, and defaults can be re
   await page.goto('/')
   await expect(page.getByText('已保存到此浏览器')).toBeVisible()
   await settingsSection(page, '位置')
-  await page.getByText('精确位置', { exact: true }).click()
+  await openDetails(page, '精确位置')
   await page.getByRole('slider', { name: '宽度', exact: true }).focus()
   await page.keyboard.press('End')
   await expect(page.getByRole('slider', { name: '宽度', exact: true })).toHaveAttribute('aria-valuenow', '100')
@@ -74,7 +74,7 @@ test('width changes preserve the center after full width, and defaults can be re
   await expect(page.getByText('已保存到此浏览器')).toBeVisible()
   await page.reload()
   await settingsSection(page, '位置')
-  await page.getByText('精确位置', { exact: true }).click()
+  await openDetails(page, '精确位置')
   await expect(page.getByRole('slider', { name: '距左侧', exact: true })).toHaveAttribute('aria-valuenow', '40')
   await page.getByRole('button', { name: '应用中下部布局' }).click()
   await expect(page.getByRole('slider', { name: '宽度', exact: true })).toHaveAttribute('aria-valuenow', '76')
@@ -137,6 +137,6 @@ test('corrupted settings can be backed up and recovered', async ({ page }) => {
   await settingsSection(page, '外观')
   await expect(page.getByRole('slider', { name: '不透明度', exact: true })).toHaveAttribute('aria-valuenow', '85')
   await settingsSection(page, '动效')
-  await page.getByText('造型细节', { exact: true }).click()
+  await openDetails(page, '造型细节')
   await expect(page.getByRole('slider', { name: '伞体大小', exact: true })).toHaveAttribute('aria-valuenow', '2.4')
 })

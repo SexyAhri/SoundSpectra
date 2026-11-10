@@ -539,8 +539,8 @@
 }
 
 .card-accent-control button[aria-pressed="true"] {
-  outline: 1px solid var(--primary);
-  outline-offset: 3px;
+  outline: var(--focus-width) solid var(--primary);
+  outline-offset: var(--focus-offset);
 }
 
 .card-accent-control input {

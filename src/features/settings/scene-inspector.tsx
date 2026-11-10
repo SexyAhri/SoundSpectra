@@ -1,4 +1,6 @@
+import type { NowPlaying } from "../desktop-card/use-now-playing";
 import { memo } from "react";
+import { sceneRegions } from "../spectrum/regions";
 import { Tabs } from "radix-ui";
 import { MusicControls } from "./music-controls";
 import {
@@ -19,7 +21,7 @@ import { EffectPanel } from "./effect-panel";
 import { AppearancePanel } from "./appearance-panel";
 import { PositionPanel } from "./position-panel";
 import { CardControls } from "../desktop-card/card-controls";
-import { LyricControls } from "../lyrics/lyric-controls";
+import { LyricControls, type LyricSettingsTab } from "../lyrics/lyric-controls";
 import type { LyricDocument } from "../lyrics/model";
 import { WallpaperDepthControls } from "../wallpaper-depth/wallpaper-depth-controls";
 import type { WorkspacePanel } from "./workspace-navigation";
@@ -28,6 +30,7 @@ import "./module-settings.css";
 
 interface Props {
   lyricDocument: LyricDocument;
+  nowPlaying?: NowPlaying;
   sceneSettings: SpectrumSettings;
   settings: SpectrumSettings;
   selected: string;
@@ -38,6 +41,8 @@ interface Props {
   update: (patch: Partial<SpectrumSettings>) => void;
   tab: string;
   onTabChange: (value: string) => void;
+  lyricTab: LyricSettingsTab;
+  onLyricTabChange: (value: LyricSettingsTab) => void;
   panel: Exclude<WorkspacePanel, "music">;
   rail: RailController;
   selectedRail: string | null;
@@ -50,6 +55,7 @@ function SceneInspectorContent({
   sceneSettings,
   settings,
   lyricDocument,
+  nowPlaying,
   selected,
   onSelect,
   disabled,
@@ -59,6 +65,8 @@ function SceneInspectorContent({
   panel,
   tab,
   onTabChange,
+  lyricTab,
+  onLyricTabChange,
   rail,
   selectedRail,
   selectedRailItem,
@@ -96,7 +104,11 @@ function SceneInspectorContent({
           <Icon size={16} />
           <div className="inspector-heading-copy">
             <h2>{heading}</h2>
-            <p>{description}</p>
+            <p>
+              {panel === "scene"
+                ? `正在编辑：${sceneRegions(sceneSettings).find((r) => r.id === selected)?.name ?? "主区域"}`
+                : description}
+            </p>
           </div>
         </div>
       )}
@@ -179,6 +191,16 @@ function SceneInspectorContent({
             </Tabs.Content>
           </Tabs.Root>
         </>
+      ) : panel === "lyrics" ? (
+        <LyricControls
+          tab={lyricTab}
+          onTabChange={onLyricTabChange}
+          info={nowPlaying}
+          settings={sceneSettings}
+          document={lyricDocument}
+          update={updateScene}
+          disabled={disabled || editing}
+        />
       ) : (
         <div
           className={`inspector-scroll global-inspector-scroll${panel === "rail" ? " rail-inspector-pane" : ""}`}
@@ -193,16 +215,9 @@ function SceneInspectorContent({
               onSelect={onSelectRail}
             />
           )}
-          {panel === "lyrics" && (
-            <LyricControls
-              settings={sceneSettings}
-              document={lyricDocument}
-              update={updateScene}
-              disabled={disabled || editing}
-            />
-          )}
           {panel === "card" && (
             <CardControls
+              info={nowPlaying}
               settings={sceneSettings}
               update={updateScene}
               disabled={disabled || editing}

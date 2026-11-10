@@ -88,10 +88,13 @@ export function useBackground(enabled = true) {
           setFileError(`参考图片读取失败：${describeError(reason)}`);
       });
     const focus = () => {
-      if (!document.hidden && Date.now() - lastRead.current > 1000)
-        void refresh(true);
+      if (!document.hidden) void refresh(true);
     };
-    const timer = window.setInterval(focus, 5000);
+    // Returning to the window can follow a real wallpaper change immediately
+    // after a poll. The periodic throttle must not suppress that explicit read.
+    const timer = window.setInterval(() => {
+      if (Date.now() - lastRead.current > 1000) focus();
+    }, 5000);
     window.addEventListener("focus", focus);
     document.addEventListener("visibilitychange", focus);
     return () => {

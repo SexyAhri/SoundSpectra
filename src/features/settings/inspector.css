@@ -25,7 +25,7 @@
 .scene-view-axes { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px 18px; margin-bottom: 18px; }
 .studio-shell .scene-view-axes .parameter { margin: 0; min-width: 0; }
 .scene-view-hint { margin: 14px 0 4px; color: var(--muted-foreground); font-size: 11px; line-height: 1.6; }
-.three-scene-surface canvas:focus-visible { outline: 2px solid var(--primary); outline-offset: -3px; }
+.three-scene-surface canvas:focus-visible { outline: var(--focus-width) solid var(--primary); outline-offset: -3px; }
 .scene-mode-options { display: grid; grid-template-columns: 1fr 1fr; padding: 3px; background: var(--muted); border-radius: 7px; gap: 3px; }
 .scene-mode-options button { height: 34px; font-size: 12px; color: var(--muted-foreground); }
 .scene-mode-options button[aria-pressed="true"] { background: var(--accent); color: var(--foreground); }

@@ -1,5 +1,5 @@
 import { setDemo } from './helpers/demo'
-import { chooseStyle } from './helpers/module-settings'
+import { chooseStyle, openDetails } from './helpers/module-settings'
 import { settingsSection } from './helpers/module-settings'
 import { expect, test, type Page } from '@playwright/test'
 import { classicMusicEffects } from '../src/features/spectrum/music-engine/catalog'
@@ -100,7 +100,7 @@ test('repeated spatial effect switches release prior buffers and reuse one conte
   expect(errors).toEqual([])
   await settingsSection(page, '动效')
   await settingsSection(page, '动效')
-  await page.getByText('造型细节', { exact: true }).click()
+  await openDetails(page, '造型细节')
   const speed = page.getByRole('slider', { name: '伞体大小', exact: true })
   await speed.focus(); await speed.press('Home'); await speed.press('ArrowRight')
   await expect(speed).toHaveAttribute('aria-valuenow', '1.3')
@@ -108,7 +108,7 @@ test('repeated spatial effect switches release prior buffers and reuse one conte
   await page.reload(); await setDemo(page)
   await settingsSection(page, '动效')
   await settingsSection(page, '动效')
-  await page.getByText('造型细节', { exact: true }).click()
+  await openDetails(page, '造型细节')
   await expect(page.getByRole('slider', { name: '伞体大小', exact: true })).toHaveAttribute('aria-valuenow', '1.3')
 })
 

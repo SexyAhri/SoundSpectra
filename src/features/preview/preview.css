@@ -129,7 +129,7 @@
 }
 
 .arranging .preview-spectrum:focus-visible {
-  outline: 2px solid var(--primary);
+  outline: var(--focus-width) solid var(--primary);
   outline-offset: -2px;
 }
 
@@ -171,7 +171,7 @@
 }
 
 .arranging [data-preview-object][data-selected] {
-  outline: 1px solid var(--primary);
+  outline: var(--focus-width) solid var(--primary);
   outline-offset: -1px;
 }
 
@@ -186,7 +186,7 @@
 .mask-box.selected,
 .mask-box:focus-visible {
   border-color: var(--primary);
-  outline: 1px solid var(--primary);
+  outline: var(--focus-width) solid var(--primary);
   outline-offset: -2px;
 }
 
@@ -698,8 +698,8 @@
 }
 
 .library-name input:focus-visible {
-  outline: 2px solid var(--primary);
-  outline-offset: 2px;
+  outline: var(--focus-width) solid var(--primary);
+  outline-offset: var(--focus-offset);
 }
 
 .auto-scene-footer>div {

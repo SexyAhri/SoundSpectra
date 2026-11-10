@@ -1,4 +1,12 @@
-import { ArrowDown, ArrowUp, Eye, EyeOff, Layers } from "lucide-react";
+import {
+  ArrowDown,
+  ArrowUp,
+  Eye,
+  EyeOff,
+  Layers,
+  LockKeyhole,
+  LockKeyholeOpen,
+} from "lucide-react";
 import { IconButton } from "@/components/ui/icon-button";
 import type { SettingsUpdate, SpectrumSettings } from "../spectrum/model";
 import { sceneRegions } from "../spectrum/regions";
@@ -10,6 +18,8 @@ export function PreviewObjectList({
   update,
   rail,
   selected,
+  locks,
+  onToggleLock,
   onSelect,
   disabled,
 }: {
@@ -17,6 +27,8 @@ export function PreviewObjectList({
   update: SettingsUpdate;
   rail?: RailController;
   selected: string;
+  locks: string[];
+  onToggleLock: (key: string) => void;
   onSelect: (key: string) => void;
   disabled: boolean;
 }) {
@@ -66,7 +78,7 @@ export function PreviewObjectList({
         role="group"
         aria-label="桌面对象列表"
       >
-        <p>从上到下排列图层，隐藏对象也可选中。</p>
+        <p>从上到下排列图层。锁定可保护预览位置，属性仍可手动调整。</p>
         {objects.map((object, index) => (
           <div
             key={object.key}
@@ -83,6 +95,18 @@ export function PreviewObjectList({
               {object.name}
             </button>
             <IconButton
+              aria-label={`${locks.includes(object.key) ? "解锁" : "锁定"}${object.name}位置`}
+              aria-pressed={locks.includes(object.key)}
+              disabled={disabled}
+              onClick={() => onToggleLock(object.key)}
+            >
+              {locks.includes(object.key) ? (
+                <LockKeyhole size={14} />
+              ) : (
+                <LockKeyholeOpen size={14} />
+              )}
+            </IconButton>
+            <IconButton
               aria-label={`${object.visible ? "隐藏" : "显示"}${object.name}`}
               disabled={disabled}
               onClick={() => toggle(object.key)}
@@ -91,7 +115,7 @@ export function PreviewObjectList({
             </IconButton>
             <IconButton
               aria-label={`上移${object.name}图层`}
-              disabled={disabled || index === 0}
+              disabled={disabled || locks.includes(object.key) || index === 0}
               onClick={() =>
                 update((current) => moveLayer(current, object.key, "up"))
               }
@@ -100,7 +124,11 @@ export function PreviewObjectList({
             </IconButton>
             <IconButton
               aria-label={`下移${object.name}图层`}
-              disabled={disabled || index === objects.length - 1}
+              disabled={
+                disabled ||
+                locks.includes(object.key) ||
+                index === objects.length - 1
+              }
               onClick={() =>
                 update((current) => moveLayer(current, object.key, "down"))
               }
@@ -124,11 +152,34 @@ export function PreviewObjectList({
             >
               {group.name}
             </button>
+            <IconButton
+              aria-label={`${locks.includes(`rail:${group.id}`) ? "解锁" : "锁定"}${group.name}位置`}
+              aria-pressed={locks.includes(`rail:${group.id}`)}
+              disabled={disabled}
+              onClick={() => onToggleLock(`rail:${group.id}`)}
+            >
+              {locks.includes(`rail:${group.id}`) ? (
+                <LockKeyhole size={14} />
+              ) : (
+                <LockKeyholeOpen size={14} />
+              )}
+            </IconButton>
             <span className="preview-object-meta">
               拾光绳 · {group.items.length} 项
             </span>
           </div>
         ))}
+        <div className="preview-object-row">
+          <button
+            className="preview-object-select"
+            aria-label="选择壁纸"
+            aria-pressed={selected === "wallpaper"}
+            onClick={() => onSelect("wallpaper")}
+          >
+            壁纸与氛围
+          </button>
+          <span className="preview-object-meta">固定背景</span>
+        </div>
         <p>拾光绳独立显示，其布局在拾光绳属性中调整。</p>
       </div>
     </details>

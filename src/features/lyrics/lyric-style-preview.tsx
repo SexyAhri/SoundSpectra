@@ -11,14 +11,18 @@ const inks = {
   stardust: ["#a3d3b9", "#e4ecd5"],
   folded: ["#85dccd", "#c3a3e0"],
 } as const;
-const verse = "让晚风替我寄一封信";
+const fallbackVerse = "让晚风替我寄一封信";
 
 /** A still composition study, using original lyrics and the production type/orbit. */
 export function LyricStylePreview({
   motion,
+  text,
 }: {
   motion: LyricSettings["motion"];
+  text?: string;
 }) {
+  const verse = text?.trim().slice(0, 18) || fallbackVerse;
+  const split = Math.min(5, Math.max(2, Math.floor(verse.length * 0.35)));
   const id = useId(),
     [accent, light] = inks[motion];
   const orbit = Array.from({ length: 61 }, (_, i) => {
@@ -50,10 +54,10 @@ export function LyricStylePreview({
       <ellipse cx="240" cy="136" rx="250" ry="155" fill={`url(#${id}-glow)`} />
       <g fill={accent} opacity=".33" fontSize="13" letterSpacing="3">
         <text x="42" y="43">
-          把星光藏进你的眼睛
+          {text ? "当前歌曲" : "把星光藏进你的眼睛"}
         </text>
         <text x="438" y="232" textAnchor="end">
-          沿着海岸，慢慢走向你
+          {text ? "编排预览" : "沿着海岸，慢慢走向你"}
         </text>
       </g>
       {motion === "depth" && (
@@ -68,9 +72,9 @@ export function LyricStylePreview({
             fill={`url(#${id}-ink)`}
             letterSpacing="5"
           >
-            <text fontSize="42">让晚风</text>
+            <text fontSize="42">{verse.slice(0, split)}</text>
             <text x="92" y="73" fontSize="40">
-              替我寄一封信
+              {verse.slice(split)}
             </text>
           </g>
           <path
@@ -88,10 +92,10 @@ export function LyricStylePreview({
           </g>
           <g transform="translate(49 106) rotate(-5)" fill={`url(#${id}-ink)`}>
             <text fontSize="40" letterSpacing="9">
-              让晚风
+              {verse.slice(0, split)}
             </text>
             <text x="82" y="73" fontSize="46" letterSpacing="3">
-              替我寄一封信
+              {verse.slice(split)}
             </text>
           </g>
           <path
@@ -171,7 +175,7 @@ export function LyricStylePreview({
               strokeOpacity=".2"
             />
             <text fontSize="42" letterSpacing="3" fill={accent}>
-              让晚风
+              {verse.slice(0, split)}
             </text>
           </g>
           <g transform="translate(161 176) rotate(4) skewY(-5)">
@@ -184,7 +188,7 @@ export function LyricStylePreview({
             />
             <path d="M85 -41V14M176 -40V15" stroke={light} opacity=".24" />
             <text fontSize="41" letterSpacing="3" fill={`url(#${id}-ink)`}>
-              替我寄一封信
+              {verse.slice(split)}
             </text>
           </g>
         </>
