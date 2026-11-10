@@ -610,6 +610,9 @@ fn sync_windows(app: &AppHandle, settings: &RailSettings) -> Result<(), String> 
                     .iter()
                     .any(|g| label == format!("rail-{}", g.id)))
         {
+            #[cfg(windows)]
+            windows::hide(&window)?;
+            #[cfg(not(windows))]
             window
                 .hide()
                 .map_err(|e| format!("隐藏桌面拾光绳失败：{e}"))?;

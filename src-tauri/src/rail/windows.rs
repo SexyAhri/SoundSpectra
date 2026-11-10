@@ -48,16 +48,54 @@ unsafe fn needs_repaint(handle: HWND) -> bool {
     !GetPropW(handle, REPAINT.as_ptr()).is_null() || !browser_visible(handle)
 }
 
+unsafe fn above_desktop_icons(handle: HWND, parent: HWND) -> bool {
+    let icons = FindWindowExW(parent, null_mut(), wide("SysListView32").as_ptr(), null());
+    if icons.is_null() {
+        return true;
+    }
+    // Explorer raises its icon list when "Show desktop icons" changes. The
+    // rail can remain visible with the correct bounds but be entirely covered.
+    let mut sibling = GetWindow(handle, GW_HWNDPREV);
+    while !sibling.is_null() {
+        if sibling == icons {
+            return false;
+        }
+        sibling = GetWindow(sibling, GW_HWNDPREV);
+    }
+    true
+}
+
+unsafe fn child_styles_healthy(handle: HWND) -> bool {
+    let style = GetWindowLongPtrW(handle, GWL_STYLE);
+    let extended = GetWindowLongPtrW(handle, GWL_EXSTYLE);
+    style & WS_CHILD as isize != 0
+        && style & WS_POPUP as isize == 0
+        && extended & WS_EX_NOACTIVATE as isize != 0
+        && extended & WS_EX_TOPMOST as isize == 0
+}
+
 unsafe fn layout_healthy(handle: HWND, parent: HWND, bounds: &Bounds) -> bool {
     if IsWindowVisible(parent) == 0 {
         SetPropW(handle, REPAINT.as_ptr(), 1usize as _);
     }
     GetParent(handle) == parent
+        && child_styles_healthy(handle)
         && GetWindowLongPtrW(handle, GWL_STYLE) & WS_VISIBLE as isize != 0
         && bounds.matches(handle)
         // A hidden desktop is intentional. Leave the pending repaint in place
         // until Explorer shows it, instead of repairing it every three seconds.
-        && (IsWindowVisible(parent) == 0 || !needs_repaint(handle))
+        && (IsWindowVisible(parent) == 0
+            || (!needs_repaint(handle) && above_desktop_icons(handle, parent)))
+}
+
+pub fn hide(window: &WebviewWindow) -> Result<(), String> {
+    let handle = window.hwnd().map_err(|e| e.to_string())?.0 as HWND;
+    unsafe {
+        // Tao still remembers a top-level window. Its visibility setter may
+        // rebuild those styles and remove WS_CHILD from our Explorer child.
+        ShowWindow(handle, SW_HIDE);
+    }
+    Ok(())
 }
 
 #[cfg(debug_assertions)]
@@ -71,6 +109,19 @@ pub fn obscure_for_test(window: &WebviewWindow, mode: &str) -> Result<(), String
             "cycle" => {
                 ShowWindow(handle, SW_HIDE);
                 ShowWindow(handle, SW_SHOWNOACTIVATE);
+            }
+            "behind-icons" => {
+                // Reproduce Explorer raising its icon list by lowering only our
+                // own child. Never change the user's global icon preference.
+                SetWindowPos(
+                    handle,
+                    HWND_BOTTOM,
+                    0,
+                    0,
+                    0,
+                    0,
+                    SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE,
+                );
             }
             "browser" => {
                 let browser = GetPropW(handle, BROWSER.as_ptr()) as HWND;
@@ -251,6 +302,79 @@ mod transition_tests {
         }
     }
     #[test]
+    fn icon_list_reordering_is_detected_and_repaired_without_showing_icons() {
+        use windows_sys::Win32::UI::Controls::{
+            InitCommonControlsEx, ICC_LISTVIEW_CLASSES, INITCOMMONCONTROLSEX,
+        };
+        unsafe {
+            assert_ne!(
+                InitCommonControlsEx(&INITCOMMONCONTROLSEX {
+                    dwSize: size_of::<INITCOMMONCONTROLSEX>() as u32,
+                    dwICC: ICC_LISTVIEW_CLASSES,
+                }),
+                0
+            );
+            let parent = TestWindow::new(true);
+            let icons = TestWindow(CreateWindowExW(
+                0,
+                wide("SysListView32").as_ptr(),
+                null(),
+                WS_CHILD | WS_VISIBLE,
+                0,
+                0,
+                100,
+                100,
+                parent.0,
+                null_mut(),
+                null_mut(),
+                null(),
+            ));
+            assert!(!icons.0.is_null());
+            let rail = TestWindow::new(false);
+            let browser = TestWindow::new(true);
+            let bounds = Bounds {
+                x: -30000,
+                y: -30000,
+                width: 100,
+                height: 100,
+            };
+            position_window(rail.0, parent.0, bounds.x, bounds.y, 100, 100).unwrap();
+            SetParent(browser.0, rail.0);
+            SetWindowLongPtrW(browser.0, GWL_STYLE, (WS_CHILD | WS_VISIBLE) as isize);
+            SetPropW(rail.0, BROWSER.as_ptr(), browser.0 as _);
+            assert!(layout_healthy(rail.0, parent.0, &bounds));
+            for show_icons in [true, false, true] {
+                ShowWindow(
+                    icons.0,
+                    if show_icons {
+                        SW_SHOWNOACTIVATE
+                    } else {
+                        SW_HIDE
+                    },
+                );
+                SetWindowPos(
+                    icons.0,
+                    HWND_TOP,
+                    0,
+                    0,
+                    0,
+                    0,
+                    SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE,
+                );
+                assert!(!layout_healthy(rail.0, parent.0, &bounds));
+                position_window(rail.0, parent.0, bounds.x, bounds.y, 100, 100).unwrap();
+                assert!(layout_healthy(rail.0, parent.0, &bounds));
+                assert_eq!(IsWindowVisible(icons.0) != 0, show_icons);
+                assert_ne!(IsWindowVisible(parent.0), 0);
+                ShowWindow(rail.0, SW_HIDE);
+                assert_eq!(IsWindowVisible(icons.0) != 0, show_icons);
+                position_window(rail.0, parent.0, bounds.x, bounds.y, 100, 100).unwrap();
+                assert!(layout_healthy(rail.0, parent.0, &bounds));
+                assert_eq!(IsWindowVisible(icons.0) != 0, show_icons);
+            }
+        }
+    }
+    #[test]
     fn layout_updates_keep_the_rail_attached_visible_and_inactive() {
         unsafe {
             let parent = TestWindow::new(true);
@@ -384,7 +508,9 @@ pub fn attach(window: &WebviewWindow, group: &RailGroup) -> Result<(), String> {
         if SetWindowSubclass(handle, Some(observe_visibility), VISIBILITY_SUBCLASS, 0) == 0 {
             return Err("无法监听拾光绳显示恢复".into());
         }
-        let repaint = GetParent(handle) != parent || needs_repaint(handle);
+        let repaint = GetParent(handle) != parent
+            || needs_repaint(handle)
+            || !above_desktop_icons(handle, parent);
         position_window(handle, parent, x, y, width, height)?;
         if repaint {
             SetPropW(handle, REPAINT.as_ptr(), 1usize as _);
@@ -431,6 +557,8 @@ unsafe fn position_window(
         let mut current = std::mem::zeroed();
         GetWindowRect(handle, &mut current);
         if GetParent(handle) == parent
+            && child_styles_healthy(handle)
+            && above_desktop_icons(handle, parent)
             && IsWindowVisible(handle) != 0
             && current.left == x
             && current.top == y
@@ -503,7 +631,11 @@ unsafe fn position_window(
                 } else {
                     0
                 }
-                | if changing_parent { 0 } else { SWP_NOZORDER },
+                | if changing_parent || !above_desktop_icons(handle, parent) {
+                    0
+                } else {
+                    SWP_NOZORDER
+                },
         ) == 0
         {
             return Err(std::io::Error::last_os_error().to_string());

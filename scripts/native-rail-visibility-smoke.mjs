@@ -166,7 +166,7 @@ try {
   const handle = (await state()).windows[0].hwnd;
   report.initialState = await state();
   console.log("Initial rail and both images are ready");
-  for (const mode of ["rail", "browser", "cycle"]) {
+  for (const mode of ["rail", "browser", "cycle", "behind-icons"]) {
     // Also exercise a failed image; a normal snapshot rerender cannot reset
     // RailMedia's failed state when the item identity and path stay unchanged.
     if (mode === "cycle") {
