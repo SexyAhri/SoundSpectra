@@ -102,7 +102,7 @@ impl MusicState {
         self: &Arc<Self>,
         mut session: session::Session,
         generation: u64,
-    ) -> Result<(), String> {
+    ) -> Result<Option<(u64, u64, usize)>, String> {
         if self.login_generation.load(Ordering::SeqCst) != generation {
             return Err("本次登录已取消".into());
         }
@@ -115,6 +115,7 @@ impl MusicState {
         }
         let scope = provider.scope();
         let restored = self.store.restore(&scope)?;
+        let resume = restored.as_ref().is_some_and(|view| view.playing);
         let prefs = self
             .store
             .value::<store::Preferences>(&scope, "preferences")?
@@ -128,6 +129,7 @@ impl MusicState {
         *self.account.lock().unwrap() = Some(account);
         tracks.clear();
         p.restore_scene(restored);
+        let resume = resume.then_some((p.view.generation, p.view.revision, p.view.index));
         for t in &p.view.queue {
             tracks.insert(format!("{}:{}", t.provider, t.id), t.clone());
         }
@@ -135,9 +137,9 @@ impl MusicState {
         drop(tracks);
         self.cache.active(None);
         sync::start(Arc::downgrade(self), provider);
-        Ok(())
+        Ok(resume)
     }
-    pub fn restore(self: &Arc<Self>) {
+    pub fn restore(self: &Arc<Self>, app: AppHandle, app_state: Arc<AppState>) {
         let weak = Arc::downgrade(self);
         std::thread::spawn(move || loop {
             let Some(state) = weak.upgrade() else {
@@ -150,6 +152,7 @@ impl MusicState {
         });
         let state = self.clone();
         let generation = state.login_generation.load(Ordering::SeqCst);
+        let source_revision = app_state.audio_source.lock().unwrap().revision;
         std::thread::spawn(move || {
             let Some(session) = session::Session::restore(&state.directory) else {
                 return;
@@ -168,11 +171,12 @@ impl MusicState {
             };
             drop(gate);
             let result = state.attach(session, generation);
+            let resume = result.as_ref().ok().copied().flatten();
             login::update(
                 &state,
                 generation,
                 match result {
-                    Ok(()) => login::Login {
+                    Ok(_) => login::Login {
                         provider: Some(id.into()),
                         phase: "connected".into(),
                         qr: None,
@@ -186,6 +190,29 @@ impl MusicState {
                     },
                 },
             );
+            if let Some(point) = resume {
+                let _dispatch = state.dispatch.lock().unwrap();
+                if state.login_generation.load(Ordering::SeqCst) != generation {
+                    return;
+                }
+                if app_state.audio_source.lock().unwrap().revision != source_revision {
+                    let mut p = state.playback.lock().unwrap();
+                    if (p.view.generation, p.view.revision) == (point.0, point.1) {
+                        p.view.suspended = true;
+                        p.view.phase = "suspended".into();
+                        p.view.revision += 1;
+                    }
+                    return;
+                }
+                if let Err(message) = playback::resume_startup(&app, &app_state, point) {
+                    let mut p = state.playback.lock().unwrap();
+                    if (p.view.generation, p.view.revision) == (point.0, point.1) {
+                        p.view.phase = "error".into();
+                        p.view.error = Some(message);
+                        p.view.playing = false;
+                    }
+                }
+            }
         });
     }
 }

@@ -73,7 +73,6 @@ export function useLyricFollow(
   useLayoutEffect(() => {
     const root = body.current;
     if (!root) return;
-    const reduced = matchMedia("(prefers-reduced-motion: reduce)");
     const follow = () => {
       cancel();
       root.style.setProperty(
@@ -92,7 +91,7 @@ export function useLyricFollow(
       const start = root.scrollTop;
       const initial = positioned.current !== identity;
       positioned.current = identity;
-      if (initial || reduced.matches || Math.abs(target - start) < 1) {
+      if (initial || Math.abs(target - start) < 1) {
         root.scrollTop = target;
         return;
       }
@@ -107,11 +106,9 @@ export function useLyricFollow(
     follow();
     const resize = new ResizeObserver(follow);
     resize.observe(root, { box: "border-box" });
-    reduced.addEventListener("change", follow);
     return () => {
       cancel();
       resize.disconnect();
-      reduced.removeEventListener("change", follow);
     };
   }, [body, active, identity, content, browsing, cancel]);
   return { browsing, browse, resume };

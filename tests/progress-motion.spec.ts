@@ -1,7 +1,7 @@
 import { test, expect, type Page } from "@playwright/test";
 
-async function fixture(page: Page) {
-  await page.emulateMedia({ reducedMotion: "no-preference" });
+async function fixture(page: Page, reducedMotion: "reduce" | "no-preference" = "no-preference") {
+  await page.emulateMedia({ reducedMotion });
   await page.route("**/src/main.tsx*", route => route.fulfill({
     contentType: "text/javascript",
     body: `
@@ -29,8 +29,8 @@ async function fixture(page: Page) {
   await expect(page.getByRole("slider", { name: "播放进度" })).toHaveValue("12");
 }
 
-test("playback progress advances between checkpoints, freezes when stale, and seeks immediately", async ({ page }) => {
-  await fixture(page);
+for (const preference of ["no-preference", "reduce"] as const) test(`playback progress advances, freezes when stale, and seeks immediately (${preference})`, async ({ page }) => {
+  await fixture(page, preference);
   const samples = await page.evaluate(async () => {
     (window as any).update({ playing: true, phase: "playing" });
     const values: number[] = [];
@@ -65,7 +65,7 @@ test("playback progress advances between checkpoints, freezes when stale, and se
   await expect(slider).toHaveValue("3");
 });
 
-test("download progress traverses intermediate widths and reduced motion uses exact checkpoints", async ({ page }) => {
+test("download and playback remain smooth after the system motion preference changes", async ({ page }) => {
   await fixture(page);
   await page.evaluate(() => (window as any).update({ transfer: { status: "downloading", received: 20, total: 100 } }));
   const download = page.getByRole("progressbar", { name: "音频下载进度" });
@@ -81,8 +81,15 @@ test("download progress traverses intermediate widths and reduced motion uses ex
   expect(middle).toBeLessThan(.8);
   await expect.poll(ratio).toBeCloseTo(.8, 2);
   await page.emulateMedia({ reducedMotion: "reduce" });
-  await page.evaluate(() => (window as any).update({ playing: true, phase: "playing", position: 30, transfer: { status: "downloading", received: 95, total: 100 } }));
+  const reducedMiddle = await page.evaluate(async () => {
+    (window as any).update({ playing: true, phase: "playing", position: 30, transfer: { status: "downloading", received: 95, total: 100 } });
+    await new Promise(resolve => setTimeout(resolve, 120));
+    const node = document.querySelector(".library-progress-download")!;
+    return node.getBoundingClientRect().width / node.parentElement!.getBoundingClientRect().width;
+  });
+  expect(reducedMiddle).toBeGreaterThan(.8);
+  expect(reducedMiddle).toBeLessThan(.95);
   await expect.poll(ratio).toBeCloseTo(.95, 2);
   await page.waitForTimeout(300);
-  await expect(page.getByRole("slider", { name: "播放进度" })).toHaveValue("30");
+  expect(Number(await page.getByRole("slider", { name: "播放进度" }).inputValue())).toBeGreaterThan(30.2);
 });

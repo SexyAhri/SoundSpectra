@@ -40,7 +40,7 @@ async function fadedPlayerFixture(page: Page) {
   `,
     }),
   );
-  await page.goto("/");
+  await page.goto("/#scene");
   await expect
     .poll(() => page.evaluate(() => (window as any).testAudio?.volume))
     .toBe(0.8);
@@ -615,7 +615,7 @@ test("background player uses a valid range resource and seeks only on a seek com
   `,
     }),
   );
-  await page.goto("/");
+  await page.goto("/#scene");
   await expect
     .poll(() => page.evaluate(() => (window as any).testAudio?.src))
     .toBe("http://music.localhost/stream/1");
@@ -715,7 +715,7 @@ test("undecodable media reports errors before metadata and restores position aft
   `,
     }),
   );
-  await page.goto("/");
+  await page.goto("/#scene");
   await expect
     .poll(() =>
       page.evaluate(() =>
@@ -844,6 +844,7 @@ test("cached lyrics support seek and refresh independently of the queue panel", 
       ),
     )
     .toEqual([{ action: "remove", entries: ["legacy-1"] }]);
+  await queue.getByRole("button", { name: "管理播放队列" }).click();
   await queue.getByRole("button", { name: "清空" }).click();
   await expect
     .poll(() =>
@@ -991,7 +992,7 @@ test("source menu can resume builtin playback and switch back to external select
   `,
     }),
   );
-  await page.goto("/");
+  await page.goto("/#scene");
   const selector = page.getByRole("combobox", {
     name: "音乐来源",
     exact: true,
@@ -1236,7 +1237,7 @@ test("progressive player keeps pause responsive while play waits for network and
   `,
     }),
   );
-  await page.goto("/");
+  await page.goto("/#scene");
   await expect
     .poll(() => page.evaluate(() => (window as any).testAudio?.src))
     .toBe("http://127.0.0.1:12345/audio/test");
@@ -1264,7 +1265,7 @@ test("progressive player keeps pause responsive while play waits for network and
   ).toBe(false);
 });
 
-test("timeline layers and simultaneous states fit narrow windows and respect reduced motion", async ({
+test("timeline layers fit narrow windows and animate under both system motion preferences", async ({
   page,
 }) => {
   await fixture(page);
@@ -1307,12 +1308,12 @@ test("timeline layers and simultaneous states fit narrow windows and respect red
     await page
       .locator(".library-progress-download")
       .evaluate((n) => getComputedStyle(n).animationName),
-  ).toBe("none");
+  ).toBe("library-download-flow");
   expect(
     await page
       .locator(".library-progress-loading")
       .evaluate((n) => getComputedStyle(n).animationName),
-  ).toBe("none");
+  ).toBe("library-buffer-sweep");
 });
 
 test("background player reports disjoint decoded ranges without replacing them with byte percentages", async ({
@@ -1334,7 +1335,7 @@ test("background player reports disjoint decoded ranges without replacing them w
   `,
     }),
   );
-  await page.goto("/");
+  await page.goto("/#scene");
   await expect
     .poll(() =>
       page.evaluate(
@@ -1428,8 +1429,10 @@ test("local index virtualizes large lists, preserves keyboard navigation and sor
   await expect(
     page.locator(".library-track").filter({ hasText: "歌曲2999" }),
   ).toBeFocused();
+  await page.getByRole("button", { name: "列表选项", exact: true }).click();
   await page.getByRole("combobox", { name: "歌曲排序" }).click();
   await page.getByRole("option", { name: "时长", exact: true }).click();
+  await page.keyboard.press("Escape");
   await page.getByRole("button", { name: "播放已加载歌曲" }).click();
   expect(
     await page.evaluate(() =>
@@ -1528,7 +1531,7 @@ async function longLyricsFixture(page: Page) {
   await expect(page.getByText("测试歌词10", { exact: true })).toBeVisible();
 }
 
-test("lyric follow animates without changing row heights and respects reduced motion", async ({
+test("lyric follow animates with fixed row heights under both system motion preferences", async ({
   page,
 }) => {
   await page.emulateMedia({ reducedMotion: "no-preference" });
@@ -1583,7 +1586,7 @@ test("lyric follow animates without changing row heights and respects reduced mo
       .evaluate((node) =>
         parseFloat(getComputedStyle(node).transitionDuration),
       ),
-  ).toBeLessThan(0.001);
+  ).toBe(0.52);
   await page.evaluate(() =>
     Object.assign((window as any).musicState.playback, {
       position: 30.8,
@@ -1872,8 +1875,10 @@ test("track selection, inline actions and density remain independent of playback
       ),
     )
     .toBe(2);
+  await page.getByRole("button", { name: "列表选项", exact: true }).click();
   await page.getByRole("combobox", { name: "列表密度" }).click();
   await page.getByRole("option", { name: "紧凑", exact: true }).click();
+  await page.keyboard.press("Escape");
   expect(
     await row.evaluate((node) => node.getBoundingClientRect().height),
   ).toBe(49);
@@ -1890,6 +1895,7 @@ test("track selection, inline actions and density remain independent of playback
     .toBe(1);
   await page.reload();
   await page.getByRole("button", { name: "我喜欢", exact: true }).click();
+  await page.getByRole("button", { name: "列表选项", exact: true }).click();
   await expect(page.getByRole("combobox", { name: "列表密度" })).toContainText(
     "紧凑",
   );

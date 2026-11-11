@@ -8,12 +8,11 @@ export function useProgressClock(p: Playback, override: number | null) {
   const identity = `${p.generation}:${p.seekRevision}`;
   const previous = useRef(identity);
   useLayoutEffect(() => {
-    const reduced = matchMedia("(prefers-reduced-motion: reduce)");
     let frame = 0;
     const start = () => {
       cancelAnimationFrame(frame);
       const advancing = override === null && p.playing && !p.suspended &&
-        !p.seeking && p.phase === "playing" && !reduced.matches;
+        !p.seeking && p.phase === "playing";
       const target = override ?? p.position;
       const continuous = advancing && previous.current === identity &&
         Math.abs(displayed.current - target) < 1;
@@ -37,10 +36,8 @@ export function useProgressClock(p: Playback, override: number | null) {
       frame = requestAnimationFrame(tick);
     };
     start();
-    reduced.addEventListener("change", start);
     return () => {
       cancelAnimationFrame(frame);
-      reduced.removeEventListener("change", start);
     };
   }, [p.position, p.duration, p.playing, p.suspended, p.seeking, p.phase, identity, override]);
   return position;

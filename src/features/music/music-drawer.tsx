@@ -2,7 +2,6 @@ import {
   ListMusic,
   MicVocal,
   Settings2,
-  Trash2,
   X,
   Pin,
   PinOff,
@@ -159,17 +158,6 @@ export function MusicDrawer({
             >
               {docked ? <Pin size={14} /> : <PinOff size={14} />}
               {docked ? "已固定" : "固定"}
-            </Button>
-          )}
-          {panel === "queue" && (
-            <Button
-              variant="ghost"
-              size="sm"
-              disabled={!p.queue.length}
-              onClick={() => command("clear")}
-            >
-              <Trash2 size={13} />
-              清空
             </Button>
           )}
           <Button

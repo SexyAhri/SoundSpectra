@@ -1,0 +1,288 @@
+/* Listening and editing share state while each surface owns its layout. */
+.studio-shell.music-shell {
+  height: 100dvh;
+  overflow: hidden;
+}
+
+.studio-shell.music-shell .workspace-shell {
+  min-height: 0;
+}
+
+.studio-shell.music-shell .topbar {
+  padding-left: 24px;
+  background: var(--background);
+  border-bottom: 0;
+}
+
+.listening-navigation {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.listening-navigation button {
+  font-size: 12px;
+  color: var(--muted-foreground);
+}
+
+.studio-shell.music-shell .save-status[hidden] {
+  display: none;
+}
+
+.studio-shell.music-shell .application-actions .mobile-settings {
+  display: inline-grid;
+}
+
+.workspace-music.music-library-surface {
+  padding: 10px 24px 0;
+}
+
+.music-library-surface>.library-player {
+  margin-inline: -24px;
+}
+
+.music-library-surface .library-heading {
+  min-height: 38px;
+  padding-bottom: 8px;
+  border-bottom: 0;
+}
+
+.music-library-surface .library-brand-icon {
+  width: 28px;
+  height: 28px;
+  border: 0;
+  background: transparent;
+}
+
+.music-library-surface .library-tabs {
+  gap: 4px;
+  padding: 4px 0 8px;
+}
+
+.music-library-surface .library-tabs button {
+  height: 32px;
+  padding-inline: 10px;
+}
+
+.music-library-surface .library-tabs button[aria-pressed="true"] {
+  border-color: transparent;
+  box-shadow: none;
+}
+
+.music-library-surface .library-browser-toolbar {
+  display: grid;
+  grid-template-columns: minmax(160px, .85fr) minmax(240px, 1.15fr) auto;
+  gap: 12px;
+  padding-block: 4px 12px;
+}
+
+.music-library-surface .library-browser-toolbar:not([data-collection]) {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.music-library-surface .library-collection-heading {
+  gap: 10px;
+}
+
+.music-library-surface .library-collection-art {
+  width: 46px;
+  height: 46px;
+  border: 0;
+}
+
+.music-library-surface .library-collection-copy h3 {
+  font-size: 16px;
+  font-weight: 500;
+}
+
+.music-library-surface .library-search-bar {
+  min-width: 0;
+}
+
+.music-library-surface .library-search-bar>.choice-trigger {
+  max-width: 120px;
+  min-width: 0;
+  padding-inline: 10px;
+}
+
+.music-library-surface .library-search-bar .ui-search-field {
+  min-width: 0;
+}
+
+.music-library-surface .library-collection-actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.music-library-surface .library-track-head {
+  top: 0;
+}
+
+.music-library-surface .library-load-status {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 36px;
+  padding-block: 4px;
+}
+
+.music-library-surface .library-load-status .library-match-count:empty {
+  display: none;
+}
+
+.music-library-surface .library-list-heading {
+  padding-block: 8px 16px;
+}
+
+.music-library-surface .library-list-heading h3 {
+  font-size: 16px;
+  margin-bottom: 4px;
+}
+
+.library-view-options {
+  width: 260px;
+  max-width: calc(100vw - 24px);
+  padding: 12px;
+  background: var(--popover);
+  color: var(--foreground);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  box-shadow: 0 12px 32px color-mix(in srgb, var(--foreground) 12%, transparent);
+  z-index: 40;
+}
+
+.library-view-options header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 8px;
+}
+
+.library-view-options header strong {
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.library-view-options label {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding-block: 6px;
+  font-size: 12px;
+  color: var(--muted-foreground);
+}
+
+.library-view-options .choice-trigger {
+  min-width: 150px;
+}
+
+.library-view-options>button {
+  width: 100%;
+  margin-top: 8px;
+  justify-content: flex-start;
+}
+
+@media (max-width: 760px) {
+  .studio-shell.music-shell .topbar {
+    padding-left: 12px;
+    height: auto;
+    min-height: 54px;
+    flex-wrap: wrap;
+    gap: 4px;
+  }
+
+  .studio-shell.music-shell .topbar-actions {
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    gap: 4px;
+  }
+
+  .studio-shell.music-shell .listening-navigation button {
+    padding-inline: 6px;
+  }
+
+  .studio-shell.music-shell .workspace-body {
+    flex: 1;
+    min-height: 0;
+    overflow: hidden;
+  }
+
+  .workspace-music.music-library-surface {
+    padding: 8px 12px 0;
+    min-height: 0;
+    overflow: hidden;
+  }
+
+  .music-library-surface>.library-player {
+    margin-inline: -12px;
+  }
+
+  .music-library-surface .library-heading {
+    gap: 8px;
+  }
+
+  .music-library-surface .library-account-trigger strong {
+    max-width: 90px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .music-library-surface .library-membership {
+    display: none;
+  }
+
+  .music-library-surface .library-tabs {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    gap: 0;
+  }
+
+  .music-library-surface .library-tabs button {
+    flex: none;
+    padding-inline: 8px;
+  }
+
+  .music-library-surface .library-browser-toolbar {
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 8px;
+    padding-bottom: 8px;
+  }
+
+  .music-library-surface .library-collection-actions {
+    grid-column: 2;
+    grid-row: 1;
+  }
+
+  .music-library-surface .library-search-bar {
+    grid-column: 1 / -1;
+    grid-row: 2;
+  }
+
+  .music-library-surface .library-browser-toolbar:not([data-collection]) .library-search-bar {
+    grid-row: 1;
+  }
+
+  .music-library-surface .library-playing-track {
+    min-width: 0;
+  }
+
+  .studio-shell.music-shell .workspace-footer {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 12px;
+  }
+
+  .studio-shell.music-shell .workspace-footer .audio-source-panel {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .studio-shell.music-shell .workspace-meter {
+    display: none;
+  }
+}

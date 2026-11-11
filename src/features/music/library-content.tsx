@@ -32,6 +32,7 @@ import { useUiPreference } from "../settings/use-ui-preference";
 import { VirtualRows } from "./virtual-rows";
 import type { BrowseState } from "./types";
 import { useLibrary } from "./use-library";
+import { LibraryViewOptions } from "./library-view-options";
 
 function LibraryBrowser({
   current,
@@ -91,19 +92,6 @@ function LibraryBrowser({
   };
   const [sort, setSort] = useState(initial?.sort ?? "default");
   const scroller = useRef<HTMLDivElement>(null);
-  const tools = useRef<HTMLDivElement>(null);
-  useEffect(() => {
-    const node = tools.current;
-    if (!node) return;
-    const observer = new ResizeObserver(() =>
-      scroller.current?.style.setProperty(
-        "--track-tools-height",
-        `${node.getBoundingClientRect().height}px`,
-      ),
-    );
-    observer.observe(node);
-    return () => observer.disconnect();
-  }, [Boolean(library.selected)]);
   const [top, setTop] = useState(initial?.top ?? 0);
   useEffect(() => {
     if (scroller.current && library.tracks)
@@ -295,7 +283,7 @@ function LibraryBrowser({
               )}
             </span>
             <div className="library-collection-copy">
-              <h3>{library.selected.name}</h3>
+              <h3 title={library.selected.name}>{library.selected.name}</h3>
               <p>
                 已加载 {all.length} / {library.tracks?.total ?? "…"} 首
                 {Boolean(library.tracks?.filtered) &&
@@ -358,6 +346,13 @@ function LibraryBrowser({
             </Button>
           )}
         </div>
+        {library.selected && <div className="library-collection-actions">
+          {playable && <Button size="sm" className="library-play-collection"
+            aria-label="播放已加载歌曲" title="播放当前已加载的歌曲" disabled={!shown.length}
+            onClick={() => play(trackKey(shown[0]))}><Play size={14} />播放</Button>}
+          <LibraryViewOptions sort={sort} onSort={setSort} density={density} onDensity={setDensity}
+            refreshing={library.trackBusy} onRefresh={remote ? undefined : () => void library.loadTracks()} />
+        </div>}
       </div>
       <div
         className="library-scroll"
@@ -366,56 +361,11 @@ function LibraryBrowser({
       >
         {library.selected ? (
           <>
-            <div className="library-track-tools" ref={tools}>
-              {playable && <Button
-                size="sm"
-                className="library-play-collection"
-                aria-label="播放已加载歌曲"
-                title="播放当前已加载的歌曲"
-                disabled={!shown.length}
-                onClick={() => play(trackKey(shown[0]))}
-              >
-                <Play size={14} />
-                播放
-              </Button>}
-              {!remote && (
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  disabled={library.trackBusy}
-                  onClick={() => void library.loadTracks()}
-                >
-                  刷新歌曲
-                </Button>
-              )}
-              <ChoiceSelect
-                label="歌曲排序"
-                className="library-sort"
-                menuClassName="library-choice-menu"
-                value={sort}
-                onChange={setSort}
-                options={[
-                  { value: "default", label: "歌单顺序" },
-                  { value: "title", label: "歌曲名称" },
-                  { value: "artist", label: "歌手" },
-                  { value: "album", label: "专辑" },
-                  { value: "duration", label: "时长" },
-                ]}
-              />
-              <ChoiceSelect
-                label="列表密度"
-                menuClassName="library-choice-menu"
-                value={density}
-                onChange={setDensity}
-                options={[
-                  { value: "comfortable", label: "舒适" },
-                  { value: "compact", label: "紧凑" },
-                ]}
-              />
+            {(Boolean(query.trim() && !remote) || library.trackBusy || (!remote && moreTracks != null)) && <div className="library-load-status">
               <span className="library-match-count" role="status">
                 {query.trim() && !remote
                   ? `匹配 ${shown.length} 首`
-                  : `${shown.length} 首`}
+                  : ""}
               </span>
               {library.trackBusy ? (
                 <Button
@@ -438,7 +388,7 @@ function LibraryBrowser({
                   </Button>
                 )
               )}
-            </div>
+            </div>}
             {library.trackError && (
               <MusicMessage key={library.trackError} message={library.trackError}
                 action={{ label: "重试", run: () => void library.loadTracks(moreTracks ?? 0) }} />

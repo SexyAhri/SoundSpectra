@@ -5,19 +5,23 @@ import { MusicTransport } from "./music-transport";
 import { MusicDrawer, useMusicPanel } from "./music-drawer";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import "./music.css";
+import { AmbientMusicTransport } from "./ambient-music-transport";
+import type { NowPlaying } from "../desktop-card/use-now-playing";
 
-export function MusicDock() {
+export function MusicDock({ ambient = false, info }: { ambient?: boolean; info?: NowPlaying }) {
   const { snapshot, busy, command, perform, error } = useMusic();
   const panels = useMusicPanel(false);
-  if (!native || !snapshot.playback.queue.length) return null;
+  if (!ambient && (!native || !snapshot.playback.queue.length)) return null;
   return (
     <TooltipProvider>
       <MusicMessages>
-      <div className="music-global-dock" aria-label="全局音乐控制">
+      <div className={ambient ? "ambient-music-dock" : "music-global-dock"} aria-label="全局音乐控制">
         {error && (
           <MusicMessage key={error} message={error} />
         )}
-        <MusicTransport
+        {ambient ? <AmbientMusicTransport playback={snapshot.playback} info={info} busy={busy}
+          command={command} queueOpen={panels.panel === "queue"}
+          onQueue={() => panels.setPanel(panels.panel === "queue" ? null : "queue")} /> : <MusicTransport
           compact
           playback={snapshot.playback}
           busy={busy}
@@ -26,7 +30,7 @@ export function MusicDock() {
           onPanel={(next) =>
             panels.setPanel(panels.panel === next ? null : next)
           }
-        />
+        />}
         {panels.panel && (
           <MusicDrawer
             {...panels}

@@ -1050,17 +1050,6 @@
     transform: translateX(500%);
   }
 }
-@media (prefers-reduced-motion: reduce) {
-  .library-progress-download,
-  .library-progress-loading {
-    animation: none !important;
-  }
-  .library-progress-loading {
-    left: 0;
-    width: 100%;
-    opacity: 0.4;
-  }
-}
 
 .library-player-tools {
   display: flex;
@@ -1816,12 +1805,6 @@
   }
   .library-list-heading {
     flex-wrap: wrap;
-  }
-}
-@media (prefers-reduced-motion: reduce) {
-  .library-lyrics-body > button,
-  .library-lyric-text {
-    transition: none;
   }
 }
 

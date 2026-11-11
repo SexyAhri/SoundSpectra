@@ -50,6 +50,10 @@ struct Session {
     volume: f64,
     muted: bool,
     mode: super::queue::PlayMode,
+    #[serde(default)]
+    playing: bool,
+    #[serde(default)]
+    suspended: Option<bool>,
 }
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -152,6 +156,8 @@ impl Store {
                 volume: view.volume,
                 muted: view.muted,
                 mode: view.mode,
+                playing: view.playing && !view.suspended,
+                suspended: Some(view.suspended),
             },
         )
     }
@@ -175,9 +181,18 @@ impl Store {
             v.index = v.index.min(v.queue.len().saturating_sub(1));
             v.duration = v.queue.get(v.index).map_or(0.0, |t| t.duration);
             v.position = v.position.min(v.duration);
-            v.playing = false;
-            v.suspended = !v.queue.is_empty();
-            v.phase = if v.suspended { "suspended" } else { "idle" }.into();
+            // Legacy sessions did not record playback intent. Keep their queue
+            // available without guessing whether the user had paused it.
+            v.suspended = !v.queue.is_empty() && s.suspended.unwrap_or(true);
+            v.playing = s.playing && !v.suspended && !v.queue.is_empty();
+            v.phase = if v.suspended {
+                "suspended"
+            } else if v.queue.is_empty() {
+                "idle"
+            } else {
+                "paused"
+            }
+            .into();
             v
         }))
     }
@@ -360,7 +375,7 @@ mod tests {
         assert_eq!(value["lyricMib"], 32);
     }
     #[test]
-    fn account_isolation_native_identifiers_and_paused_restore() {
+    fn account_isolation_native_identifiers_and_playback_intent_restore() {
         let path = std::env::temp_dir().join(format!(
             "music-store-{}-{}.sqlite",
             std::process::id(),
@@ -388,11 +403,33 @@ mod tests {
         store.save("a", &view).unwrap();
         assert!(store.restore("b").unwrap().is_none());
         let r = store.restore("a").unwrap().unwrap();
-        assert!(!r.playing);
-        assert!(r.suspended);
+        assert!(r.playing);
+        assert!(!r.suspended);
         assert_eq!(r.position, 42.0);
         assert_eq!(r.queue[0].numeric_id, 123);
         assert_eq!(r.entry_ids, vec!["stable"]);
+        let mut paused = view.clone();
+        paused.playing = false;
+        store.save("paused", &paused).unwrap();
+        let restored = store.restore("paused").unwrap().unwrap();
+        assert!(!restored.playing);
+        assert!(!restored.suspended);
+        assert_eq!(restored.phase, "paused");
+        assert_eq!(restored.position, 42.0);
+        paused.suspended = true;
+        store.save("external", &paused).unwrap();
+        let restored = store.restore("external").unwrap().unwrap();
+        assert!(!restored.playing);
+        assert!(restored.suspended);
+        let mut legacy =
+            serde_json::to_value(store.value::<Session>("a", "session").unwrap().unwrap()).unwrap();
+        legacy.as_object_mut().unwrap().remove("playing");
+        legacy.as_object_mut().unwrap().remove("suspended");
+        store.set("legacy", "session", &legacy).unwrap();
+        let restored = store.restore("legacy").unwrap().unwrap();
+        assert!(!restored.playing);
+        assert!(restored.suspended);
+        assert_eq!(restored.position, 42.0);
         store.played("a", &r.queue[0]).unwrap();
         store.played("a", &r.queue[0]).unwrap();
         assert_eq!(store.tracks("a", None, true).unwrap().total, 1);

@@ -1,0 +1,225 @@
+.ambient-music-dock {
+  position: relative;
+  min-width: 0;
+}
+
+.ambient-music-dock .library-panel {
+  top: auto;
+  bottom: calc(100% + 12px);
+  right: 0;
+  height: 480px;
+  max-height: min(580px, calc(100dvh - 220px));
+  width: min(410px, calc(100vw - 24px));
+}
+
+.ambient-listening {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 2px 16px;
+  min-width: 0;
+  width: min(100%, 720px);
+  margin-inline: auto;
+  color: var(--foreground);
+}
+
+.ambient-listening-track {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  padding: 0;
+  text-align: left;
+  color: inherit;
+  border-radius: 6px;
+}
+
+.ambient-listening-track:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 4px;
+}
+
+.ambient-listening-track>svg {
+  flex: none;
+  color: var(--muted-foreground);
+  margin-inline: 5px;
+}
+
+.ambient-listening-track .library-cover.small {
+  width: 32px;
+  height: 32px;
+  min-width: 32px;
+  border-radius: 6px;
+}
+
+.ambient-listening-info {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.ambient-listening-title {
+  display: flex;
+  align-items: baseline;
+  gap: 9px;
+  min-width: 0;
+  line-height: 1.5;
+}
+
+.ambient-listening-title strong {
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.ambient-listening-title>span {
+  min-width: 0;
+  max-width: 35%;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  color: var(--muted-foreground);
+  font-size: 11px;
+}
+
+.ambient-listening-state {
+  font-size: 10px;
+  line-height: 1.5;
+  color: var(--muted-foreground);
+}
+
+.ambient-listening-actions,
+.ambient-listening-buttons {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.ambient-listening-actions {
+  grid-column: 2;
+  grid-row: 1 / 3;
+}
+
+.ambient-listening-play {
+  border-radius: 50%;
+}
+
+.ambient-listening-progress {
+  min-width: 0;
+  padding-left: 42px;
+}
+
+.ambient-listening-progress .library-progress {
+  gap: 6px;
+}
+
+.ambient-listening-progress .library-progress>span {
+  font-size: 9px;
+  min-width: 25px;
+}
+
+.ambient-listening-progress .library-progress-rail,
+.ambient-listening-progress .library-progress input {
+  height: 12px;
+}
+
+.ambient-listening-progress .library-progress-track {
+  top: 4px;
+}
+
+.ambient-listening-error {
+  grid-column: 1 / -1;
+  font-size: 11px;
+  color: var(--destructive);
+  overflow-wrap: anywhere;
+}
+
+.ambient-listening .mc-transport {
+  position: relative;
+  display: flex;
+  gap: 2px;
+}
+
+.ambient-listening .mc-control {
+  width: 32px;
+  height: 32px;
+  color: var(--muted-foreground);
+  background: transparent;
+  border: 0;
+  box-shadow: none;
+}
+
+.ambient-listening .mc-control-primary {
+  color: var(--secondary-foreground);
+  background: var(--secondary);
+  border-radius: 50%;
+}
+
+.ambient-listening .mc-control:hover:not(:disabled) {
+  color: var(--foreground);
+  background: var(--accent);
+}
+
+.ambient-listening .mc-control:focus-visible {
+  outline-color: var(--ring);
+}
+
+.ambient-listening .mc-control-feedback {
+  color: var(--destructive);
+  background: var(--popover);
+  z-index: 2;
+}
+
+.studio-shell.atmosphere-shell .workspace-footer:has(.workspace-audio-playback) {
+  display: grid;
+  grid-template-columns: minmax(145px, 180px) minmax(0, 1fr) auto;
+  gap: 12px 24px;
+  min-height: 58px;
+  padding-block: 8px;
+  background: var(--background);
+}
+
+.workspace-audio-playback {
+  min-width: 0;
+}
+
+.studio-shell.atmosphere-shell .workspace-footer .workspace-audio-playback~button {
+  color: var(--muted-foreground);
+  border-color: transparent;
+  background: transparent;
+  box-shadow: none;
+}
+
+.studio-shell.atmosphere-shell .workspace-footer .audio-source-choice .choice-trigger {
+  background: transparent;
+  box-shadow: none;
+}
+
+@media (max-width: 760px) {
+  .studio-shell.atmosphere-shell .workspace-footer:has(.workspace-audio-playback) {
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 12px;
+    padding: 10px 12px;
+  }
+
+  .studio-shell.atmosphere-shell .workspace-footer .workspace-audio-playback {
+    grid-column: 1 / -1;
+    grid-row: 1;
+  }
+
+  .studio-shell.atmosphere-shell .workspace-footer:has(.workspace-audio-playback) .audio-source-panel {
+    grid-column: 1;
+    grid-row: 2;
+  }
+
+  .ambient-listening {
+    gap: 2px 8px;
+  }
+
+  .ambient-listening-title {
+    gap: 6px;
+  }
+}

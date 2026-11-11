@@ -373,6 +373,25 @@ pub fn load(
     load_variant(app, state, queue, index, None, false, false, None)
 }
 
+pub(super) fn resume_startup(
+    app: &AppHandle,
+    state: &Arc<AppState>,
+    (generation, revision, index): (u64, u64, usize),
+) -> Result<(), String> {
+    // A pause, source switch, queue edit or account change made while login
+    // was restoring wins over the saved startup intent.
+    load_variant(
+        app,
+        state,
+        None,
+        index,
+        None,
+        true,
+        false,
+        Some((generation, revision)),
+    )
+}
+
 fn load_variant(
     app: &AppHandle,
     state: &Arc<AppState>,
@@ -575,7 +594,11 @@ pub fn control(
         let index = state.music.playback.lock().unwrap().view.index;
         return load_variant(app, state, None, index, None, true, false, None);
     }
-    if action == "play" && state.music.playback.lock().unwrap().view.suspended {
+    let needs_audio = {
+        let p = state.music.playback.lock().unwrap();
+        p.view.suspended || (p.audio.is_none() && p.view.phase == "paused")
+    };
+    if action == "play" && needs_audio {
         let index = state.music.playback.lock().unwrap().view.index;
         return load_variant(app, state, None, index, None, true, false, None);
     }
@@ -667,10 +690,17 @@ pub fn control(
         return load(app, state, None, index);
     } else {
         let mut p = state.music.playback.lock().unwrap();
+        // A restored paused session can change its saved position before its
+        // audio is fetched again on Play.
+        let restored_seek = action == "seek"
+            && p.view.phase == "paused"
+            && !p.view.suspended
+            && !p.view.queue.is_empty();
         if !matches!(
             action,
             "volume" | "mute" | "mode" | "pause" | "play" | "sleep" | "sleep-track"
         ) && p.audio.is_none()
+            && !restored_seek
         {
             return Err("请先选择一首可播放的歌曲".into());
         }

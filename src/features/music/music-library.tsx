@@ -12,6 +12,7 @@ import { LibraryContent } from "./library-content";
 import { MusicTransport } from "./music-transport";
 import { MusicMessage, MusicMessages } from "./music-message";
 import "./music.css";
+import "./music-library-layout.css";
 
 export function MusicLibrary() {
   const { snapshot, error, busy, perform, command } = useMusic();
@@ -25,7 +26,7 @@ export function MusicLibrary() {
   return (
     <TooltipProvider delayDuration={400} skipDelayDuration={150}>
       <MusicMessages>
-      <section className="workspace-music" aria-label="音乐库">
+      <section className="workspace-music music-library-surface" aria-label="音乐库">
         <header className="library-heading">
           <div>
             <span className="library-brand-icon">

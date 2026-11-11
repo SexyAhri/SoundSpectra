@@ -506,7 +506,7 @@ pub fn run() {
                 desktop_occluded: AtomicBool::new(false),
             });
             app.manage(state.clone());
-            state.music.restore();
+            state.music.restore(app.handle().clone(), state.clone());
             app.manage(rail::RailState::new(app.handle()));
             system_tray::setup(app)?;
             // Configured WebViews normally load before this setup hook. Defer

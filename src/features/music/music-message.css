@@ -50,4 +50,3 @@
 .music-message-action:focus-visible, .music-message-close:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
 .music-message[data-state="open"] { animation: ui-fade-in var(--motion-panel) ease-in-out; }
 .music-message[data-state="closed"] { animation: ui-fade-out var(--motion-exit) ease-in-out; }
-@media (prefers-reduced-motion: reduce) { .music-message[data-state] { animation: none; } }

@@ -366,7 +366,7 @@ pub fn start(app: AppHandle, state: Arc<MusicState>, provider: &str) -> Result<(
                     return;
                 }
                 match result {
-                    Ok(()) => {
+                    Ok(_) => {
                         update(
                             &state,
                             generation,

@@ -62,7 +62,7 @@ for (const suspended of [false, true]) test(`dock ${suspended ? "resume" : "play
       },
     };
   }, { settings: { ...defaults, enabled: false, quality: "eco", followCover: false, lyrics: { ...defaults.lyrics, enabled: false } }, music: structuredClone(emptySnapshot), rail: railDefaults, info: emptyNowPlaying, suspended });
-  await page.goto("/");
+  await page.goto("/#scene");
   const dock = page.getByLabel("全局音乐控制", { exact: true });
   await expect(dock.getByRole("button", { name: "播放", exact: true })).toBeVisible();
   await expect.poll(() => page.evaluate(() => (window as any).__observedPlaying)).toBe(false);
@@ -137,7 +137,7 @@ for (const suspended of [false, true]) test(`dock ${suspended ? "resume" : "play
     };
     requestAnimationFrame(tick);
   });
-  await page.locator(".workspace-nav").getByRole("button", { name: "灯效", exact: true }).click();
+  await page.getByRole("button", { name: "编辑场景", exact: true }).click();
   await expect.poll(() => page.evaluate(() => {
     const app = window as any;
     return app.__backgroundReads > app.__backgroundReadsBeforeReturn;
