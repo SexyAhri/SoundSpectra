@@ -13,10 +13,12 @@ test.beforeEach(async ({ page }) => {
   }, { ...defaults, regionVisible: false })
   await page.emulateMedia({ reducedMotion: 'reduce' })
   await page.goto('/#rail')
+  await page.locator('.startup-screen').waitFor({ state: 'hidden' })
 })
 
 const storedOrder = (page: Page) => page.evaluate(() => JSON.parse(localStorage.getItem('soundspectra.rail.v1')!).groups[0].items.map((item: { id: string }) => item.id))
 const openList = async (page: Page) => {
+  await page.locator('.startup-screen').waitFor({ state: 'hidden' })
   await page.getByRole('button', { name: '点击绳子添加挂件', exact: true }).press('Shift+Enter')
   const panel = page.getByRole('region', { name: '更多挂件', exact: true })
   // Opening focuses the search field on the next frame, which can scroll and
@@ -38,11 +40,14 @@ async function consistent(page: Page, expected: string[]) {
   await expect.poll(() => storedOrder(page)).toEqual(expected)
   await expect.poll(() => page.locator('[data-control-item]').evaluateAll(nodes => nodes.map(node => (node as HTMLElement).dataset.controlItem))).toEqual(expected)
   // The visual order is a contiguous slice of the circular saved order.
-  const ids = await page.locator('.rail-items > [data-rail-item]:not([inert])').evaluateAll(nodes => nodes
-    .sort((a, b) => a.getBoundingClientRect().left - b.getBoundingClientRect().left)
-    .map(node => (node as HTMLElement).dataset.railItem!))
-  expect(ids.length).toBeGreaterThan(1)
-  for (let i = 1; i < ids.length; i++) expect(expected[(expected.indexOf(ids[i - 1]) + 1) % expected.length]).toBe(ids[i])
+  // Saved order publishes before the visible cards finish moving into place.
+  await expect.poll(async () => {
+    const ids = await page.locator('.rail-items > [data-rail-item]:not([inert])').evaluateAll(nodes => nodes
+      .sort((a, b) => a.getBoundingClientRect().left - b.getBoundingClientRect().left)
+      .map(node => (node as HTMLElement).dataset.railItem!))
+    return ids.length > 1 && ids.slice(1).every((id, index) =>
+      expected[(expected.indexOf(ids[index]) + 1) % expected.length] === id)
+  }).toBe(true)
 }
 
 test('legacy default name migrates and the popup selection matches the centered item', async ({ page }) => {

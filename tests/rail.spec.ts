@@ -9,7 +9,7 @@ test.beforeEach(async ({ page }) => {
 })
 
 test('inactive rails leave other editors clear and preview gaps pass pointer input', async ({ page }) => {
-  await page.goto('/')
+  await page.goto('/#scene')
   await expect(page.getByRole('button', { name: '灯效', exact: true })).toHaveAttribute('aria-pressed', 'true')
   await expect(page.locator('.rail-layer')).toHaveCount(0)
   await page.getByRole('button', { name: '拾光绳', exact: true }).click()
@@ -357,8 +357,10 @@ test('note drafts survive closing and reload, and Ctrl+Enter saves once', async 
   await page.getByRole('textbox', { name: '便签内容', exact: true }).press('Control+Enter')
   await expect(page.locator('.rail-note-content')).toContainText('晚些继续')
   await expect(page.locator('.rail-control-item.is-selected')).toContainText('还没写完')
+  await expect(page.locator('.module-add-dialog')).toHaveCount(0)
   const text = page.getByRole('textbox', { name: '便签内容', exact: true })
-  await text.fill('更新的便签草稿')
+  await page.getByRole('region', { name: '选中挂件属性' })
+    .getByRole('textbox', { name: '便签内容', exact: true }).fill('更新的便签草稿')
   await railSection(page, '布局')
   await page.getByRole('button', { name: '还没写完，便签', exact: true }).click()
   await expect(text).toHaveValue('更新的便签草稿')

@@ -11,6 +11,7 @@ test.beforeEach(async ({ page }) => {
 
 test('selected item follows the arc into the middle and hidden slots cannot intercept input', async ({ page }) => {
   await page.goto('/#rail')
+  await page.locator('.startup-screen').waitFor({ state: 'hidden' })
   const surface = page.locator('.rail-surface')
   const active = surface.locator('.rail-items > [data-wheel-active=true]')
   await expect(active).toHaveAttribute('data-rail-item', 'item-0')
@@ -32,6 +33,7 @@ test('selected item follows the arc into the middle and hidden slots cannot inte
 
 test('right click centers a hanging without opening its operations panel', async ({ page }) => {
   await page.goto('/#rail')
+  await page.locator('.startup-screen').waitFor({ state: 'hidden' })
   const surface = page.locator('.rail-surface')
   const item = surface.locator('[data-rail-item="item-1"]')
   await item.locator('.rail-item').click({ button: 'right' })
@@ -48,6 +50,7 @@ test('right click centers a hanging without opening its operations panel', async
 
 test('wheel, keyboard, wrapping and removal always keep an available item centered', async ({ page }) => {
   await page.goto('/#rail')
+  await page.locator('.startup-screen').waitFor({ state: 'hidden' })
   const active = page.locator('.rail-items > [data-wheel-active=true]')
   await active.locator('.rail-item').press('ArrowLeft')
   await expect(active).toHaveAttribute('data-rail-item', 'item-11')
@@ -72,6 +75,7 @@ test('wheel, keyboard, wrapping and removal always keep an available item center
 test('arc remains contained on narrow screens and its add menu stays accessible', async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 })
   await page.goto('/#rail')
+  await page.locator('.startup-screen').waitFor({ state: 'hidden' })
   await expect(page.locator('.rail-wheel')).toBeVisible()
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
   await page.getByRole('button', { name: '点击绳子添加挂件', exact: true }).focus()
@@ -89,6 +93,7 @@ test('arc remains contained on narrow screens and its add menu stays accessible'
 
 test('all items use equal tiles and choosing one closes the panel and centers it', async ({ page }) => {
   await page.goto('/#rail')
+  await page.locator('.startup-screen').waitFor({ state: 'hidden' })
   await clickCord(page, true)
   const panel = page.getByRole('region', { name: '更多挂件', exact: true })
   const tiles = panel.locator('.rail-overflow-entry')
@@ -104,6 +109,7 @@ test('all items use equal tiles and choosing one closes the panel and centers it
 
 test('cord single and double clicks open separate panels without a navigation strip in either theme', async ({ page }) => {
   await page.goto('/#rail')
+  await page.locator('.startup-screen').waitFor({ state: 'hidden' })
   await expect(page.locator('.rail-wheel-nav, .rail-more')).toHaveCount(0)
   for (const theme of ['light', 'dark']) {
     await page.evaluate(theme => { document.documentElement.dataset.theme = theme }, theme)
@@ -122,6 +128,7 @@ test('cord single and double clicks open separate panels without a navigation st
 
 test('rotation restores the centered item after reload and falls back when that item is removed', async ({ page }) => {
   await page.goto('/#rail')
+  await page.locator('.startup-screen').waitFor({ state: 'hidden' })
   await clickCord(page, true)
   await page.getByRole('button', { name: '选择工具 9，软件', exact: true }).click()
   const active = page.locator('.rail-items > [data-wheel-active=true]:not([inert])')
@@ -143,6 +150,7 @@ test('rotation restores the centered item after reload and falls back when that 
 
 test('all-items search finds names and paths, supports clearing, and keeps long names and empty states usable', async ({ page }) => {
   await page.goto('/#rail')
+  await page.locator('.startup-screen').waitFor({ state: 'hidden' })
   await clickCord(page, true)
   const panel = page.getByRole('region', { name: '更多挂件', exact: true })
   const search = panel.getByRole('searchbox', { name: '搜索挂件' })
@@ -176,6 +184,7 @@ test('a full list of long names stays searchable and its last item is reachable 
   })
   await page.setViewportSize({ width: 390, height: 844 })
   await page.goto('/#rail')
+  await page.locator('.startup-screen').waitFor({ state: 'hidden' })
   await page.getByRole('button', { name: '点击绳子添加挂件', exact: true }).press('Shift+Enter')
   const panel = page.getByRole('region', { name: '更多挂件', exact: true })
   await expect(panel.locator('.rail-overflow-entry')).toHaveCount(48)
