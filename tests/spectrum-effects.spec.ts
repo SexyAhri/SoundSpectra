@@ -48,7 +48,7 @@ const visiblePixels = (page: Page) => page.locator('.three-scene-surface canvas'
 })
 
 test('idle, obscured previews and offscreen previews stop drawing; quality remains saved', async ({ page }) => {
-  await page.goto('/')
+  await page.goto('/#scene')
   await expect(page.getByText('已保存到此浏览器')).toBeVisible()
   await selectChoice(page, '渲染性能', 'eco')
   await expect(page.getByText('已保存到此浏览器')).toBeVisible()

@@ -48,7 +48,8 @@ test("saved scenes reuse captures only when all parameters match regardless of k
 });
 
 test("unavailable static image falls back to a usable layout thumbnail", async ({ page }) => {
-  await page.route(/warm-sand.*\.webp/, (route) => route.abort());
+  await page.route(/warm-sand.*\.webp/, (route) =>
+    route.request().resourceType() === "image" ? route.abort() : route.continue());
   await openGallery(page);
   const card = page.getByRole("button", { name: /暖砂日常/ });
   await expect(card.locator("[data-thumbnail=layout]")).toHaveCount(1);

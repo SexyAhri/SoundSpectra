@@ -19,6 +19,7 @@ async function start(page: Page, items: SavedScene[] = [], recent = "quiet-mint"
   }, { settings: quiet, items, recent });
   await page.goto("/");
   await expect(page.locator(".startup-screen")).toHaveCount(0, { timeout: 10000 });
+  await page.getByRole("switch", { name: "演示动效" }).uncheck();
 }
 
 test("names follow the actual composition and only use matching recent identities", () => {
@@ -67,9 +68,13 @@ test("home identifies quiet scenes through demo, apply, undo and reload", async 
   await start(page);
   const name = page.locator(".atmosphere-scene-name");
   await expect(name).toHaveText("清浅专注");
-  await expect(page.locator(".atmosphere-status")).toHaveText("演示画面 · 音乐卡片模式");
   const settings = await page.evaluate(() => localStorage.getItem("soundspectra.settings.v1"));
+  await page.getByRole("switch", { name: "演示动效" }).check();
+  await expect(page.locator(".desktop-preview")).toHaveAttribute("data-scene-effect", "ripple");
+  await expect(name).toHaveText("自定义搭配");
+  await expect(page.locator(".atmosphere-status")).toContainText("演示画面");
   await page.getByRole("switch", { name: "演示动效" }).uncheck();
+  await expect(name).toHaveText("清浅专注");
   await expect(page.locator(".atmosphere-status")).toHaveText("音乐卡片模式");
   expect(await page.evaluate(() => localStorage.getItem("soundspectra.settings.v1"))).toBe(settings);
   await page.getByRole("button", { name: "场景收藏", exact: true }).click();
@@ -79,6 +84,7 @@ test("home identifies quiet scenes through demo, apply, undo and reload", async 
   await page.getByRole("button", { name: "撤销搭配" }).click();
   await expect(name).toHaveText("清浅专注");
   await page.reload();
+  await page.getByRole("switch", { name: "演示动效" }).uncheck();
   await expect(name).toHaveText("清浅专注");
 });
 
@@ -92,6 +98,7 @@ test("identical saved scenes update their name on apply, rename and deletion", a
   await page.getByRole("button", { name: "应用此场景", exact: true }).click();
   await expect(name).toHaveText("我的安静角落");
   await page.reload();
+  await page.getByRole("switch", { name: "演示动效" }).uncheck();
   await expect(name).toHaveText("我的安静角落");
   await page.evaluate(() => {
     const items = JSON.parse(localStorage.getItem("soundspectra.scene-library.v1")!);
@@ -110,6 +117,7 @@ test("identical saved scenes update their name on apply, rename and deletion", a
     localStorage.setItem("soundspectra.scene-last-used.v1", "broken");
   });
   await page.reload();
+  await page.getByRole("switch", { name: "演示动效" }).uncheck();
   await expect(name).toHaveText("清浅专注");
 });
 

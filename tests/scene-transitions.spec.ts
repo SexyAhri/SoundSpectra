@@ -42,6 +42,7 @@ test("rapid scene choices settle on the newest composition and do not save previ
 
 for (const theme of ["dark", "light"]) {
   test(`ambient frame follows the desktop instead of enclosing black bars in ${theme}`, async ({ page }) => {
+    await page.getByRole("switch", { name: "演示动效" }).uncheck();
     await page.evaluate((theme) => {
       document.documentElement.dataset.theme = theme;
       document.documentElement.classList.toggle("dark", theme === "dark");

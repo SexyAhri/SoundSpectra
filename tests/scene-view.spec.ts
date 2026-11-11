@@ -1,5 +1,5 @@
 import { chooseStyle } from './helpers/module-settings'
-import { settingsSection } from './helpers/module-settings'
+import { openDetails, settingsSection } from './helpers/module-settings'
 import { test, expect } from '@playwright/test'
 import { defaults, normalizeSettings } from '../src/features/spectrum/model'
 import { defaultSceneView, normalizeSceneView, rotateSceneView } from '../src/features/spectrum/three/view'
@@ -10,7 +10,7 @@ const saved = (page: import('@playwright/test').Page) => page.evaluate(() => JSO
 
 test('precise view sliders, presets and drift directions persist independently', async ({ page }) => {
   test.setTimeout(60000)
-  await page.goto('/')
+  await page.goto('/#scene')
   await chooseStyle(page, '灯效', '雪花飘舞')
   await settingsSection(page, '位置')
   await page.getByText('精细视角', { exact: true }).click()
@@ -34,13 +34,13 @@ test('precise view sliders, presets and drift directions persist independently',
   await expect.poll(async () => (await saved(page)).view).toEqual(defaultSceneView)
   await settingsSection(page, '动效')
   await settingsSection(page, '动效')
-  await page.getByText('造型细节', { exact: true }).click()
+  await openDetails(page, '造型细节')
   await page.getByRole('slider', { name: '飘雪风向', exact: true }).press('Home')
   await expect.poll(async () => (await saved(page)).music.rippleTwist).toBe(-1.5)
   await page.reload()
   await settingsSection(page, '动效')
   await settingsSection(page, '动效')
-  await page.getByText('造型细节', { exact: true }).click()
+  await openDetails(page, '造型细节')
   await expect(page.getByRole('slider', { name: '飘雪风向', exact: true })).toHaveAttribute('aria-valuenow', '-1.5')
   await expect.poll(async () => (await saved(page)).view).toEqual(defaultSceneView)
   await page.screenshot({ path: 'artifacts/snow-direction-controls.png' })
@@ -48,7 +48,7 @@ test('precise view sliders, presets and drift directions persist independently',
   await chooseStyle(page, '灯效', '晴空浮游')
   await settingsSection(page, '动效')
   await settingsSection(page, '动效')
-  await page.getByText('造型细节', { exact: true }).click()
+  await openDetails(page, '造型细节')
   await page.getByRole('slider', { name: '风向倾角', exact: true }).press('End')
   await expect.poll(async () => (await saved(page)).music.meteorAngle).toBe(45)
   await page.getByRole('button', { name: '恢复当前灯效参数', exact: true }).click()
@@ -72,7 +72,8 @@ test('view state is independent per region, survives export and keeps old scenes
 test('preview drag saves while held, supports controlled rotation, pan, roll, dolly and reload', async ({ page }) => {
   test.setTimeout(60000)
   await page.addInitScript(s => { if (!localStorage.getItem('soundspectra.settings.v1')) localStorage.setItem('soundspectra.settings.v1', JSON.stringify(s)) }, { ...defaults, effect: 'star_flight', bounds: { x: 0, y: 0, width: 1, height: 1 } })
-  await page.goto('/')
+  await page.goto('/#scene')
+  await page.locator('.startup-screen').waitFor({ state: 'hidden' })
   const canvas = page.locator('.three-scene-surface canvas')
   await expect(canvas).toHaveAttribute('data-renderer', 'three')
   const box = (await canvas.boundingBox())!, start = { x: box.x + box.width * .2, y: box.y + box.height * .4 }

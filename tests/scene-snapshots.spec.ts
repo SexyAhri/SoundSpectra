@@ -1,7 +1,8 @@
 import { expect, test, type Page, type Locator } from "@playwright/test";
 import { defaults } from "../src/features/spectrum/model";
 import { desktopPresets, scenePatch } from "../src/features/preview/desktop-scenes";
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
+import { extname, resolve, sep } from "node:path";
 
 const initial = { ...structuredClone(defaults), ...scenePatch(defaults, desktopPresets[0].scene),
   enabled: false, quality: "eco" as const, opacity: 63,
@@ -32,6 +33,8 @@ test("saving captures real effects, card and lyrics, persists on reload, and sur
   const errors: string[] = [];
   page.on("pageerror", error => errors.push(error.message));
   await manage(page);
+  await page.getByRole("switch", { name: "收藏模拟音频", exact: true }).check();
+  await expect(page.locator(".auto-scene-preview .kinetic-lyrics-canvas")).toHaveAttribute("data-fonts-ready", "true");
   await page.getByLabel("收藏名称").fill("窗边的金色夜晚");
   await page.getByRole("button", { name: "保存当前", exact: true }).click();
   await expect(page.getByRole("status")).toContainText("已保存搭配与画面缩略图", { timeout: 15000 });
@@ -173,15 +176,33 @@ test("replacing a scene cannot display a snapshot from a different revision", as
 
 test("snapshots work under the desktop resource policy and fit both themes and narrow windows", async ({ page }) => {
   const policy = JSON.parse(readFileSync("src-tauri/tauri.conf.json", "utf8")).app.security.csp;
+  const buildRoot = resolve("dist");
+  expect(existsSync(resolve(buildRoot, "index.html")),
+    "Run npm run build before testing the production resource policy").toBe(true);
+  const origin = new URL(page.url()).origin;
+  const types: Record<string, string> = {
+    ".html": "text/html", ".js": "text/javascript", ".css": "text/css",
+    ".woff2": "font/woff2", ".webp": "image/webp", ".png": "image/png",
+    ".jpg": "image/jpeg", ".svg": "image/svg+xml",
+  };
   const violations: string[] = [];
   page.on("console", message => {
     if (message.type() === "error" && /Content Security Policy|violates.*directive/i.test(message.text()))
       violations.push(message.text());
   });
+  // The production policy intentionally rejects Vite's inline refresh preamble.
+  // Exercise the real built entry and assets with that policy unchanged.
   await page.route("**/*", async route => {
-    if (route.request().resourceType() !== "document") return route.continue();
-    const response = await route.fetch();
-    await route.fulfill({ response, headers: { ...response.headers(), "content-security-policy": policy } });
+    const url = new URL(route.request().url());
+    if (url.origin !== origin) return route.continue();
+    const document = route.request().resourceType() === "document";
+    const asset = resolve(buildRoot, document ? "index.html" : `.${decodeURIComponent(url.pathname)}`);
+    if (!asset.startsWith(buildRoot + sep) || !existsSync(asset)) return route.continue();
+    await route.fulfill({
+      path: asset,
+      contentType: types[extname(asset)] ?? "application/octet-stream",
+      headers: document ? { "content-security-policy": policy } : {},
+    });
   });
   await page.reload();
   await expect(page.locator(".startup-screen")).toHaveCount(0, { timeout: 10000 });

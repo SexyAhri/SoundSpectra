@@ -187,7 +187,7 @@ test("interface fades preserve modal closing under both system motion preference
 test("rapid module navigation keeps the final destination after fading", async ({ page }) => {
   await page.emulateMedia({ reducedMotion: "no-preference" });
   await page.goto("/#scene");
-  await page.getByRole("button", { name: "音乐库", exact: true }).click();
+  await page.getByRole("button", { name: "壁纸", exact: true }).click();
   await page.getByRole("button", { name: "歌词", exact: true }).click();
   await expect(page.getByRole("heading", { name: "歌词动效", exact: true })).toBeVisible();
   await page.waitForTimeout(500);
