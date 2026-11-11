@@ -35,8 +35,11 @@ export async function chooseStyle(page: Page, module: string, name: string) {
 }
 
 export async function railSection(page: Page, section: string) {
-  const close = page.getByRole("button", { name: "关闭添加挂件", exact: true });
-  if (await close.count()) await close.click();
+  const dialog = page.locator('.module-add-dialog');
+  const openDialog = page.locator('.module-add-dialog[data-state="open"]');
+  if (await openDialog.count())
+    await openDialog.getByRole("button", { name: "关闭添加挂件", exact: true }).click();
+  await expect(dialog).toHaveCount(0);
   await page
     .getByRole("tab", {
       name: section === "布局" ? "位置" : "挂件",

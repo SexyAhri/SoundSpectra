@@ -19,10 +19,8 @@
   font-size: 12px;
 }
 
-@media (prefers-reduced-motion: no-preference) {
-  .desktop-preview[data-ready=true] {
-    animation: ui-fade-in var(--motion-fast) ease-out;
-  }
+.desktop-preview[data-ready=true] {
+  animation: ui-fade-in var(--motion-fast) ease-out;
 }
 
 .desktop-preview {

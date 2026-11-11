@@ -7,7 +7,7 @@ mkdirSync(output, { recursive: true })
 const browser = await chromium.launch({ channel: 'chrome', headless: true })
 const errors = []
 try {
-  const page = await browser.newPage({ viewport: { width: 1280, height: 1000 }, reducedMotion: 'reduce' })
+  const page = await browser.newPage({ viewport: { width: 1280, height: 1000 } })
   // Synthetic native capabilities expose the same enabled controls; no real player is contacted.
   await page.addInitScript(() => Object.assign(window, { isTauri: true, __TAURI_INTERNALS__: { invoke: () => Promise.resolve(null) } }))
   page.on('pageerror', error => errors.push(error.message))
@@ -16,7 +16,7 @@ try {
   await page.evaluate(() => document.fonts.ready)
   const capture = async path => {
     const box = await page.locator('#card-frame').boundingBox()
-    await page.screenshot({ path, clip: { x: box.x - 12, y: box.y - 12, width: box.width + 24, height: box.height + 24 } })
+    await page.screenshot({ path, clip: { x: box.x - 12, y: box.y - 12, width: box.width + 24, height: box.height + 24 }, animations: 'disabled' })
   }
   for (const variant of ['record', 'compact', 'afternoon', 'floating']) {
     for (const [name, width, height] of [['normal', 480, 152], ['small', 240, 80], ['large', 720, 220]]) {

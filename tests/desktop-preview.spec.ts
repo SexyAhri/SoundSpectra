@@ -70,7 +70,7 @@ async function mockDesktop(page: Page) {
 
 test('native wallpaper failure is recoverable and unchanged refresh retains the decoded image', async ({ page }) => {
   await mockDesktop(page)
-  await page.goto('/')
+  await page.goto('/#scene')
   await expect(page.getByRole('alert')).toContainText('壁纸文件无法读取')
   await expect(page.getByText('主屏幕 · 2560 × 1440')).toBeVisible()
   await page.evaluate(() => { (window as any).__wallpaperFailure = false })
@@ -92,7 +92,7 @@ test('native wallpaper failure is recoverable and unchanged refresh retains the 
 
 test('wallpaper changes refresh on return and while the preview stays open', async ({ page }) => {
   await mockDesktop(page)
-  await page.goto('/')
+  await page.goto('/#scene')
   await page.evaluate(() => { (window as any).__wallpaperFailure = false })
   await page.getByRole('button', { name: '刷新桌面壁纸' }).click()
   const wallpaper = page.getByTestId('preview-wallpaper')
@@ -106,10 +106,17 @@ test('wallpaper changes refresh on return and while the preview stays open', asy
 })
 
 test('drag, centered resize and keyboard changes persist while pointer cancellation discards the draft', async ({ page }) => {
-  await page.goto('/')
+  await page.goto('/#scene')
   await expect(page.getByText('已保存到此浏览器')).toBeVisible()
   await page.getByRole('button', { name: '布置', exact: true }).click()
   const area = page.locator('.desktop-preview'), effect = page.locator('.preview-spectrum')
+  await expect(area).toHaveAttribute('data-ready', 'true')
+  // Opening the arrangement toolbar changes the available preview height.
+  // Let ResizeObserver publish the fitted surface before calculating a drag.
+  await area.evaluate(async () => {
+    await document.fonts.ready
+    await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)))
+  })
   const rect = (await area.boundingBox())!, box = (await effect.boundingBox())!
   await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2)
   await page.mouse.down(); await page.mouse.move(box.x + box.width / 2 + rect.width * .06, box.y + box.height / 2 - rect.height * .12, { steps: 5 }); await page.mouse.up()
@@ -136,7 +143,7 @@ test('drag, centered resize and keyboard changes persist while pointer cancellat
 })
 
 test('reference image import survives reload, invalid images leave the previous choice intact', async ({ page }) => {
-  await page.goto('/')
+  await page.goto('/#scene')
   const png = await page.evaluate(() => { const c = document.createElement('canvas'); c.width = 800; c.height = 600; const ctx = c.getContext('2d')!; ctx.fillStyle = '#3a7f6b'; ctx.fillRect(0, 0, 800, 600); return c.toDataURL().split(',')[1] })
   const input = page.getByLabel('参考图片文件')
   await input.setInputFiles({ name: 'reference.png', mimeType: 'image/png', buffer: Buffer.from(png, 'base64') })
@@ -151,7 +158,7 @@ test('reference image import survives reload, invalid images leave the previous 
 
 test('desktop ratio and normalized effect bounds hold at short, narrow and expanded sizes', async ({ page }) => {
   for (const viewport of [{ width: 1280, height: 620 }, { width: 390, height: 844 }]) {
-    await page.setViewportSize(viewport); await page.goto('/')
+    await page.setViewportSize(viewport); await page.goto('/#scene')
     await expect(page.getByText('已保存到此浏览器')).toBeVisible()
     const check = async () => {
       const area = (await page.locator('.desktop-preview').boundingBox())!, effect = (await page.locator('.preview-spectrum').boundingBox())!

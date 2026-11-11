@@ -68,11 +68,6 @@
   90% { opacity: 0; transform: translate(var(--particle-drift), -7px) scale(1); }
 }
 
-@media (prefers-reduced-motion: reduce) {
-  .sound-wordmark-particles { display: none; }
-  .sound-wordmark-particles i { animation: none; }
-}
-
 @media (max-width: 480px) {
   .sound-wordmark {
     width: 140px;

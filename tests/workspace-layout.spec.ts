@@ -11,7 +11,7 @@ test("global editors have their own scope and preserve the selected effect regio
   page,
 }) => {
   await page.setViewportSize({ width: 1440, height: 940 });
-  await page.goto("/");
+  await page.goto("/#scene");
   await page.getByLabel("添加装饰区域", { exact: true }).click();
   await settingsSection(page, "外观");
   const before = await stored(page);
@@ -63,7 +63,6 @@ test("preview and transport stay visible while each inspector scrolls independen
 }) => {
   // Layout assertions do not need a 60 fps high-resolution scene. Keep a real
   // renderer while avoiding software-GPU saturation during repeated CI resizes.
-  await page.emulateMedia({ reducedMotion: "reduce" });
   await page.addInitScript(
     (settings) =>
       localStorage.setItem(
@@ -81,7 +80,7 @@ test("preview and transport stay visible while each inspector scrolls independen
     },
   );
   await page.setViewportSize({ width: 1440, height: 940 });
-  await page.goto("/");
+  await page.goto("/#scene");
   await expect
     .poll(() =>
       page
@@ -174,6 +173,7 @@ test("preview and transport stay visible while each inspector scrolls independen
     }
   }
   await page.getByRole("button", { name: "歌词", exact: true }).click();
+  await expect(page.getByRole("button", { name: "歌词", exact: true })).toHaveAttribute("aria-pressed", "true");
   expect(
     await page.locator(".inspector-scroll").evaluate((node) => node.scrollTop),
   ).toBeGreaterThan(0);

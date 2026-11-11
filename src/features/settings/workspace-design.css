@@ -6,10 +6,11 @@
   --ui-space: 8px;
   --ui-radius: 10px;
   --ui-line: color-mix(in srgb, var(--border) 65%, transparent);
+  --focus-width: 2px;
 }
 
 .studio-shell .workspace-nav .nav-button {
-  font-size: 11px;
+  font-size: var(--ui-caption);
   gap: 8px;
 }
 
@@ -48,7 +49,7 @@
 }
 
 .studio-shell .preview-corner {
-  font-size: 11px;
+  font-size: var(--ui-caption);
 }
 
 .studio-shell .inspector-heading {
@@ -164,7 +165,7 @@
 }
 
 .studio-shell .workspace-footer .source-status {
-  font-size: 11px;
+  font-size: var(--ui-caption);
 }
 
 .studio-shell .workspace-footer .inspector-performance {
@@ -863,7 +864,7 @@
   .studio-shell .workspace-mobile-nav .nav-button {
     flex-direction: column;
     gap: 5px;
-    font-size: 11px;
+    font-size: var(--ui-caption);
     min-height: 54px;
   }
 
@@ -901,9 +902,9 @@
 
   .studio-shell .save-status {
     max-width: 100px;
-    font-size: 11px;
-    overflow: hidden;
-    white-space: nowrap;
+    font-size: var(--ui-caption);
+    line-height: 1.4;
+    white-space: normal;
   }
 
   .studio-shell .topbar {
@@ -932,15 +933,7 @@
 
   .studio-shell .save-status {
     max-width: 100px;
-    font-size: 10px;
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-
-  .studio-shell *,
-  .auto-scene-dialog * {
-    scroll-behavior: auto !important;
+    font-size: var(--ui-caption);
   }
 }
 
@@ -984,6 +977,11 @@
 .studio-shell .preview-tools>button[aria-pressed="true"],
 .studio-shell .preview-tools>button[aria-checked="true"] {
   color: var(--primary);
+}
+
+.studio-shell .preview-tools>button:is([aria-pressed="true"], [aria-checked="true"]) {
+  background: var(--accent);
+  box-shadow: inset 0 -2px 0 var(--primary);
 }
 
 .studio-shell .preview-section>.section-toolbar .toolbar-button:hover:not(:disabled) {

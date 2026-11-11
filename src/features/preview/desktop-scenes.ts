@@ -8,6 +8,7 @@ import {
   type SpectrumSettings,
 } from "../spectrum/model";
 import { composition } from "./scene-suggestions";
+import { recommendedMusic } from "../spectrum/effect-presets";
 import type { SceneLayout } from "./scene-library";
 
 export interface DesktopScene {
@@ -95,20 +96,21 @@ export const desktopPresets = [
   {
     id: "warm-sand",
     name: "暖砂日常",
-    description: "温暖的小卡片，轻轻浮动的光",
+    description: "暖纸票根，蒲公英随音乐轻轻浮动",
     color: "#dfbd90",
     scene: desktopLayout({
       ...structuredClone(defaults),
       effect: "volume_rain",
       color: "#dfbd90",
-      opacity: 52,
-      glow: 18,
-      bounds: { x: 0.44, y: 0.56, width: 0.5, height: 0.34 },
-      music: { ...defaults.music, speed: 1 },
+      opacity: 62,
+      glow: 12,
+      bounds: { x: 0.4, y: 0.52, width: 0.56, height: 0.38 },
+      music: { ...recommendedMusic("volume_rain"), fieldPalette: "ember", speed: 1 },
       desktopCard: {
         enabled: true,
-        variant: "compact",
-        bounds: { x: 0.035, y: 0.81, width: 0.26, height: 0.13 },
+        variant: "afternoon",
+        accentColor: "#dfbd90",
+        bounds: { x: 0.04, y: 0.79, width: 0.27, height: 0.15 },
       },
       lyrics: { ...defaults.lyrics, enabled: false },
     }),
@@ -116,28 +118,29 @@ export const desktopPresets = [
   {
     id: "dusk-blue",
     name: "暮蓝听歌",
-    description: "清晰的歌词，随旋律舒展的蓝",
+    description: "歌词居中，蓝雪轻落在一旁",
     color: "#9bbdd4",
     scene: desktopLayout({
       ...structuredClone(defaults),
       effect: "ripple",
       color: "#9bbdd4",
-      opacity: 68,
-      glow: 25,
-      bounds: { x: 0.08, y: 0.6, width: 0.84, height: 0.3 },
-      music: { ...defaults.music, speed: 2 },
+      opacity: 48,
+      glow: 14,
+      bounds: { x: 0.36, y: 0.57, width: 0.6, height: 0.33 },
+      music: { ...recommendedMusic("ripple"), fieldPalette: "lake", speed: 1, rippleLights: 1, rippleTwist: 0.2 },
       desktopCard: {
         enabled: true,
         variant: "record",
-        bounds: { x: 0.035, y: 0.81, width: 0.26, height: 0.13 },
+        accentColor: "#9bbdd4",
+        bounds: { x: 0.04, y: 0.79, width: 0.27, height: 0.15 },
       },
       lyrics: {
         ...defaults.lyrics,
         enabled: true,
         motion: "stage",
-        fontSize: 44,
-        backgroundOpacity: 24,
-        bounds: { x: 0.12, y: 0.22, width: 0.76, height: 0.33 },
+        fontSize: 48,
+        backgroundOpacity: 18,
+        bounds: { x: 0.14, y: 0.2, width: 0.72, height: 0.32 },
       },
     }),
   },
@@ -156,7 +159,8 @@ export const desktopPresets = [
       desktopCard: {
         enabled: true,
         variant: "compact",
-        bounds: { x: 0.035, y: 0.84, width: 0.23, height: 0.1 },
+        accentColor: "#a6c3b5",
+        bounds: { x: 0.04, y: 0.83, width: 0.24, height: 0.11 },
       },
       lyrics: { ...defaults.lyrics, enabled: false },
       music: { ...defaults.music, speed: 0 },

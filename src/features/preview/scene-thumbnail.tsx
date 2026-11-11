@@ -1,8 +1,12 @@
-import type { CSSProperties } from "react";
+import { useState, type CSSProperties } from "react";
 import type { SceneLayout } from "./scene-library";
 import { EffectArtwork } from "../settings/effect-artwork";
 import { sceneRegions } from "../spectrum/regions";
 import { defaults, type SceneBounds } from "../spectrum/model";
+import { sceneThumbnailCapture } from "./scene-thumbnail-captures";
+import { sceneSignature } from "./scene-signature";
+import { useSceneSnapshot } from "./use-scene-snapshot";
+import "./scene-thumbnail.css";
 
 const position = (bounds: SceneBounds): CSSProperties => ({
   left: `${bounds.x * 100}%`,
@@ -11,12 +15,22 @@ const position = (bounds: SceneBounds): CSSProperties => ({
   height: `${bounds.height * 100}%`,
 });
 
-/** A lightweight composition map; live rendering stays in the large preview. */
-export function SceneThumbnail({ scene }: { scene: SceneLayout }) {
+/** Saved snapshots are tied to the exact saved revision; older scenes retain a layout map. */
+export function SceneThumbnail({ scene, savedId, updated }: { scene: SceneLayout; savedId?: string; updated?: number }) {
   const settings = { ...defaults, ...scene };
+  const snapshot = useSceneSnapshot(savedId, sceneSignature(scene), updated);
+  const capture = snapshot ?? sceneThumbnailCapture(scene);
+  const [failed, setFailed] = useState<string>();
+  if (capture && capture !== failed) return (
+    <span className="scene-thumbnail" data-thumbnail={snapshot ? "snapshot" : "capture"} aria-hidden="true">
+      <img className="scene-thumbnail-capture" src={capture} alt="" decoding="async"
+        onError={() => setFailed(capture)} />
+    </span>
+  );
   return (
     <span
       className="scene-thumbnail"
+      data-thumbnail="layout"
       aria-hidden="true"
       style={{ "--scene-tint": scene.color } as CSSProperties}
     >
@@ -56,6 +70,7 @@ export function SceneThumbnail({ scene }: { scene: SceneLayout }) {
           </span>
         </span>
       )}
+      <span className="scene-thumbnail-caption">布局示意</span>
     </span>
   );
 }

@@ -8,7 +8,7 @@
   border-radius: 8px;
   padding: 8px 11px;
   box-shadow: 0 5px 20px var(--shadow);
-  font-size: 12px;
+  font-size: 13px;
   line-height: 1.65;
   white-space: pre-line;
   overflow-wrap: anywhere;
@@ -253,17 +253,6 @@
   }
 }
 
-@media (prefers-reduced-motion: reduce) {
-
-  .studio-shell :is(button,
-    [data-slot="switch"],
-    [data-slot="switch-thumb"],
-    .app-tooltip) {
-    transition: none;
-    animation: none;
-  }
-}
-
 .module-live-candidate {
   position: relative;
   height: clamp(88px, 14dvh, 128px);
@@ -292,14 +281,13 @@
   position: absolute;
   bottom: 8px;
   left: 8px;
-  background: #15222bba;
-  color: #e9eeef;
+  background: var(--art-scrim);
+  color: var(--on-art);
   padding: 4px 7px;
   border-radius: 6px;
-  font-size: 11px;
+  font-size: 12px;
   pointer-events: none;
 }
-
 
 .wallpaper-composition-guides {
   position: absolute;

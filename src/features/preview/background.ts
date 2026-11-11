@@ -58,9 +58,26 @@ export async function decodePreview(url: string): Promise<PreviewImage> {
   const context = canvas.getContext("2d");
   if (!context) throw new Error("无法生成壁纸预览。");
   context.drawImage(image, 0, 0, canvas.width, canvas.height);
-  const preview = { url: canvas.toDataURL("image/webp", 0.94), width, height };
-  canvas.width = canvas.height = 1;
-  return preview;
+  try {
+    // WebP encoding can take hundreds of milliseconds for a desktop wallpaper.
+    // Keep it off the animation's synchronous path; retain the persisted format.
+    const blob = await new Promise<Blob>((resolve, reject) =>
+      canvas.toBlob(
+        value => value ? resolve(value) : reject(new Error("无法生成壁纸预览。")),
+        "image/webp",
+        0.94,
+      ),
+    );
+    const previewURL = await new Promise<string>((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(String(reader.result));
+      reader.onerror = () => reject(new Error("无法生成壁纸预览。"));
+      reader.readAsDataURL(blob);
+    });
+    return { url: previewURL, width, height };
+  } finally {
+    canvas.width = canvas.height = 1;
+  }
 }
 
 export async function readReference(file: File) {

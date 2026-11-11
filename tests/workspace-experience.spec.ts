@@ -11,8 +11,9 @@ async function openWorkspace(page: Page, patch: Record<string, unknown> = {}) {
   await page.addInitScript(settings => localStorage.setItem('soundspectra.settings.v1', JSON.stringify(settings)), {
     ...defaults, regionVisible: false, quality: 'eco', ...patch,
   })
-  await page.goto('/')
+  await page.goto('/#scene')
   await expect(page.getByText('已保存到此浏览器', { exact: true })).toBeVisible()
+  await expect(page.locator('.studio-shell')).not.toHaveAttribute('inert', '', { timeout: 15000 })
 }
 
 test('history groups a continuous adjustment, keeps live output and branches after undo', () => {

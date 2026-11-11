@@ -56,7 +56,7 @@ test.beforeEach(async ({ page }) => {
 })
 
 test('preview and cancel are isolated; apply, global edits and undo preserve the right settings', async ({ page }) => {
-  await page.goto('/'); await settled(page)
+  await page.goto('/#scene'); await settled(page)
   await page.getByRole('button', { name: '纯色预览背景' }).click()
   const before = await saved(page)
   await open(page)
@@ -95,7 +95,7 @@ test('preview and cancel are isolated; apply, global edits and undo preserve the
 })
 
 test('failed apply and failed undo leave committed scene intact and can retry', async ({ page }) => {
-  await page.goto('/'); await settled(page)
+  await page.goto('/#scene'); await settled(page)
   await page.getByRole('button', { name: '纯色预览背景' }).click()
   const before = await saved(page)
   await page.evaluate(() => {
@@ -125,7 +125,7 @@ test('failed apply and failed undo leave committed scene intact and can retry', 
 })
 
 test('unavailable wallpaper and read failure have recovery without changing the current scene', async ({ page }) => {
-  await page.goto('/'); await settled(page)
+  await page.goto('/#scene'); await settled(page)
   await page.getByRole('button', { name: '自动搭配', exact: true }).click()
   await expect(page.getByText('请先读取桌面壁纸或选择参考图片，也可以使用纯色背景。')).toBeVisible()
   await expect(page.getByRole('button', { name: '应用搭配', exact: true })).toBeDisabled()
@@ -148,7 +148,7 @@ test('unavailable wallpaper and read failure have recovery without changing the 
 })
 
 test('a slower old wallpaper cannot replace suggestions for the newly displayed wallpaper', async ({ page }) => {
-  await page.goto('/'); await settled(page)
+  await page.goto('/#scene'); await settled(page)
   const expected = analyzeWallpaper(wallpaper(false), 128, 72).suggestions[0].layers[0].bounds
   await page.evaluate(async ({ left, right }) => {
     const fixture = '/tests/fixtures/scene-probes.tsx'
@@ -209,7 +209,7 @@ test('scene commit queues behind earlier edits and a simultaneous close flush sa
       },
     }
   }, initial)
-  await page.goto('/')
+  await page.goto('/#scene')
   await page.evaluate(async () => {
     const path = '/tests/fixtures/scene-probes.tsx'
     const { mountSettingsProbe } = await import(path)
@@ -237,7 +237,7 @@ test('scene commit queues behind earlier edits and a simultaneous close flush sa
 for (const viewport of [{ width: 1440, height: 940 }, { width: 1000, height: 620 }, { width: 390, height: 700 }]) {
   test(`candidate previews render and controls stay reachable at ${viewport.width}`, async ({ page }) => {
     await page.setViewportSize(viewport)
-    await page.goto('/'); await settled(page)
+    await page.goto('/#scene'); await settled(page)
     await page.getByRole('button', { name: '纯色预览背景' }).click()
     const errors: string[] = []; page.on('pageerror', error => errors.push(error.message))
     await open(page)

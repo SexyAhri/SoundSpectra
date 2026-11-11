@@ -24,6 +24,8 @@ import {
   settlePreviewResize,
 } from "../../preview/resize-settling";
 import { PerformanceFrame, usePerformance } from "../../performance/runtime";
+import { sceneData } from "./scene-data";
+import { registerCanvasSnapshot } from "../canvas-snapshot";
 
 export function ThreeSceneCanvas({
   settings,
@@ -113,6 +115,7 @@ export function ThreeSceneCanvas({
       timer = 0,
       resizeTimer = 0,
       visibilityTimer = 0;
+    let releaseSnapshot = () => {};
     let stopped = false,
       onscreen = true,
       nativeVisible = true,
@@ -392,8 +395,7 @@ export function ThreeSceneCanvas({
             void visible();
           }
         }
-        const reduced = matchMedia("(prefers-reduced-motion: reduce)"),
-          budget = new FrameBudget();
+        const budget = new FrameBudget();
         let config = current.current.settings,
           signature = current.current.visualSignature,
           count = current.current.regionCount,
@@ -409,7 +411,7 @@ export function ThreeSceneCanvas({
           if (stopped) return;
           try {
             const next = current.current;
-            canvas.dataset.occluded = String(next.suspended);
+            sceneData(canvas, "occluded", String(next.suspended));
             if (next.suspended) {
               if (!occlusionDormant) motion.reset(true);
               occlusionDormant = true;
@@ -438,12 +440,7 @@ export function ThreeSceneCanvas({
               return;
             }
             dormant = false;
-            if (
-              !budget.due(
-                now,
-                reduced.matches ? 15 : budgets[next.settings.quality].fps,
-              )
-            ) {
+            if (!budget.due(now, budgets[next.settings.quality].fps)) {
               raf = requestAnimationFrame(draw);
               return;
             }
@@ -455,7 +452,7 @@ export function ThreeSceneCanvas({
               performanceCurrent.current,
               next.settings,
               regionCurrent.current,
-              reduced.matches,
+              false,
             );
             const effective = performanceResult.settings;
             if (
@@ -481,7 +478,7 @@ export function ThreeSceneCanvas({
             }
             config = performanceResult.settings;
             const audio = next.demo
-              ? demoAnalysis(reduced.matches ? 1 : now / 1000)
+              ? demoAnalysis(now / 1000)
               : analysis &&
                   analysis.current.receivedAt > 0 &&
                   now - analysis.current.receivedAt < 350
@@ -497,21 +494,18 @@ export function ThreeSceneCanvas({
               sourceGeneration = timeline.generation;
               dirty = true;
             }
-            const shared =
-              next.demo && !reduced.matches
-                ? demoFeatures(now, config.music)
-                : !next.demo
-                  ? timeline?.sample(now, config.music)
-                  : null;
-            motion.step(audio, dt, config.music, reduced.matches, shared);
-            canvas.dataset.transporting = String(motion.transporting);
+            const shared = next.demo
+              ? demoFeatures(now, config.music)
+              : timeline?.sample(now, config.music);
+            motion.step(audio, dt, config.music, false, shared);
+            sceneData(canvas, "transporting", String(motion.transporting));
             // Do not clear or reset the scene: CSS retains the last frame while
             // native presentation changes size, and transport still follows audio.
             const paused =
               !desktop && (previewResizePending(now) || resizePending);
             if (resizePaused !== paused) dirty = true;
             resizePaused = paused;
-            canvas.dataset.resizePaused = String(paused);
+            sceneData(canvas, "resizePaused", String(paused));
             const silent = motion.presence < 0.0001;
             let rendered = true;
             if (
@@ -527,7 +521,7 @@ export function ThreeSceneCanvas({
                   view.current === config.view
                   ? config
                   : { ...config, view: view.current },
-                reduced.matches,
+                false,
                 dt,
                 focus?.current,
                 paused,
@@ -547,9 +541,9 @@ export function ThreeSceneCanvas({
             wasSilent = silent;
             dirty = paused || !rendered;
             if (++frames % 6 === 0) {
-              canvas.dataset.rms = audio.rms.toFixed(4);
-              canvas.dataset.drops = String(motion.musicDropCount);
-              canvas.dataset.ripples = String(motion.ripples.length);
+              sceneData(canvas, "rms", audio.rms.toFixed(4));
+              sceneData(canvas, "drops", String(motion.musicDropCount));
+              sceneData(canvas, "ripples", String(motion.ripples.length));
             }
             if (motion.presence < 0.0001 && !next.demo) later(100);
             else raf = requestAnimationFrame(draw);
@@ -563,6 +557,15 @@ export function ThreeSceneCanvas({
           clearTimeout(timer);
           raf = requestAnimationFrame(draw);
         };
+        releaseSnapshot = registerCanvasSnapshot(canvas, () => {
+          if (stopped || resizePending || current.current.suspended)
+            throw new Error("场景还未准备好");
+          const result = performanceFrame.resolve(performanceCurrent.current,
+            current.current.settings, regionCurrent.current, false);
+          const config = { ...result.settings, view: view.current };
+          if (!world!.draw(motion, config, false, 0, focus?.current, false, result) ||
+            canvas.dataset.transition !== "idle") throw new Error("场景还未准备好");
+        });
         canvas.dataset.renderer = "three";
         raf = requestAnimationFrame(draw);
       } catch (error) {
@@ -572,6 +575,7 @@ export function ThreeSceneCanvas({
     // StrictMode's probe cleanup runs before allocation, so one DOM canvas owns one root.
     queueMicrotask(initialize);
     return () => {
+      releaseSnapshot();
       stopped = true;
       wake.current = undefined;
       cancelAnimationFrame(raf);

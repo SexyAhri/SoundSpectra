@@ -147,6 +147,7 @@ export function rememberScene(id: string, name: string) {
     "soundspectra.scene-last-used.v1",
     JSON.stringify({ id, name }),
   );
+  window.dispatchEvent(new Event("scene-last-used-changed"));
 }
 export function recoverLibrary() {
   const raw = localStorage.getItem(libraryKey);

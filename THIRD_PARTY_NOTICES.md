@@ -10,6 +10,10 @@ Frontend runtime license texts from the installed, locked npm packages are colle
 
 The folded-curtain lyric renderer and its isolated experiment use Anime.js 4.5.0 (MIT), Copyright (c) 2025 Julian Garnier. Its complete notice is in `licenses/animejs-MIT.txt`.
 
+Saved scene thumbnails use html-to-image 1.11.13 (MIT), Copyright (c) 2017-2025 W.Y. Its complete notice is in `licenses/html-to-image-MIT.txt`.
+
+The preview-only composition in `src/assets/demo-scene/` includes wallpaper, photographs and application icons from the project author's supplied reference and local demonstration assets. They retain their respective owners' rights; source and usage notes are in that directory's README. No local executable paths or account data are bundled with the composition.
+
 The GitHub mark in `src/assets/github-mark.svg` is from GitHub's Primer Octicons (`icons/mark-github-16.svg`), Copyright (c) 2026 GitHub Inc., MIT. The complete notice is in `licenses/github-octicons-MIT.txt`.
 
 Windows clipboard image import uses `arboard` 3.7.0 (MIT OR Apache-2.0), Copyright (c) 2022 The Arboard contributors. Its MIT notice is in `licenses/arboard-MIT.txt`.
@@ -56,7 +60,7 @@ The previously bundled two-dimensional fluid solver has been removed from the so
 
 Noto Sans SC Variable and Noto Serif SC Variable (5.3.1), distributed through Fontsource, are bundled locally for lyric typography. Copyright belongs to the Noto Project Authors. Licensed under SIL Open Font License 1.1; full notices are in `licenses/noto-sans-sc-OFL.txt` and `licenses/noto-serif-sc-OFL.txt`. Font files are unmodified.
 
-The music library also uses the existing rusqlite / bundled SQLite dependency for account-scoped metadata and paused playback restoration. No cookies or signed playback addresses are stored in that database.
+The music library also uses the existing rusqlite / bundled SQLite dependency for account-scoped metadata and playback restoration. No cookies or signed playback addresses are stored in that database.
 
 Optional music loudness measurement uses Symphonia 0.5.5 and its codec/format crates (MPL-2.0, Copyright (c) the Symphonia Project Developers) and ebur128 0.1.11 (MIT, Copyright (c) 2011 Jan Kokemüller and (c) 2020 Sebastian Dröge). Complete texts are in `licenses/MPL-2.0.txt` and `licenses/ebur128-MIT.txt`. Symphonia sources are unmodified and available at https://github.com/pdeljanov/Symphonia/tree/v0.5.5 and the corresponding crates.io source packages; locked dependency versions are recorded in Cargo.lock. SoundSpectra's analysis worker is independent project code.
 

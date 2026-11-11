@@ -34,7 +34,7 @@ test('desktop scene format protects private settings and keeps legacy exchange c
 })
 
 test('complete scene previews, failed saves, retry, undo and reload preserve personal state', async ({ page }) => {
-  await page.goto('/'); await settled(page)
+  await page.goto('/#scene'); await settled(page)
   await open(page)
   await page.getByRole('button', { name: /暮蓝听歌/ }).click()
   expect(await saved(page)).toEqual(initial)
@@ -58,6 +58,7 @@ test('complete scene previews, failed saves, retry, undo and reload preserve per
   await open(page)
   await expect(page.getByLabel('收藏名称')).toHaveValue('暮蓝听歌')
   await page.getByRole('button', { name: '另存为', exact: true }).click()
+  await expect(page.getByRole('dialog').locator('.auto-scene-footer [role="status"]')).toContainText('已保存', { timeout: 15000 })
   const collection = await page.evaluate(() => JSON.parse(localStorage.getItem('soundspectra.scene-library.v1')!))
   expect(collection[0].scene).toEqual(desktopPresets[1].scene)
   await page.getByRole('button', { name: '应用此场景', exact: true }).click(); await settled(page)
@@ -70,7 +71,7 @@ test('complete scene previews, failed saves, retry, undo and reload preserve per
 for (const theme of ['light', 'dark']) for (const viewport of [{ width: 1440, height: 940 }, { width: 1000, height: 620 }, { width: 390, height: 700 }]) {
   test(`featured schemes fit ${theme} at ${viewport.width}`, async ({ page }) => {
     await page.setViewportSize(viewport)
-    await page.goto('/'); await settled(page)
+    await page.goto('/#scene'); await settled(page)
     await page.evaluate(theme => {
       document.documentElement.dataset.theme = theme
       document.documentElement.classList.toggle('dark', theme === 'dark')
@@ -98,7 +99,7 @@ for (const theme of ['light', 'dark']) for (const viewport of [{ width: 1440, he
 
 test('cover colors ignore stale decoding, cache artwork, recover and never persist songs', async ({ page }) => {
   await page.emulateMedia({ reducedMotion: 'reduce' })
-  await page.goto('/'); await settled(page)
+  await page.goto('/#scene'); await settled(page)
   await page.evaluate(async () => {
     const path = '/tests/fixtures/cover-probe.tsx'
     const { mountCoverProbe } = await import(path)
@@ -128,6 +129,7 @@ test('cover colors ignore stale decoding, cache artwork, recover and never persi
   await expect.poll(() => page.evaluate(() => typeof (window as any).__releaseOld)).toBe('function')
   await page.evaluate(() => { const a = window as any; a.__coverProbe.change({ cover: a.__art.fresh }) })
   await expect.poll(async () => (await state()).available).toBe(true)
+  await expect.poll(async () => { const value = await state(); return value.color === value.target }).toBe(true)
   const fresh = (await state()).color
   expect(fresh).not.toEqual(initial.color)
   await page.evaluate(() => (window as any).__releaseOld())
@@ -156,7 +158,7 @@ test('cover colors ignore stale decoding, cache artwork, recover and never persi
 
 test('ordinary cover transitions ease into a color and stop rendering after settling', async ({ page }) => {
   await page.emulateMedia({ reducedMotion: 'no-preference' })
-  await page.goto('/'); await settled(page)
+  await page.goto('/#scene'); await settled(page)
   await page.evaluate(async () => {
     const path = '/tests/fixtures/cover-probe.tsx'
     const { mountCoverProbe } = await import(path)

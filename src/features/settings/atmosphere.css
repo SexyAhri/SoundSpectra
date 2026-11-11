@@ -1,0 +1,41 @@
+/* The listening surface keeps the scene prominent; editing retains its own layout. */
+.workspace-edit-actions[hidden] { display: none; }
+.studio-shell.atmosphere-shell { height: 100dvh; overflow: hidden; }
+.atmosphere-shell .workspace-shell { min-width: 0; min-height: 0; }
+.studio-shell.atmosphere-shell .topbar { background: var(--background); border-bottom: 0; padding-inline: 24px 12px; }
+.atmosphere-navigation { display: flex; align-items: center; gap: 8px; }
+.atmosphere-navigation button, .back-to-atmosphere { font-size: 12px; color: var(--muted-foreground); }
+.atmosphere-shell .application-actions .mobile-settings { display: inline-grid; }
+.atmosphere-shell .save-status[hidden] { display: none; }
+.studio-shell.atmosphere-shell .main-pane { padding: 12px 24px 0; }
+.atmosphere-preview > .preview-stage-holder { background: transparent; }
+.studio-shell.atmosphere-shell .desktop-preview { border: 0; border-radius: 0; box-shadow: none; background: var(--art-background); }
+.studio-shell.atmosphere-shell .atmosphere-preview .desktop-preview,
+.atmosphere-preview-dialog .desktop-preview { border-radius: 14px; overflow: hidden; }
+.atmosphere-preview .preview-corner, .atmosphere-preview-dialog .preview-corner { display: none; }
+.atmosphere-preview .region-edit-label { display: none; }
+.atmosphere-controls { display: flex; align-items: center; justify-content: space-between; gap: 24px; padding: 10px 4px; flex-shrink: 0; }
+.atmosphere-context { display: flex; min-width: 0; flex-wrap: wrap; align-items: center; column-gap: 10px; row-gap: 2px; font-size: 12px; line-height: 1.5; }
+.atmosphere-scene-name { margin: 0; max-width: 100%; overflow-wrap: anywhere; font-size: 13px; font-weight: 500; color: var(--primary); }
+.atmosphere-status { display: flex; align-items: baseline; gap: 10px; color: var(--muted-foreground); }
+.atmosphere-status::before { content: ""; width: 3px; height: 3px; flex-shrink: 0; align-self: center; border-radius: 50%; background: currentColor; opacity: .5; }
+.atmosphere-status[data-error] { color: var(--destructive); }
+.atmosphere-actions { display: flex; align-items: center; gap: 10px; flex-shrink: 0; }
+.atmosphere-actions button { font-size: 12px; }
+.atmosphere-actions [role="switch"][aria-checked="true"] { color: var(--primary); background: var(--accent); }
+.atmosphere-shell .music-global-dock { border-top: 1px solid var(--border); }
+.atmosphere-shell .scene-feedback { margin-bottom: 8px; }
+@media (max-width: 760px) {
+  .studio-shell.atmosphere-shell .workspace-shell { height: 100%; overflow: hidden; }
+  .studio-shell.atmosphere-shell .workspace-body { flex: 1; min-height: 0; overflow: hidden; }
+  .studio-shell.atmosphere-shell .main-pane { flex: 1; padding: 8px 12px 0; overflow: auto; }
+  .atmosphere-shell .main-pane > .preview-section { display: flex; flex: 1; min-height: 0; }
+  .studio-shell.atmosphere-shell .topbar { padding-inline: 12px 8px; height: auto; min-height: 54px; flex-wrap: wrap; gap: 4px; }
+  .atmosphere-shell .topbar-actions { flex-wrap: wrap; justify-content: flex-end; }
+  .atmosphere-navigation { gap: 0; }
+  .atmosphere-navigation button { padding-inline: 8px; }
+  .atmosphere-controls { flex-wrap: wrap; gap: 10px; padding: 12px 2px; }
+  .atmosphere-context { width: 100%; }
+  .atmosphere-actions { flex-wrap: wrap; gap: 8px; }
+  .atmosphere-shell .atmosphere-preview > .preview-stage-holder { flex: 1; min-height: 180px; }
+}

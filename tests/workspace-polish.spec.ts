@@ -16,7 +16,11 @@ test.beforeEach(async ({ page }) => {
 test("inspector resizes with the keyboard and remembers collapse and width", async ({
   page,
 }) => {
-  await page.goto("/");
+  await page.goto("/#scene");
+  // Keyboard input cannot reach the workspace while the startup cover owns it.
+  await expect(page.locator(".app-shell")).not.toHaveAttribute("inert", "", {
+    timeout: 15000,
+  });
   const handle = page.getByRole("separator", { name: "属性栏宽度" });
   await handle.focus();
   await handle.press("ArrowLeft");
@@ -48,7 +52,7 @@ test("precise values round to the step, clamp, cancel and reset once", async ({
   `,
     }),
   );
-  await page.goto("/");
+  await page.goto("/#scene");
   const edit = page.getByRole("button", { name: "编辑精度数值" });
   const input = page.getByRole("spinbutton", { name: "精度精确值" });
   await edit.click();
@@ -80,7 +84,7 @@ test("precise values round to the step, clamp, cancel and reset once", async ({
 test("preview position locks block keyboard movement and restore after reload", async ({
   page,
 }) => {
-  await page.goto("/");
+  await page.goto("/#scene");
   await page.getByRole("button", { name: "布置", exact: true }).click();
   await page.getByText("对象与图层", { exact: false }).click();
   const firstLock = page.getByRole("button", {
@@ -163,7 +167,7 @@ test("preview actions remain visible as borderless icons with hover and keyboard
   await expect(page.getByRole("tooltip")).toContainText("完成构图");
 });
 
-test("interface transitions preserve modal closing and respect reduced motion", async ({ page }) => {
+test("interface fades preserve modal closing under both system motion preferences", async ({ page }) => {
   await page.emulateMedia({ reducedMotion: "no-preference" });
   await page.goto("/#wallpaper");
   await expect(page.locator(".global-inspector-scroll")).toHaveCSS("animation-name", "ui-fade-in");
@@ -175,14 +179,14 @@ test("interface transitions preserve modal closing and respect reduced motion", 
   await expect(page.getByRole("button", { name: "使用指南", exact: true })).toBeFocused();
   await page.emulateMedia({ reducedMotion: "reduce" });
   await page.getByRole("button", { name: "使用指南", exact: true }).click();
-  await expect(dialog).toHaveCSS("animation-name", "none");
+  await expect(dialog).toHaveCSS("animation-name", "ui-fade-in");
   await page.keyboard.press("Escape");
   await expect(dialog).toBeHidden();
 });
 
 test("rapid module navigation keeps the final destination after fading", async ({ page }) => {
   await page.emulateMedia({ reducedMotion: "no-preference" });
-  await page.goto("/");
+  await page.goto("/#scene");
   await page.getByRole("button", { name: "音乐库", exact: true }).click();
   await page.getByRole("button", { name: "歌词", exact: true }).click();
   await expect(page.getByRole("heading", { name: "歌词动效", exact: true })).toBeVisible();
@@ -215,11 +219,17 @@ test("module scrolling and expanded groups survive page switches", async ({
     expect(before).toBeGreaterThan(0);
     expect((await tabs.boundingBox())!.y).toBe(tabTop);
     await page.getByRole("tab", { name: "外观", exact: true }).click();
+    await expect(page.getByRole("tab", { name: "外观", exact: true }))
+      .toHaveAttribute("aria-selected", "true");
     await page.getByRole("tab", { name: "同步与位置", exact: true }).click();
+    await expect(page.getByRole("tab", { name: "同步与位置", exact: true }))
+      .toHaveAttribute("aria-selected", "true");
     await expect
       .poll(() => pane.evaluate((node) => node.scrollTop))
       .toBe(before);
     await page.getByRole("button", { name: "音乐卡片", exact: true }).click();
+    await expect(page.getByRole("button", { name: "更换卡片样式", exact: true }))
+      .toBeVisible();
     await page.getByRole("button", { name: "歌词", exact: true }).click();
     await expect(
       page.getByRole("tab", { name: "同步与位置", exact: true }),
@@ -255,7 +265,7 @@ test("music provider shares one polling loop across consumers and navigation", a
   `,
     }),
   );
-  await page.goto("/");
+  await page.goto("/#scene");
   await expect(page.locator("output")).toHaveCount(2);
   expect(await page.evaluate(() => (window as any).reads)).toBe(1);
   await page.clock.runFor(1301);
@@ -288,7 +298,7 @@ test("card style previews show the supplied timeline and recover from a broken c
     `,
     }),
   );
-  await page.goto("/");
+  await page.goto("/#scene");
   await expect(page.locator(".mc-title")).toHaveText("当前歌曲");
   await expect(page.locator(".mc-kicker")).toContainText("已暂停");
   await expect(page.locator(".mc-time")).toHaveText("1:01 / 4:20");
@@ -313,7 +323,7 @@ test("module style panels stay inside their page without blocking preview or mov
   page,
 }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
-  await page.goto("/");
+  await page.goto("/#scene");
   for (const [module, label] of [
     ["灯效", "灯效"],
     ["歌词", "歌词编排"],

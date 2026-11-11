@@ -5,6 +5,7 @@ import {
   useCallback,
   useEffect,
   useLayoutEffect,
+  useMemo,
   useRef,
   useState,
   type KeyboardEvent,
@@ -89,8 +90,13 @@ import { previewObjectActions } from "./preview-object-actions";
 import { railObstacles } from "../lyrics/avoid-rail";
 import { railPlacementActions } from "../rail/rail-placement-actions";
 import { SceneFocusProvider } from "../spectrum/scene-focus";
+import { AtmosphereControls } from "./atmosphere-controls";
+import { useSceneTransition } from "./use-scene-transition";
+import { demoSceneSettings, demoWallpaper, demoBackground, demoRail, demoRailMedia } from "./demo-scene";
+import { RailMediaSources } from "../rail/rail-media";
 
 interface Props {
+  presentation?: "editor" | "ambient";
   settings: SpectrumSettings;
   update: SettingsUpdate;
   commitScene: (patch: Partial<SceneLayout>) => Promise<SpectrumSettings>;
@@ -103,6 +109,7 @@ interface Props {
   audioState?: string;
   disabled: boolean;
   active: boolean;
+  suspended?: boolean;
   ready: boolean;
   selectedRegion: string;
   onSelectRegion: (id: string) => void;
@@ -140,8 +147,14 @@ interface StageProps extends Props {
 }
 
 function PreviewStage(props: StageProps) {
+  const holder = useRef<HTMLDivElement>(null),
+    surface = useRef<HTMLDivElement>(null);
+  const settings = useSceneTransition(
+    props.settings,
+    props.presentation === "ambient" || !!props.viewPreviewOnly,
+    surface,
+  );
   const {
-    settings,
     update,
     screen,
     desktop,
@@ -156,11 +169,20 @@ function PreviewStage(props: StageProps) {
     props.active,
   );
   const selectedObject = props.selection;
+  // Event callbacks use the latest navigation without invalidating the rail's memo.
+  const selectCurrent = useRef(props.selectObject);
+  selectCurrent.current = props.selectObject;
   const selectRail = useCallback(
     (groupId: string, itemId?: string) => {
-      props.selectObject(`rail:${groupId}`, itemId);
+      selectCurrent.current(`rail:${groupId}`, itemId);
     },
-    [arranging, props.onSelectRail, props.selectObject],
+    [],
+  );
+  const lockedRails = useMemo(
+    () => props.locks
+      .filter((key) => key.startsWith("rail:"))
+      .map((key) => key.slice(5)),
+    [props.locks],
   );
   const selectObject = props.selectObject;
   const menu =
@@ -179,8 +201,6 @@ function PreviewStage(props: StageProps) {
     height: screen.height / window.devicePixelRatio,
   };
   const obstacles = railObstacles(props.rail?.settings, logicalScreen);
-  const holder = useRef<HTMLDivElement>(null),
-    surface = useRef<HTMLDivElement>(null);
   const [size, setSize] = useState({ width: 0, height: 0 });
   const [fitted, setFitted] = useState(false);
   const [draft, setDraft] = useState<{ region: string; bounds: Bounds } | null>(
@@ -374,7 +394,7 @@ function PreviewStage(props: StageProps) {
     count = Math.max(1, regions.filter((region) => region.visible).length);
   return (
     <SceneFocusProvider>
-      <div className="preview-stage-holder" ref={holder}>
+      <div className="preview-stage-holder" ref={holder} data-ambient={props.presentation === "ambient" || undefined}>
         {(!props.ready || !fitted) && <span className="preview-loading" role="status">正在准备预览…</span>}
         <ContextMenu
           {...menu}
@@ -390,6 +410,7 @@ function PreviewStage(props: StageProps) {
           <div
             className={`desktop-preview${arranging ? " arranging" : ""}`}
             data-ready={props.ready && fitted}
+            data-scene-effect={settings.effect}
             aria-hidden={!props.ready || !fitted || undefined}
             ref={surface}
             style={{
@@ -457,7 +478,7 @@ function PreviewStage(props: StageProps) {
                 return (
                   <div
                     key={region.id}
-                    className={`preview-spectrum${selected ? " selected" : ""}${selected && regions.length > 1 && !arranging && !props.viewPreviewOnly ? " region-edit-target" : ""}${region.visible ? "" : " region-hidden"}`}
+                    className={`preview-spectrum${selected ? " selected" : ""}${selected && regions.length > 1 && !arranging && !props.viewPreviewOnly && props.presentation !== "ambient" ? " region-edit-target" : ""}${region.visible ? "" : " region-hidden"}`}
                     data-region-id={region.id}
                     data-preview-object={`effect:${region.id}`}
                     data-selected={
@@ -501,8 +522,10 @@ function PreviewStage(props: StageProps) {
                         analysis={props.analysis}
                         demo={props.demo}
                         active={props.active}
+                        suspended={props.suspended}
                         interactive={
                           !disabled &&
+                          props.presentation !== "ambient" &&
                           !arranging &&
                           !props.masking &&
                           selected &&
@@ -607,6 +630,7 @@ function PreviewStage(props: StageProps) {
                 selected={selectedObject === "lyrics"}
                 draggable={
                   !disabled &&
+                  props.presentation !== "ambient" &&
                   !props.masking &&
                   !props.viewPreviewOnly &&
                   !props.locks.includes("lyrics")
@@ -640,11 +664,10 @@ function PreviewStage(props: StageProps) {
             )}
             {props.rail && !props.viewPreviewOnly && (
               <RailLayer
+                active={props.active}
                 desktopWidth={logicalScreen.width}
                 controller={props.rail}
-                locked={props.locks
-                  .filter((key) => key.startsWith("rail:"))
-                  .map((key) => key.slice(5))}
+                locked={lockedRails}
                 selected={
                   arranging
                     ? selectedObject.startsWith("rail:")
@@ -654,7 +677,7 @@ function PreviewStage(props: StageProps) {
                 }
                 arranging={arranging && !disabled}
                 editing={!!props.railEditing && !disabled}
-                interactive={!props.masking && !disabled}
+                interactive={!props.masking && !disabled && props.presentation !== "ambient"}
                 onSelect={selectRail}
               />
             )}
@@ -728,7 +751,7 @@ function PreviewStage(props: StageProps) {
           </div>
         </ContextMenu>
       </div>
-      {!props.viewPreviewOnly && (
+      {!props.viewPreviewOnly && props.presentation !== "ambient" && (
         <CoverColorControl
           settings={settings}
           display={colors.settings}
@@ -743,6 +766,18 @@ function PreviewStage(props: StageProps) {
 }
 
 export function DesktopPreview(props: Props) {
+  const ambient = props.presentation === "ambient";
+  const previewingDemo = ambient && props.demo;
+  const previewSettings = useMemo(
+    () => previewingDemo ? demoSceneSettings(props.settings) : props.settings,
+    [previewingDemo, props.settings],
+  );
+  const previewRail = useMemo(
+    () => previewingDemo && props.rail ? {
+      ...props.rail, settings: demoRail, loaded: true, pending: 0, missing: [], error: null,
+    } : props.rail,
+    [previewingDemo, props.rail],
+  );
   const background = useBackground();
   const wallpaper = props.settings.wallpaperDepth;
   const custom = useDepthImage(
@@ -768,6 +803,7 @@ export function DesktopPreview(props: Props) {
       setSelection(`effect:${props.selectedRegion}`);
   }, [props.activePanel, props.selectedRegion]);
   const selectObject = (key: string, itemId?: string) => {
+    if (ambient) return;
     setSelection(key);
     if (key === "lyrics") props.onEditLyrics?.();
     else if (key === "card") props.onEditCard?.();
@@ -778,12 +814,19 @@ export function DesktopPreview(props: Props) {
   };
   const [masking, setMasking] = useState(false),
     [selectedMask, selectMask] = useState<string | null>(null);
+  useEffect(() => {
+    if (ambient) {
+      setArranging(false);
+      setMasking(false);
+    }
+  }, [ambient]);
   const [autoOpen, setAutoOpen] = useState(false);
   const autoTrigger = useRef<HTMLButtonElement>(null);
   const [libraryOpen, setLibraryOpen] = useState(false);
   const libraryTrigger = useRef<HTMLButtonElement>(null);
   useEffect(() => {
     if (props.libraryRequest) {
+      if (ambient) props.onDemoChange(false);
       setExpanded(false);
       setAutoOpen(false);
       setLibraryOpen(true);
@@ -840,10 +883,11 @@ export function DesktopPreview(props: Props) {
       });
     }
   };
-  const applySavedScene = async (scene: SceneLayout) => {
+  const applySavedScene = async (scene: SceneLayout, name?: string) => {
     const capture = scene.desktop ? desktopLayout : layout;
     const before = capture(props.settings);
     const saved = await props.commitScene(scene);
+    if (ambient) props.onDemoChange(false);
     setHistory({
       before,
       after: JSON.stringify(capture(saved)),
@@ -853,7 +897,7 @@ export function DesktopPreview(props: Props) {
     props.onSelectRegion("primary");
     setArranging(false);
     setMasking(false);
-    setSceneNotice({ text: "收藏场景已应用，可撤销。", error: false });
+    setSceneNotice({ text: name ? `「${name}」已应用，可撤销。` : "收藏场景已应用，可撤销。", error: false });
   };
   const undoScene = async () => {
     if (!history || !canUndo || undoing || props.disabled) return;
@@ -876,6 +920,7 @@ export function DesktopPreview(props: Props) {
     apply: applySavedScene,
     show: () => props.onShow?.(),
     open: () => {
+      if (ambient) props.onDemoChange(false);
       setExpanded(false);
       setAutoOpen(false);
       setLibraryOpen(true);
@@ -894,10 +939,10 @@ export function DesktopPreview(props: Props) {
     }
   }, [props.arrangeRequest]);
   const fileInput = useRef<HTMLInputElement>(null);
-  const screen = background.desktop?.screen ?? referenceScreen;
+  const screen = previewingDemo ? demoBackground.screen : background.desktop?.screen ?? referenceScreen;
   const systemPreview = props.wallpaperEditing || background.mode === "desktop";
   const image =
-    wallpaper.source === "custom"
+    previewingDemo ? demoWallpaper : wallpaper.source === "custom"
       ? custom.image
         ? {
             url: custom.image.dataUrl,
@@ -909,7 +954,7 @@ export function DesktopPreview(props: Props) {
         ? background.systemImage
         : background.image;
   const desktop =
-    wallpaper.source === "custom"
+    previewingDemo ? demoBackground : wallpaper.source === "custom"
       ? customWallpaperBackground(wallpaper, screen)
       : systemPreview
         ? background.desktop
@@ -923,19 +968,23 @@ export function DesktopPreview(props: Props) {
           (background.mode === "custom" && !!background.image);
   const stageProps: StageProps = {
     ...props,
+    settings: previewSettings,
+    rail: previewRail,
+    selectedRail: previewingDemo ? "demo-vscode" : props.selectedRail,
     selection,
     locks,
-    wallpaperGuides,
+    wallpaperGuides: wallpaperGuides && !ambient,
+    railEditing: props.railEditing && !ambient,
     selectObject,
     screen,
     desktop,
     image,
-    arranging: arranging && !props.disabled,
+    arranging: arranging && !props.disabled && !ambient,
     expanded,
-    masking: masking && !props.disabled,
+    masking: masking && !props.disabled && !ambient,
     selectedMask: maskSelection,
     onSelectMask: selectMask,
-    ready: props.ready && (!native || !!background.desktop || !!background.error),
+    ready: props.ready && (previewingDemo || !native || !!background.desktop || !!background.error),
     active: props.active && props.ready,
   };
   const status =
@@ -950,7 +999,7 @@ export function DesktopPreview(props: Props) {
         : background.mode === "custom" && !background.image
           ? "请选择参考图片。"
           : null;
-  const stage = <PreviewStage {...stageProps} />;
+  const stage = <RailMediaSources value={previewingDemo ? demoRailMedia : null}><PreviewStage {...stageProps} /></RailMediaSources>;
   const selectedSettings = settingsForRegion(
     props.settings,
     props.selectedRegion,
@@ -962,7 +1011,7 @@ export function DesktopPreview(props: Props) {
       size="icon-sm"
       variant="ghost"
       aria-label={arranging ? "完成布置" : "布置"}
-      title={arranging ? "完成布置" : "布置"}
+      title={arranging ? "完成布置，收起对象编辑框" : "布置：拖动和缩放画面中的对象"}
       disabled={props.disabled}
       aria-pressed={arranging}
       onClick={() => {
@@ -978,7 +1027,7 @@ export function DesktopPreview(props: Props) {
       size="icon-sm"
       variant="ghost"
       aria-label={masking ? "完成遮罩" : "遮罩"}
-      title={masking ? "完成遮罩" : "遮罩"}
+      title={masking ? "完成遮罩，收起遮罩编辑框" : "遮罩：让灯效避开桌面上的指定区域"}
       disabled={props.disabled}
       aria-pressed={masking}
       onClick={() => {
@@ -1030,11 +1079,11 @@ export function DesktopPreview(props: Props) {
   );
   return (
     <section
-      className="preview-section"
-      aria-label="效果预览"
+      className={`preview-section${ambient ? " atmosphere-preview" : ""}`}
+      aria-label={ambient ? "氛围画面" : "效果预览"}
       aria-busy={wallpaper.source === "custom" ? custom.loading : background.loading}
     >
-      <div className="section-toolbar">
+      {!ambient && <div className="section-toolbar">
         <div className="preview-title-actions">
           <h2>
             <Monitor size={16} />
@@ -1080,7 +1129,7 @@ export function DesktopPreview(props: Props) {
             role="switch"
             aria-label="模拟预览"
             aria-checked={props.demo}
-            title={props.demo ? "关闭模拟预览" : "开启模拟预览"}
+            title={props.demo ? "关闭模拟预览，恢复实时音频响应" : "开启模拟预览，无需播放音乐即可查看动效"}
             onClick={() => props.onDemoChange(!props.demo)}
           >
             <AudioLines size={15} />
@@ -1090,7 +1139,7 @@ export function DesktopPreview(props: Props) {
               size="icon-sm"
               variant="ghost"
               aria-label={wallpaperGuides ? "完成构图" : "显示构图辅助"}
-              title={wallpaperGuides ? "完成构图" : "显示构图辅助"}
+              title={wallpaperGuides ? "完成构图，隐藏辅助线" : "显示构图辅助，调整壁纸位置"}
               aria-pressed={wallpaperGuides}
               onClick={() => setWallpaperGuides((value) => !value)}
             >
@@ -1101,14 +1150,15 @@ export function DesktopPreview(props: Props) {
           {maskButton}
           <IconButton
             aria-label="放大预览"
-            title="放大预览"
+            title="放大预览，查看完整画面"
             onClick={() => setExpanded(true)}
           >
             <Maximize2 size={15} />
           </IconButton>
         </div>
       </div>
-      {!expanded && objectControls}
+      }
+      {!ambient && !expanded && objectControls}
       {!expanded && !autoOpen && !libraryOpen ? (
         stage
       ) : (
@@ -1120,9 +1170,17 @@ export function DesktopPreview(props: Props) {
               : "正在放大预览"}
         </div>
       )}
-      {!expanded && arranging && !props.disabled && presets}
-      {!expanded && masking && !props.disabled && maskControls}
-      <div className="preview-footer">
+      {ambient && <AtmosphereControls
+        settings={previewSettings} demo={props.demo}
+        running={props.running} audioState={props.audioState} disabled={props.disabled}
+        onDemo={props.onDemoChange} libraryRef={libraryTrigger}
+        onLibrary={() => { if (props.demo) props.onDemoChange(false); setExpanded(false); setLibraryOpen(true); }}
+        onExpand={() => setExpanded(true)}
+      />}
+      {ambient && props.editActions}
+      {!ambient && !expanded && arranging && !props.disabled && presets}
+      {!ambient && !expanded && masking && !props.disabled && maskControls}
+      {!ambient && <div className="preview-footer">
         {wallpaper.source === "custom" || props.wallpaperEditing ? (
           <div className="preview-background-row">
             <span className="preview-background-label">
@@ -1198,6 +1256,7 @@ export function DesktopPreview(props: Props) {
           {screen.height}
         </span>
       </div>
+      }
       {(canUndo || sceneNotice) && (
         <div className="scene-feedback">
           {canUndo && (
@@ -1230,7 +1289,7 @@ export function DesktopPreview(props: Props) {
           if (file) void background.importFile(file);
         }}
       />
-      {(status ||
+      {(!ambient || custom.error || background.error) && (status ||
         (wallpaper.source === "system" &&
           (background.fileError || background.importing))) && (
         <p
@@ -1249,19 +1308,19 @@ export function DesktopPreview(props: Props) {
               (background.importing ? "正在保存参考图片…" : status))}
         </p>
       )}
-      {arranging && !props.disabled && (
+      {!ambient && arranging && !props.disabled && (
         <p className="preview-message">
           拖动位置，右下角缩放；右键调整图层、居中或复制。方向键微调，Shift
           加速。歌词自动避让拾光绳。
         </p>
       )}
       <Dialog.Root open={expanded} onOpenChange={setExpanded}>
-        <ModalContent className="preview-dialog">
+        <ModalContent className={`preview-dialog${ambient ? " atmosphere-preview-dialog" : ""}`}>
           <div className="preview-dialog-heading">
-            <Dialog.Title>桌面预览</Dialog.Title>
+            <Dialog.Title>{ambient ? "氛围画面" : "桌面预览"}</Dialog.Title>
             <div className="preview-tools">
-              {arrangementButton}
-              {maskButton}
+              {!ambient && arrangementButton}
+              {!ambient && maskButton}
               <Dialog.Close asChild>
                 <IconButton aria-label="关闭放大预览">
                   <X size={18} />
@@ -1270,12 +1329,12 @@ export function DesktopPreview(props: Props) {
             </div>
           </div>
           <Dialog.Description className="sr-only">
-            按主屏幕比例预览壁纸和动效，可布置位置与大小。
+            {ambient ? "欣赏完整场景，按 Escape 返回。" : "按主屏幕比例预览壁纸和动效，可布置位置与大小。"}
           </Dialog.Description>
-          {expanded && objectControls}
+          {!ambient && expanded && objectControls}
           {expanded && stage}
-          {arranging && !props.disabled && presets}
-          {masking && !props.disabled && maskControls}
+          {!ambient && arranging && !props.disabled && presets}
+          {!ambient && masking && !props.disabled && maskControls}
           <div className="preview-dialog-footer">
             {arranging
               ? "拖动位置 · 右下角居中缩放 · 方向键微调"
@@ -1318,6 +1377,7 @@ export function DesktopPreview(props: Props) {
       )}
       {libraryOpen && (
         <SceneLibraryDialog
+          presentation={ambient ? "ambient" : "editor"}
           settings={props.settings}
           image={image}
           desktop={desktop}

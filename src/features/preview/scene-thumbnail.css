@@ -1,0 +1,19 @@
+.scene-thumbnail-capture {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+.scene-thumbnail-caption {
+  position: absolute;
+  top: 5px;
+  right: 6px;
+  padding: 2px 4px;
+  border-radius: 3px;
+  color: #d8e2ec;
+  background: #10151eb3;
+  font-size: 9px;
+  line-height: 1.3;
+  pointer-events: none;
+}

@@ -16,6 +16,7 @@ import "./features/settings/studio.css";
 import "./features/settings/workspace-layout.css";
 import "./features/settings/workspace-design.css";
 import "./features/settings/workspace-polish.css";
+import "./features/settings/atmosphere.css";
 
 if (import.meta.env.DEV)
   void import("./features/application/resize-diagnostics");

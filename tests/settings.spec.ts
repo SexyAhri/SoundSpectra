@@ -5,7 +5,7 @@ import { test, expect } from '@playwright/test'
 test('source effect renders actual pixels, source parameters persist, and silence clears the preview', async ({ page }) => {
   const errors: string[] = []
   page.on('pageerror', (error) => errors.push(error.message))
-  await page.goto('/'); await setDemo(page)
+  await page.goto('/#scene'); await setDemo(page)
   await expect(page.getByText('已保存到此浏览器')).toBeVisible()
   await expect(page.getByRole('switch', { name: '显示到桌面' })).toBeDisabled()
   await expect(page.getByRole('button', { name: /调整桌面位置|在预览中布置/ })).toHaveCount(0)
@@ -52,7 +52,7 @@ test('source effect renders actual pixels, source parameters persist, and silenc
 })
 
 test('width changes preserve the center after full width, and defaults can be restored', async ({ page }) => {
-  await page.goto('/')
+  await page.goto('/#scene')
   await expect(page.getByText('已保存到此浏览器')).toBeVisible()
   await settingsSection(page, '位置')
   await openDetails(page, '精确位置')
@@ -82,7 +82,7 @@ test('width changes preserve the center after full width, and defaults can be re
 })
 
 test('failed persistence stays visible and a retry preserves the edit', async ({ page }) => {
-  await page.goto('/')
+  await page.goto('/#scene')
   await expect(page.getByText('已保存到此浏览器')).toBeVisible()
   await page.evaluate(() => {
     const original = Storage.prototype.setItem
@@ -104,7 +104,7 @@ test('failed persistence stays visible and a retry preserves the edit', async ({
 
 test('narrow layout remains reachable without horizontal overflow', async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 })
-  await page.goto('/')
+  await page.goto('/#scene')
   await expect(page.getByText('已保存到此浏览器')).toBeVisible()
   await settingsSection(page, '动效')
   await page.getByRole('button', { name: '恢复当前灯效参数' }).scrollIntoViewIfNeeded()
@@ -115,7 +115,7 @@ test('narrow layout remains reachable without horizontal overflow', async ({ pag
 })
 
 test('desktop layout keeps scrolling inside panes', async ({ page }) => {
-  await page.goto('/')
+  await page.goto('/#scene')
   const layout = await page.evaluate(() => ({
     documentHeight: document.documentElement.scrollHeight,
     viewportHeight: innerHeight,
@@ -127,7 +127,7 @@ test('desktop layout keeps scrolling inside panes', async ({ page }) => {
 })
 
 test('corrupted settings can be backed up and recovered', async ({ page }) => {
-  await page.goto('/')
+  await page.goto('/#scene')
   await page.evaluate(() => localStorage.setItem('soundspectra.settings.v1', '{broken'))
   await page.reload()
   await expect(page.getByText('设置读取失败', { exact: true })).toBeVisible()

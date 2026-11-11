@@ -1,4 +1,4 @@
-import type { RefObject } from "react";
+import type { ReactNode, RefObject } from "react";
 import { Popover } from "radix-ui";
 import { Monitor, SlidersHorizontal, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -28,6 +28,7 @@ export function WorkspaceFooter({
   receivedAt,
   demo,
   rail,
+  playback,
 }: {
   settings: SpectrumSettings;
   compact?: boolean;
@@ -41,6 +42,7 @@ export function WorkspaceFooter({
   receivedAt: RefObject<number>;
   demo: boolean;
   rail?: RailController;
+  playback?: ReactNode;
 }) {
   const controls = (
     <div className="workspace-output-controls">
@@ -103,14 +105,14 @@ export function WorkspaceFooter({
       aria-label="播放与桌面控制"
     >
       <AudioSourcePanel status={status} active={active} />
-      <div className="workspace-meter" aria-hidden="true">
+      {playback ? <div className="workspace-audio-playback">{playback}</div> : <div className="workspace-meter" aria-hidden="true">
         <LiveMeter
           bands={bands}
           receivedAt={receivedAt}
           demo={demo}
           active={active}
         />
-      </div>
+      </div>}
       {compact ? (
         <Popover.Root>
           <Popover.Trigger asChild>

@@ -1,5 +1,12 @@
 import { useCallback, useMemo, useState } from "react";
-import { AudioLines, Check, Settings2 } from "lucide-react";
+import {
+  AudioLines,
+  Check,
+  Settings2,
+  ArrowLeft,
+  Music2,
+  SlidersHorizontal,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { DrawerHost } from "@/components/ui/drawer";
 import { SceneInspector } from "./scene-inspector";
@@ -31,6 +38,7 @@ import { useUiPreference } from "./use-ui-preference";
 import type { LyricSettingsTab } from "../lyrics/lyric-controls";
 import { InspectorLayout } from "./inspector-layout";
 import { MusicLibrary } from "../music/music-library";
+import { StartupScreen, useStartupScreen } from "../application/startup-screen";
 
 export function SettingsWorkspace() {
   return (
@@ -93,6 +101,7 @@ function Workspace() {
   const [arrangeRequest, requestArrange] = useState(0);
   const [libraryRequest, requestLibrary] = useState(0);
   const [demo, setDemo] = useState(false);
+  const [homeDemo, setHomeDemo] = useState(true);
   const [applicationOpen, setApplicationOpen] = useState(false);
   const navigation = useWorkspaceNavigation();
   const [lyricTab, selectLyricTab] = useUiPreference<LyricSettingsTab>(
@@ -123,50 +132,67 @@ function Workspace() {
   const railDropError = useRailDrop(
     rail,
     selectedRail,
-    navigation.panel === "rail" && !applicationOpen,
+    !navigation.home && navigation.panel === "rail" && !applicationOpen,
   );
   useRailPaste(
     rail,
     selectedRail,
-    navigation.panel === "rail" && !applicationOpen,
+    !navigation.home && navigation.panel === "rail" && !applicationOpen,
   );
   const { bands, receivedAt, analysis, error: spectrumError } = useSpectrum();
   const running = status.state === "listening";
+  const previewDemo = navigation.home ? homeDemo && !running : demo;
   const nowPlaying = useNowPlaying(!applicationOpen);
   const lyricDocument = useLyrics(
     sceneSettings.lyrics,
     nowPlaying,
     !applicationOpen,
   );
+  const startupReady = (loaded || Boolean(error)) && musicInitialized;
+  const startup = useStartupScreen(startupReady);
+  // Resume behind the fade so the scene can present before the cover is gone.
+  const startupCovered = startup.phase === "intro";
   return (
     <PerformanceProvider info={nowPlaying}>
-      <div className="app-shell studio-shell">
-        <aside className="sidebar" aria-label="主导航">
-          <div
-            className="brand-mark"
-            title="SoundSpectra"
-            aria-label="SoundSpectra"
-          >
-            <AudioLines size={24} />
-            <span className="brand-monogram">SS</span>
-          </div>
-          <WorkspaceNavigation
-            panel={navigation.panel}
-            onChange={navigation.selectPanel}
-          />
-          <div className="sidebar-bottom">
-            <button
-              className="sidebar-settings"
-              aria-label="应用设置与更新"
-              title="应用设置与更新"
-              onClick={() => setApplicationOpen(true)}
+      {startup.phase !== "done" && (
+        <StartupScreen
+          phase={startup.phase}
+          ready={startupReady}
+          onSkip={startup.skip}
+        />
+      )}
+      <div
+        className={`app-shell studio-shell${navigation.home ? " atmosphere-shell" : navigation.panel === "music" ? " music-shell" : ""}`}
+        inert={startup.phase !== "done"}
+      >
+        {!navigation.home && navigation.panel !== "music" && (
+          <aside className="sidebar" aria-label="主导航">
+            <div
+              className="brand-mark"
+              title="SoundSpectra"
+              aria-label="SoundSpectra"
             >
-              <Settings2 size={20} />
-              <span>设置</span>
-            </button>
-            <span className="sidebar-version">{packageInfo.version}</span>
-          </div>
-        </aside>
+              <AudioLines size={24} />
+              <span className="brand-monogram">SS</span>
+            </div>
+            <WorkspaceNavigation
+              panel={navigation.panel}
+              onChange={navigation.selectPanel}
+            />
+            <div className="sidebar-bottom">
+              <button
+                className="sidebar-settings"
+                aria-label="应用设置与更新"
+                title="应用设置与更新"
+                onClick={() => setApplicationOpen(true)}
+              >
+                <Settings2 size={20} />
+                <span>设置</span>
+              </button>
+              <span className="sidebar-version">{packageInfo.version}</span>
+            </div>
+          </aside>
+        )}
         <div className="workspace-shell">
           <header className="topbar" data-tauri-drag-region>
             <h1
@@ -177,8 +203,56 @@ function Workspace() {
               <Wordmark />
             </h1>
             <div className="topbar-actions">
+              {navigation.home ? (
+                <nav className="atmosphere-navigation" aria-label="氛围导航">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => navigation.selectPanel("music")}
+                  >
+                    <Music2 size={15} />
+                    音乐库
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => navigation.selectPanel(navigation.panel)}
+                  >
+                    <SlidersHorizontal size={15} />
+                    编辑场景
+                  </Button>
+                </nav>
+              ) : (
+                <nav className="listening-navigation" aria-label="聆听导航">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="back-to-atmosphere"
+                    onClick={navigation.goHome}
+                  >
+                    <ArrowLeft size={15} />
+                    返回氛围
+                  </Button>
+                  {navigation.panel === "music" && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => navigation.selectPanel("scene")}
+                    >
+                      <SlidersHorizontal size={15} />
+                      编辑场景
+                    </Button>
+                  )}
+                </nav>
+              )}
               <div
-                className={`save-status ${saveState === "error" ? "is-error" : ""}`}
+                className={`save-status ${saveState === "error" || error ? "is-error" : ""}`}
+                hidden={
+                  (navigation.home || navigation.panel === "music") &&
+                  loaded &&
+                  saveState === "saved" &&
+                  !error
+                }
                 role="status"
               >
                 {saveState === "saved" && loaded && <Check size={13} />}
@@ -201,14 +275,16 @@ function Workspace() {
               />
             </div>
           </header>
-          <WorkspaceNavigation
-            panel={navigation.panel}
-            onChange={navigation.selectPanel}
-            mobile
-          />
+          {!navigation.home && navigation.panel !== "music" && (
+            <WorkspaceNavigation
+              panel={navigation.panel}
+              onChange={navigation.selectPanel}
+              mobile
+            />
+          )}
           <DrawerHost
             className="workspace-body"
-            scope={`${navigation.panel}:${inspectorTab}:${applicationOpen}`}
+            scope={`${navigation.home}:${navigation.panel}:${inspectorTab}:${applicationOpen}`}
           >
             {navigation.panel === "music" ? (
               <MusicLibrary />
@@ -248,6 +324,7 @@ function Workspace() {
                     </div>
                   )}
                   <DesktopPreview
+                    presentation={navigation.home ? "ambient" : "editor"}
                     ready={loaded && musicInitialized}
                     sceneActions={
                       <PerformancePanel
@@ -260,6 +337,7 @@ function Workspace() {
                     libraryRequest={libraryRequest}
                     editActions={
                       <WorkspaceTools
+                        hideActions={navigation.home}
                         settings={sceneSettings}
                         status={status}
                         rail={rail}
@@ -275,7 +353,10 @@ function Workspace() {
                         canUndo={canUndo}
                         canRedo={canRedo}
                         onLibrary={() => requestLibrary((value) => value + 1)}
-                        onArrange={() => requestArrange((value) => value + 1)}
+                        onArrange={() => {
+                          if (navigation.home) navigation.selectPanel("scene");
+                          requestArrange((value) => value + 1);
+                        }}
                       />
                     }
                     onShow={() => setApplicationOpen(false)}
@@ -291,7 +372,7 @@ function Workspace() {
                     selectedRegion={selected}
                     onSelectRegion={(id) => {
                       selectRegion(id);
-                      navigation.selectPanel("scene");
+                      if (!navigation.home) navigation.selectPanel("scene");
                     }}
                     onEditLyrics={() => navigation.selectPanel("lyrics")}
                     onEditCard={() => navigation.selectPanel("card")}
@@ -301,46 +382,54 @@ function Workspace() {
                     bands={bands}
                     receivedAt={receivedAt}
                     analysis={analysis}
-                    demo={demo}
-                    onDemoChange={setDemo}
+                    demo={previewDemo}
+                    onDemoChange={navigation.home ? setHomeDemo : setDemo}
                     running={running}
                     audioState={status.state}
                     disabled={!loaded || busy || status.editing}
-                    active={!applicationOpen}
+                    active={!applicationOpen && !startupCovered}
+                    suspended={startupCovered}
                   />
                 </main>
-                <InspectorLayout
-                  scope={`${navigation.panel}:${inspectorTab}:${selected}`}
-                >
-                  <SceneInspector
-                    sceneSettings={sceneSettings}
-                    settings={settings}
-                    lyricDocument={lyricDocument}
-                    nowPlaying={nowPlaying}
-                    selected={selected}
-                    onSelect={selectRegion}
-                    rail={rail}
-                    selectedRail={selectedRail}
-                    selectedRailItem={selectedRailItem}
-                    railSelectionRevision={railSelectionRevision}
-                    onSelectRail={onSelectRail}
-                    panel={navigation.panel}
-                    tab={inspectorTab}
-                    onTabChange={navigation.selectTab}
-                    lyricTab={lyricTab}
-                    onLyricTabChange={selectLyricTab}
-                    disabled={!loaded || busy}
-                    editing={status.editing}
-                    updateScene={updateScene}
-                    update={update}
-                  />
-                </InspectorLayout>
+                {!navigation.home && (
+                  <InspectorLayout
+                    scope={`${navigation.panel}:${inspectorTab}:${selected}`}
+                  >
+                    <SceneInspector
+                      sceneSettings={sceneSettings}
+                      settings={settings}
+                      lyricDocument={lyricDocument}
+                      nowPlaying={nowPlaying}
+                      selected={selected}
+                      onSelect={selectRegion}
+                      rail={rail}
+                      selectedRail={selectedRail}
+                      selectedRailItem={selectedRailItem}
+                      railSelectionRevision={railSelectionRevision}
+                      onSelectRail={onSelectRail}
+                      panel={navigation.panel}
+                      tab={inspectorTab}
+                      onTabChange={navigation.selectTab}
+                      lyricTab={lyricTab}
+                      onLyricTabChange={selectLyricTab}
+                      disabled={!loaded || busy}
+                      editing={status.editing}
+                      updateScene={updateScene}
+                      update={update}
+                    />
+                  </InspectorLayout>
+                )}
               </>
             )}
           </DrawerHost>
-          {navigation.panel !== "music" && <MusicDock />}
+          {!navigation.home && navigation.panel !== "music" && <MusicDock />}
           <WorkspaceFooter
-            compact={navigation.panel === "music"}
+            playback={
+              navigation.home ? (
+                <MusicDock ambient info={nowPlaying} />
+              ) : undefined
+            }
+            compact={navigation.home || navigation.panel === "music"}
             rail={rail}
             settings={sceneSettings}
             status={status}
@@ -348,10 +437,10 @@ function Workspace() {
             busy={busy}
             saveState={saveState}
             update={updateScene}
-            active={!applicationOpen}
+            active={!applicationOpen && !startupCovered}
             bands={bands}
             receivedAt={receivedAt}
-            demo={demo}
+            demo={previewDemo}
           />
         </div>
       </div>

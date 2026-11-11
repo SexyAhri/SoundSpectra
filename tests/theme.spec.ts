@@ -13,7 +13,7 @@ async function setup(page: Page, theme?: string) {
     { id: 'note', kind: 'note', name: '午后记事', path: '', crop: 'cover', text: '慢一点，听一首歌。' },
     { id: 'app', kind: 'app', name: '记事本', path: 'C:/Windows/notepad.exe', crop: 'cover' },
   ] }] }, theme })
-  await page.goto('/')
+  await page.goto('/#scene')
 }
 const openSettings = (page: Page) => page.getByRole('button', { name: '应用设置与更新', exact: true }).click()
 

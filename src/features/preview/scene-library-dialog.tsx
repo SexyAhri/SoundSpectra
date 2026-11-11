@@ -28,8 +28,11 @@ import {
 import { desktopLayout, desktopPresets, scenePatch } from "./desktop-scenes";
 import { SceneThumbnail } from "./scene-thumbnail";
 import { ChoiceSelect } from "@/components/ui/choice-select";
+import { SceneGallery } from "./scene-gallery";
+import { writeSceneSnapshot } from "./scene-snapshot-store";
 
 interface Props {
+  presentation?: "editor" | "ambient";
   settings: SpectrumSettings;
   image: PreviewImage | null;
   desktop: DesktopBackground | null;
@@ -40,9 +43,15 @@ interface Props {
   renderPreview: (settings: SpectrumSettings, demo: boolean) => ReactNode;
   onClose: () => void;
   onReturnFocus: () => void;
-  onApply: (scene: SceneLayout) => Promise<void>;
+  onApply: (scene: SceneLayout, name?: string) => Promise<void>;
 }
 export function SceneLibraryDialog(props: Props) {
+  const [managing, setManaging] = useState(false);
+  const managementTrigger = useRef<HTMLButtonElement>(null);
+  useEffect(() => {
+    if (managing) managementTrigger.current?.focus();
+  }, [managing]);
+  const gallery = props.presentation === "ambient" && !managing;
   const [items, setItems] = useState<SavedScene[]>([]),
     [selected, select] = useState<string | null>(null);
   const [tab, setTab] = useState<"featured" | "saved">("featured");
@@ -66,6 +75,8 @@ export function SceneLibraryDialog(props: Props) {
     [removed, setRemoved] = useState<SavedScene | null>(null);
   const savingRef = useRef(false),
     fileInput = useRef<HTMLInputElement>(null);
+  const capturePreview = useRef<HTMLDivElement>(null);
+  const [captureSettings, setCaptureSettings] = useState<SpectrumSettings | null>(null);
   const placement = props.image
     ? wallpaperPlacement(props.image, props.desktop, props.screen)
     : null;
@@ -178,6 +189,12 @@ export function SceneLibraryDialog(props: Props) {
     setError(null);
     setNotice("");
   };
+  const choosePreset = (id: string, title: string) => {
+    selectPreset(id);
+    setName(title);
+    setError(null);
+    setNotice("");
+  };
   const persist = (next: SavedScene[]) => {
     writeLibrary(next);
     setItems(next);
@@ -190,32 +207,57 @@ export function SceneLibraryDialog(props: Props) {
       setError(reason instanceof Error ? reason.message : String(reason));
     }
   };
-  const save = (copy: boolean) =>
-    attempt(() => {
+  const save = async (copy: boolean) => {
+    if (savingRef.current || locked || !ready || !sourceReady) return;
+    savingRef.current = true;
+    setSaving(true);
+    setError(null);
+    setNotice("");
+    try {
       if (!name.trim()) throw new Error("请填写场景名称。");
       if (name.trim().length > 40) throw new Error("场景名称最多 40 个字符。");
+      const settings = structuredClone(copy ? preview : props.settings);
       const next: SavedScene = {
         id: !copy && item ? item.id : crypto.randomUUID(),
         name: name.trim(),
         wallpaper,
         updated: Date.now(),
-        scene: desktopLayout(copy ? preview : props.settings),
+        scene: desktopLayout(settings),
       };
+      if (readLibrary().filter(value => value.id !== next.id).length >= 40)
+        throw new Error("最多保存 40 个场景，请先删除不需要的收藏。");
+      setCaptureSettings(settings);
+      let snapshot: Blob | undefined;
+      try {
+        const { captureSceneSnapshot } = await import("./scene-snapshot-capture");
+        if (capturePreview.current) snapshot = await captureSceneSnapshot(capturePreview.current, settings);
+      } catch { /* Saving the scene does not depend on capture support. */ }
       // Read fresh data so another settings window cannot be silently overwritten.
       const current = readLibrary();
       persist([next, ...current.filter((value) => value.id !== next.id)]);
       setTab("saved");
       select(next.id);
-      setNotice("已保存灯效、歌词和音乐卡片的展示配置。");
       setRemoved(null);
-    });
+      if (snapshot) {
+        try { await writeSceneSnapshot(next, snapshot); }
+        catch { snapshot = undefined; }
+      }
+      setNotice(snapshot ? "已保存搭配与画面缩略图。" : "搭配已保存，画面快照暂不可用。");
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : String(reason));
+    } finally {
+      setCaptureSettings(null);
+      savingRef.current = false;
+      setSaving(false);
+    }
+  };
   const apply = async () => {
     if (!chosen || savingRef.current || locked) return;
     savingRef.current = true;
     setSaving(true);
     setError(null);
     try {
-      await props.onApply(chosen.scene);
+      await props.onApply(chosen.scene, chosen.name);
       try {
         rememberScene(chosen.id, chosen.name);
         props.onClose();
@@ -276,7 +318,7 @@ export function SceneLibraryDialog(props: Props) {
       }}
     >
       <ModalContent
-        className="auto-scene-dialog"
+        className={`auto-scene-dialog${gallery ? " scene-gallery-dialog" : ""}`}
         onEscapeKeyDown={(event) => {
           if (savingRef.current) event.preventDefault();
         }}
@@ -292,24 +334,31 @@ export function SceneLibraryDialog(props: Props) {
               场景收藏
             </Dialog.Title>
             <Dialog.Description>
-              一套搭配，收好灯效、歌词和音乐卡片。
+              {gallery ? "挑一种氛围，点选预览，喜欢再应用。" : "一套搭配，收好灯效、歌词和音乐卡片。"}
             </Dialog.Description>
           </div>
-          <Dialog.Close asChild>
-            <IconButton aria-label="关闭场景收藏" disabled={locked}>
-              <X size={18} />
-            </IconButton>
-          </Dialog.Close>
+          <div className="scene-gallery-heading-actions">
+            {props.presentation === "ambient" && (
+              <Button ref={managementTrigger} size="sm" variant="ghost" disabled={locked} onClick={() => { setManaging((value) => !value); setMatching(false); }}>
+                {managing ? "返回选景" : "管理收藏"}
+              </Button>
+            )}
+            <Dialog.Close asChild>
+              <IconButton aria-label="关闭场景收藏" disabled={locked}>
+                <X size={18} />
+              </IconButton>
+            </Dialog.Close>
+          </div>
         </div>
         <div className="auto-scene-body">
-          <div className="auto-scene-preview">
+          <div className="auto-scene-preview" ref={capturePreview}>
             <div className="scene-preview-compare">
               <span>
                 {compare
-                  ? "当前工作台"
+                  ? (gallery ? "当前搭配" : "当前工作台")
                   : chosen
                     ? `预览 · ${chosen.name}`
-                    : "当前工作台"}
+                    : (gallery ? "当前搭配" : "当前工作台")}
               </span>
               <Button
                 size="sm"
@@ -321,7 +370,7 @@ export function SceneLibraryDialog(props: Props) {
                 {compare ? "返回所选场景" : "对比当前搭配"}
               </Button>
             </div>
-            {props.renderPreview(compare ? props.settings : preview, simulate)}
+            {props.renderPreview(captureSettings ?? (compare ? props.settings : preview), simulate)}
             <label className="auto-scene-demo">
               模拟音频
               <Switch
@@ -332,7 +381,13 @@ export function SceneLibraryDialog(props: Props) {
               />
             </label>
           </div>
-          <div className="auto-scene-options scene-library-options">
+          {gallery ? (
+            <SceneGallery tab={tab} onTab={setTab} query={query}
+              onQuery={(value) => { setQuery(value); select(null); selectPreset(null); }}
+              items={visible} selected={chosen?.id} locked={locked} ready={ready}
+              onPreset={choosePreset} onSaved={choose}
+              onManage={() => setManaging(true)} />
+          ) : <div className="auto-scene-options scene-library-options">
             <div
               className="library-filter library-sections"
               role="group"
@@ -382,12 +437,7 @@ export function SceneLibraryDialog(props: Props) {
                       className="auto-scene-choice desktop-scene-choice"
                       aria-pressed={presetId === value.id}
                       disabled={locked}
-                      onClick={() => {
-                        selectPreset(value.id);
-                        setName(value.name);
-                        setError(null);
-                        setNotice("");
-                      }}
+                      onClick={() => choosePreset(value.id, value.name)}
                     >
                       <SceneThumbnail scene={value.scene} />
                       <span className="auto-scene-choice-heading">
@@ -453,7 +503,7 @@ export function SceneLibraryDialog(props: Props) {
                       aria-pressed={item?.id === value.id}
                       onClick={() => choose(value)}
                     >
-                      <SceneThumbnail scene={value.scene} />
+                      <SceneThumbnail scene={value.scene} savedId={value.id} updated={value.updated} />
                       <span className="auto-scene-choice-heading">
                         {value.name}
                       </span>
@@ -497,7 +547,7 @@ export function SceneLibraryDialog(props: Props) {
                 size="sm"
                 variant="outline"
                 disabled={locked || !ready || !sourceReady}
-                onClick={() => save(false)}
+                onClick={() => void save(false)}
               >
                 保存当前
               </Button>
@@ -505,7 +555,7 @@ export function SceneLibraryDialog(props: Props) {
                 size="sm"
                 variant="outline"
                 disabled={locked || !ready || !sourceReady}
-                onClick={() => save(true)}
+                onClick={() => void save(true)}
               >
                 另存为
               </Button>
@@ -617,17 +667,17 @@ export function SceneLibraryDialog(props: Props) {
                 if (file) void importFile(file);
               }}
             />
-          </div>
+          </div>}
         </div>
         <div className="auto-scene-footer">
           <div>
             <p>
-              {chosen?.scene.desktop
+              {gallery ? (chosen ? `已选「${chosen.name}」，应用后可撤销。` : "先选一套搭配，看看它在桌面上的样子。") : chosen?.scene.desktop
                 ? "应用灯效、歌词和音乐卡片。保留个人文件、歌词目录和同步偏移，可撤销。"
                 : "应用动效、布局和遮罩，保留其他模块，可撤销。"}{" "}
-              导出仍仅包含灯效。
+              {!gallery && "导出仍仅包含灯效。"}
             </p>
-            {chosen && (
+            {chosen && !gallery && (
               <div className="scene-includes" aria-label="场景应用内容">
                 <span>灯效与布局</span>
                 <span>遮罩</span>

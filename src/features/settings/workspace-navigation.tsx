@@ -28,6 +28,7 @@ const panels = [
 function readLocation() {
   const [target, tab] = location.hash.slice(1).split("/");
   return {
+    home: !panels.some((item) => item.id === target),
     panel: panels.some((item) => item.id === target)
       ? (target as WorkspacePanel)
       : ("scene" as WorkspacePanel),
@@ -44,25 +45,21 @@ export function useWorkspaceNavigation() {
   }, []);
   const navigate = useCallback(
     (panel: WorkspacePanel, tab = view.tab) => {
+      const next = { panel, tab, home: false },
+        hash = `#${panel}${panel === "scene" ? `/${tab}` : ""}`;
+      if (location.hash !== hash)
+        history[!view.home && panel === view.panel ? "replaceState" : "pushState"](null, "", hash);
       fadeUpdate(
-        panel === "music" || view.panel === "music"
+        view.home || panel === "music" || view.panel === "music"
           ? ".workspace-body"
           : ".workspace-inspector-container",
         () => {
-          const next = { panel, tab },
-            hash = `#${panel}${panel === "scene" ? `/${tab}` : ""}`;
-          if (location.hash !== hash)
-            history[panel === view.panel ? "replaceState" : "pushState"](
-              null,
-              "",
-              hash,
-            );
           setView(next);
         },
         "workspace-navigation",
       );
     },
-    [view.panel, view.tab],
+    [view.home, view.panel, view.tab],
   );
   const selectPanel = useCallback(
     (panel: WorkspacePanel) => navigate(panel),
@@ -72,7 +69,15 @@ export function useWorkspaceNavigation() {
     (tab: string) => navigate("scene", tab),
     [navigate],
   );
+  const goHome = useCallback(() => {
+    if (location.hash !== "#home") history.pushState(null, "", "#home");
+    fadeUpdate(".workspace-body", () => {
+      setView((current) => ({ ...current, panel: current.panel === "music" ? "scene" : current.panel, home: true }));
+    }, "workspace-navigation");
+  }, []);
   return {
+    home: view.home,
+    goHome,
     panel: view.panel,
     tab: view.tab,
     selectPanel,

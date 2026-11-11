@@ -15,6 +15,7 @@ import { readLibrary, rememberScene, type SavedScene, type SceneLayout } from '.
 import { SceneThumbnail } from '../preview/scene-thumbnail'
 
 interface Props {
+  hideActions?: boolean;
   settings: SpectrumSettings; status: RuntimeStatus; rail: RailController; lyrics: LyricDocument;
   loaded: boolean; busy: boolean; saveState: string; disabled: boolean;
   update: SettingsUpdate; commitScene: (scene: SceneLayout) => Promise<unknown>;
@@ -31,11 +32,25 @@ export function WorkspaceTools(props: Props) {
   const [applying, setApplying] = useState(false)
   const applyingRef = useRef(false)
   const guideTrigger = useRef<HTMLButtonElement>(null), quickTrigger = useRef<HTMLButtonElement>(null)
-  const returnFocus = useRef<HTMLButtonElement | null>(null)
+  const returnFocus = useRef<HTMLElement | null>(null)
+  const returnControl = useRef<'guide' | 'quick'>('quick')
   const current = useRef(props); current.current = props
   const locked = props.disabled || applying
   const historyLocked = locked || props.saveState !== 'saved'
-  const open = (value: 'guide' | 'quick') => { returnFocus.current = (value === 'guide' ? guideTrigger : quickTrigger).current; setPanel(value); setError(null); setNotice(null) }
+  const open = (value: 'guide' | 'quick') => {
+    returnControl.current = value
+    returnFocus.current = current.current.hideActions
+      ? document.activeElement instanceof HTMLElement && document.activeElement !== document.body
+        ? document.activeElement : document.querySelector<HTMLElement>('.atmosphere-navigation button')
+      : (value === 'guide' ? guideTrigger : quickTrigger).current
+    setPanel(value); setError(null); setNotice(null)
+  }
+  const restoreFocus = () => {
+    const target = current.current.hideActions
+      ? returnFocus.current?.isConnected ? returnFocus.current : document.querySelector<HTMLElement>('.atmosphere-navigation button')
+      : (returnControl.current === 'guide' ? guideTrigger : quickTrigger).current
+    target?.focus()
+  }
   useEffect(() => {
     if (!panel) return
     if (panel === 'guide') {
@@ -48,6 +63,7 @@ export function WorkspaceTools(props: Props) {
   }, [panel])
   useEffect(() => {
     const keyboard = (event: KeyboardEvent) => {
+      if (document.querySelector('.studio-shell[inert]')) return
       const target = event.target instanceof Element ? event.target : null
       if (event.defaultPrevented || event.isComposing || target?.closest('input,textarea,select,[contenteditable]:not([contenteditable="false"]),[role="slider"]') || document.querySelector('[role="dialog"],[role="alertdialog"]')) return
       const modifier = event.ctrlKey || event.metaKey
@@ -65,6 +81,10 @@ export function WorkspaceTools(props: Props) {
     return () => { window.removeEventListener('keydown', keyboard); window.removeEventListener('workspace-quick-controls', quick) }
   }, [])
   const jump = (action: () => void) => { setPanel(null); requestAnimationFrame(action) }
+  const focusSource = () => {
+    const source = document.querySelector<HTMLButtonElement>('.audio-source-choice [role="combobox"]')
+    source?.focus()
+  }
   const apply = async (choice: { id: string; name: string; scene: SceneLayout }) => {
     if (locked || applyingRef.current) return
     applyingRef.current = true; setApplying(true); setError(null); setNotice(null)
@@ -79,7 +99,7 @@ export function WorkspaceTools(props: Props) {
   const connection = !native ? '浏览器模拟预览' : props.status.state === 'listening' ? `${props.status.sourceName ?? '音乐'} · 正在播放`
     : props.status.state === 'silent' ? '音源已连接，等待声音' : props.status.state === 'error' ? '音源连接异常' : props.status.state === 'connecting' ? '正在连接音源' : '等待播放器启动'
   return <>
-    <div className="workspace-edit-actions" role="group" aria-label="工作台工具">
+    <div className="workspace-edit-actions" role="group" aria-label="工作台工具" hidden={props.hideActions}>
       <IconButton aria-label="撤销编辑" title="撤销编辑 · Ctrl / ⌘ Z" disabled={historyLocked || !props.canUndo} onClick={props.undo}><Undo2 size={15} /></IconButton>
       <IconButton aria-label="重做编辑" title="重做编辑 · Ctrl / ⌘ Shift Z" disabled={historyLocked || !props.canRedo} onClick={props.redo}><Redo2 size={15} /></IconButton>
       <span className="workspace-action-divider" />
@@ -87,13 +107,13 @@ export function WorkspaceTools(props: Props) {
       <IconButton ref={guideTrigger} className={unread ? 'guide-unread' : ''} aria-label="使用指南" title="使用指南 · ?" onClick={() => open('guide')}><CircleHelp size={15} />{unread && <span className="guide-unread-dot" />}</IconButton>
     </div>
     <Dialog.Root open={panel !== null} onOpenChange={value => { if (!value && !applyingRef.current) setPanel(null) }}>
-      <ModalContent className="workspace-tools-dialog" onEscapeKeyDown={event => { if (applyingRef.current) event.preventDefault() }} onCloseAutoFocus={event => { event.preventDefault(); returnFocus.current?.focus() }}>
+      <ModalContent className="workspace-tools-dialog" onEscapeKeyDown={event => { if (applyingRef.current) event.preventDefault() }} onCloseAutoFocus={event => { event.preventDefault(); restoreFocus() }}>
         <header><div><Dialog.Title>{panel === 'guide' ? <><BookOpen size={19} />让音乐成为桌面的一部分</> : <><SlidersHorizontal size={19} />快捷控制</>}</Dialog.Title><Dialog.Description>{panel === 'guide' ? '连接音乐，选择搭配，再把喜欢的画面留在桌面。' : '切换常用场景，管理桌面显示与性能。'}</Dialog.Description></div><Dialog.Close asChild><IconButton aria-label="关闭工作台工具" disabled={applying}><X size={18} /></IconButton></Dialog.Close></header>
         <div className="workspace-tools-body">
           {panel === 'guide' ? <>
             {!native && <p className="workspace-capability-note">当前为浏览器预览。模拟音频用于体验效果；真实音乐捕获与桌面显示请在桌面客户端使用。</p>}
             <ol className="workspace-guide-steps">
-              <li><span><Headphones size={18} /></span><div><h3>连接正在播放的音乐</h3><p>打开 QQ 音乐等播放器，在底部「音乐来源」选择自动识别或指定播放器。</p><small>{connection}</small><Button size="sm" variant="outline" onClick={() => jump(() => document.querySelector<HTMLButtonElement>('.audio-source-choice [role="combobox"]')?.focus())}>查看音乐来源</Button></div></li>
+              <li><span><Headphones size={18} /></span><div><h3>连接正在播放的音乐</h3><p>打开 QQ 音乐等播放器，在底部「音乐来源」选择自动识别或指定播放器。</p><small>{connection}</small><Button size="sm" variant="outline" onClick={() => jump(focusSource)}>查看音乐来源</Button></div></li>
               <li><span><Sparkles size={18} /></span><div><h3>从一套场景开始</h3><p>在精选搭配中预览灯效、歌词和卡片，也可以自动搭配，再分别微调。</p><Button size="sm" variant="outline" disabled={locked} onClick={() => jump(props.onLibrary)}>挑选场景</Button></div></li>
               <li><span><Monitor size={18} /></span><div><h3>布置并显示到桌面</h3><p>进入布置模式拖动对象，方向键微调。底部「显示到桌面」控制音乐视觉，拾光绳拥有独立开关。</p><Button size="sm" variant="outline" disabled={locked} onClick={() => jump(props.onArrange)}>开始布置</Button></div></li>
             </ol>

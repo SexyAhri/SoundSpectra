@@ -1,0 +1,140 @@
+.auto-scene-dialog.scene-gallery-dialog {
+  max-width: 1400px;
+  margin-inline: auto;
+}
+
+.scene-gallery-dialog .auto-scene-body {
+  grid-template-columns: minmax(0, 1.15fr) minmax(340px, 1fr);
+}
+
+.scene-gallery-heading-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.scene-gallery {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  min-width: 0;
+  min-height: 0;
+}
+
+.scene-gallery-toolbar {
+  display: grid;
+  gap: 12px;
+}
+
+.scene-gallery-toolbar>[role="group"] {
+  display: flex;
+  gap: 4px;
+}
+
+.scene-gallery-toolbar button[aria-pressed="true"] {
+  background: var(--accent);
+  color: var(--foreground);
+}
+
+.scene-gallery-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  align-content: start;
+  gap: 16px;
+  overflow: auto;
+  padding: 3px;
+  min-height: 0;
+}
+
+.scene-gallery-card {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+  padding: 8px;
+  text-align: left;
+  color: var(--foreground);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--card);
+  transition: background 180ms, border-color 180ms;
+}
+
+.scene-gallery-card:hover {
+  background: var(--accent);
+}
+
+.scene-gallery-card[aria-pressed="true"] {
+  border-color: var(--primary);
+  background: var(--accent);
+}
+
+.scene-gallery-card:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+}
+
+.scene-gallery-card:disabled {
+  opacity: .5;
+}
+
+.scene-gallery-card .scene-thumbnail {
+  width: 100%;
+  height: auto;
+  aspect-ratio: 16 / 9;
+  border-radius: 7px;
+}
+
+.scene-gallery-card-title {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 13px;
+  overflow-wrap: anywhere;
+}
+
+.scene-gallery-card-title svg {
+  flex: none;
+  color: var(--primary);
+}
+
+.scene-gallery-card-description {
+  font-size: 11px;
+  line-height: 1.6;
+  color: var(--muted-foreground);
+}
+
+.scene-gallery-empty {
+  grid-column: 1 / -1;
+  display: grid;
+  justify-items: start;
+  gap: 16px;
+  padding: 24px 8px;
+  color: var(--muted-foreground);
+  font-size: 13px;
+  line-height: 1.8;
+}
+
+@media (max-width: 760px) {
+  .scene-gallery-dialog .scene-gallery {
+    flex-shrink: 0;
+  }
+
+  .scene-gallery-dialog .scene-gallery-grid {
+    overflow: visible;
+  }
+
+  .scene-gallery-dialog .scene-preview-compare {
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  .scene-gallery-heading-actions {
+    gap: 2px;
+  }
+
+  .scene-gallery-dialog .auto-scene-footer {
+    align-items: center;
+  }
+}
