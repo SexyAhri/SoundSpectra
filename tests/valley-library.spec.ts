@@ -27,7 +27,7 @@ test('unlimited frame pacing keeps pixel budgets and old configurations migrate'
 })
 
 test('custom quality menu retains 120 and unlimited for multiple source regions and works with keyboard', async ({ page }) => {
-  await page.goto('/'); await settled(page)
+  await page.goto('/#scene'); await settled(page)
   await chooseStyle(page, '灯效', '雪花飘舞')
   await page.getByLabel('添加装饰区域').click(); await settled(page)
   await page.evaluate(async () => {
@@ -64,7 +64,7 @@ async function openLibrary(page: Page) {
   await expect(page.getByRole('button', { name: '保存当前', exact: true })).toBeEnabled()
 }
 test('saved layouts restore on demand, preserve quality, undo and exchange without a wallpaper image', async ({ page }) => {
-  await page.goto('/'); await settled(page)
+  await page.goto('/#scene'); await settled(page)
   await page.getByRole('button', { name: '纯色预览背景' }).click()
   await chooseStyle(page, '灯效', '雪花飘舞'); await settled(page)
   const original = await saved(page)
@@ -103,7 +103,7 @@ test('saved layouts restore on demand, preserve quality, undo and exchange witho
 })
 
 test('library save failures, overwrite, duplicate, delete and recovery keep current desktop settings', async ({ page }) => {
-  await page.goto('/'); await settled(page)
+  await page.goto('/#scene'); await settled(page)
   await page.getByRole('button', { name: '纯色预览背景' }).click()
   const before = await saved(page)
   await openLibrary(page)
@@ -138,7 +138,7 @@ test('library save failures, overwrite, duplicate, delete and recovery keep curr
 })
 
 test('library and new menus remain reachable on a narrow viewport', async ({ page }) => {
-  await page.setViewportSize({ width: 390, height: 700 }); await page.goto('/'); await settled(page)
+  await page.setViewportSize({ width: 390, height: 700 }); await page.goto('/#scene'); await settled(page)
   await page.getByRole('button', { name: '纯色预览背景' }).click(); await openLibrary(page)
   await page.getByLabel('收藏名称').fill('窄屏场景')
   await page.getByRole('button', { name: '保存当前', exact: true }).click()

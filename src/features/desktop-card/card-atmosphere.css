@@ -167,15 +167,3 @@
     scale: 1.025;
   }
 }
-
-@media (prefers-reduced-motion: reduce) {
-
-  .mc .mc-material-light,
-  .mc .mc-artwork-glow {
-    animation: none !important;
-  }
-
-  .mc .mc-control {
-    transition: none;
-  }
-}

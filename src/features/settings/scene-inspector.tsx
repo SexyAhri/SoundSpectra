@@ -22,7 +22,7 @@ import { AppearancePanel } from "./appearance-panel";
 import { PositionPanel } from "./position-panel";
 import { CardControls } from "../desktop-card/card-controls";
 import { LyricControls, type LyricSettingsTab } from "../lyrics/lyric-controls";
-import type { LyricDocument } from "../lyrics/model";
+import { emptyLyrics, type LyricDocument } from "../lyrics/model";
 import { WallpaperDepthControls } from "../wallpaper-depth/wallpaper-depth-controls";
 import type { WorkspacePanel } from "./workspace-navigation";
 import { MappingControls } from "../performance/mapping-controls";
@@ -238,4 +238,18 @@ function SceneInspectorContent({
   );
 }
 
-export const SceneInspector = memo(SceneInspectorContent);
+const MemoSceneInspector = memo(SceneInspectorContent);
+
+export function SceneInspector(props: Props) {
+  return (
+    <MemoSceneInspector
+      {...props}
+      nowPlaying={
+        props.panel === "lyrics" || props.panel === "card"
+          ? props.nowPlaying
+          : undefined
+      }
+      lyricDocument={props.panel === "lyrics" ? props.lyricDocument : emptyLyrics}
+    />
+  );
+}

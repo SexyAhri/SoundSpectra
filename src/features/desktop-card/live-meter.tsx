@@ -28,20 +28,15 @@ export function LiveMeter({
       timer = 0,
       last = 0,
       visible = true;
-    const observer = new IntersectionObserver((entries) => {
-      visible = entries[0]?.isIntersecting ?? true;
-    });
-    observer.observe(ref.current!);
-    const frame = (now: number) => {
-      if (stopped) return;
-      if (!visible || (!desktop && document.hidden)) {
-        timer = window.setTimeout(() => {
-          raf = requestAnimationFrame(frame);
-        }, 250);
-        return;
-      }
-      if (now - last < 1000 / 30) {
+    const request = () => {
+      if (!stopped && visible && (desktop || !document.hidden) && !raf)
         raf = requestAnimationFrame(frame);
+    };
+    const frame = (now: number) => {
+      raf = 0;
+      if (stopped || !visible || (!desktop && document.hidden)) return;
+      if (now - last < 1000 / 30) {
+        request();
         return;
       }
       const elapsed = Math.min(0.1, (now - last) / 1000 || 1 / 30);
@@ -70,16 +65,34 @@ export function LiveMeter({
       // Settle to the baseline once, then poll cheaply for fresh audio like the scene canvas.
       if (!demo && !moving)
         timer = window.setTimeout(() => {
-          if (!stopped) raf = requestAnimationFrame(frame);
+          timer = 0;
+          request();
         }, 100);
-      else raf = requestAnimationFrame(frame);
+      else request();
     };
-    raf = requestAnimationFrame(frame);
+    const wake = () => {
+      cancelAnimationFrame(raf);
+      clearTimeout(timer);
+      raf = 0;
+      timer = 0;
+      request();
+    };
+    // Visibility events resume the meter; an invisible surface needs no polling.
+    const observer = new IntersectionObserver((entries) => {
+      const next = entries[0]?.isIntersecting ?? true;
+      if (next === visible) return;
+      visible = next;
+      wake();
+    });
+    observer.observe(ref.current!);
+    document.addEventListener("visibilitychange", wake);
+    request();
     return () => {
       stopped = true;
       cancelAnimationFrame(raf);
       clearTimeout(timer);
       observer.disconnect();
+      document.removeEventListener("visibilitychange", wake);
     };
   }, [bands, receivedAt, demo, active, desktop]);
   return (

@@ -26,6 +26,7 @@ import { native } from "../../bridge";
 import { budgets } from "../../render-budget";
 import { AdaptiveResolution } from "./adaptive-resolution";
 import { GpuFrameTimer } from "./gpu-frame-timer";
+import { sceneData } from "../scene-data";
 
 extend({
   Mesh: T.Mesh,
@@ -489,11 +490,11 @@ export class FiberSceneRenderer {
         const gpuMs = this.gpuTimer.poll();
         if (timerRevision !== this.gpuTimer.revision)
           this.resolution.settle(start);
-        this.canvas.dataset.gpuTiming = this.gpuTimer.supported
+        sceneData(this.canvas, "gpuTiming", this.gpuTimer.supported
           ? "asynchronous"
-          : "unavailable";
+          : "unavailable");
         if (gpuMs !== undefined) {
-          this.canvas.dataset.gpuMs = gpuMs.toFixed(2);
+          sceneData(this.canvas, "gpuMs", gpuMs.toFixed(2));
           this.resolution.sample(
             gpuMs,
             start,
@@ -513,7 +514,7 @@ export class FiberSceneRenderer {
       } finally {
         this.gpuTimer?.end();
       }
-      this.canvas.dataset.frameMs = (performance.now() - start).toFixed(2);
+      sceneData(this.canvas, "frameMs", (performance.now() - start).toFixed(2));
       if (
         this.resizedAt !== undefined &&
         this.canvas.dataset.frames !== frames
@@ -524,18 +525,18 @@ export class FiberSceneRenderer {
         ).toFixed(2);
         this.resizedAt = undefined;
       }
-      this.canvas.dataset.programs = String(
+      sceneData(this.canvas, "programs", String(
         this.renderer.info.programs?.length ?? 0,
-      );
+      ));
     }
-    this.canvas.dataset.scene = config.effect;
-    this.canvas.dataset.transition = this.transition.active
+    sceneData(this.canvas, "scene", config.effect);
+    sceneData(this.canvas, "transition", this.transition.active
       ? this.transition.frame.kind
-      : "idle";
-    this.canvas.dataset.transitionProgress = String(
+      : "idle");
+    sceneData(this.canvas, "transitionProgress", String(
       this.transition.frame.blend,
-    );
-    this.canvas.dataset.mapping = JSON.stringify(this.runtime.mapping);
+    ));
+    sceneData(this.canvas, "mapping", JSON.stringify(this.runtime.mapping));
     if (!this.transition.active) this.lastGoodConfig = config;
     return true;
   }

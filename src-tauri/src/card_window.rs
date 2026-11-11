@@ -193,6 +193,11 @@ mod native {
                 if GetParent(handle) != parent {
                     return Err("音乐控制挂载失败".into());
                 }
+            }
+            // Explorer may move its full-screen icon view above this child
+            // without changing our parent or geometry. Restore sibling order
+            // during recovery too; SW_SHOWNOACTIVATE alone preserves bad order.
+            if changing || created || !GetWindow(handle, GW_HWNDPREV).is_null() {
                 let mut point = POINT { x, y };
                 MapWindowPoints(null_mut(), parent, &mut point, 1);
                 if SetWindowPos(
@@ -202,7 +207,12 @@ mod native {
                     point.y,
                     width,
                     height,
-                    SWP_NOACTIVATE | SWP_FRAMECHANGED,
+                    SWP_NOACTIVATE
+                        | if changing || created {
+                            SWP_FRAMECHANGED
+                        } else {
+                            SWP_NOMOVE | SWP_NOSIZE
+                        },
                 ) == 0
                 {
                     return Err(std::io::Error::last_os_error().to_string());
@@ -272,11 +282,11 @@ mod native {
                 MapWindowPoints(null_mut(), parent, &mut in_parent, 1);
                 let routed = ChildWindowFromPointEx(parent, in_parent, CWP_SKIPDISABLED | CWP_SKIPINVISIBLE | CWP_SKIPTRANSPARENT);
                 let hit = WindowFromPoint(POINT { x: bounds.left + x, y: bounds.top + y });
-                serde_json::json!({ "point": point, "inRegion": PtInRegion(region, x, y) != 0, "routedToControls": routed == handle, "screenHitControls": hit == handle || IsChild(handle, hit) != 0 })
+                serde_json::json!({ "point": point, "inRegion": PtInRegion(region, x, y) != 0, "routedToControls": routed == handle, "screenHitControls": hit == handle || IsChild(handle, hit) != 0, "routedHandle": routed as usize, "screenHitHandle": hit as usize })
             }).collect();
             DeleteObject(region);
             Ok(
-                serde_json::json!({ "handle": handle as usize, "parent": parent as usize, "visible": IsWindowVisible(handle) != 0, "noActivate": GetWindowLongPtrW(handle, GWL_EXSTYLE) & WS_EX_NOACTIVATE as isize != 0, "topmost": GetWindowLongPtrW(handle, GWL_EXSTYLE) & WS_EX_TOPMOST as isize != 0, "scale": scale, "rect": [bounds.left,bounds.top,bounds.right,bounds.bottom], "samples": samples }),
+                serde_json::json!({ "handle": handle as usize, "parent": parent as usize, "visible": IsWindowVisible(handle) != 0, "noActivate": GetWindowLongPtrW(handle, GWL_EXSTYLE) & WS_EX_NOACTIVATE as isize != 0, "transparent": GetWindowLongPtrW(handle, GWL_EXSTYLE) & WS_EX_TRANSPARENT as isize != 0, "previousSibling": GetWindow(handle, GW_HWNDPREV) as usize, "topmost": GetWindowLongPtrW(handle, GWL_EXSTYLE) & WS_EX_TOPMOST as isize != 0, "scale": scale, "rect": [bounds.left,bounds.top,bounds.right,bounds.bottom], "samples": samples }),
             )
         }
     }

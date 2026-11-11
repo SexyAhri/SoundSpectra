@@ -16,6 +16,7 @@ export function ShowPreview({
   const clock = useRef({ position: 0, at: performance.now(), playing: false }),
     slider = useRef<HTMLInputElement>(null),
     label = useRef<HTMLOutputElement>(null);
+  const refreshPlayhead = useRef<() => void>(() => {});
   const bands = useRef(new Float32Array(96)),
     receivedAt = useRef(0);
   const duration = Math.max(
@@ -36,27 +37,50 @@ export function ShowPreview({
   );
   const seek = (position: number) => {
     clock.current = { ...clock.current, position, at: performance.now() };
+    refreshPlayhead.current();
   };
   useEffect(() => {
-    if (selectedCue)
+    if (selectedCue) {
       clock.current = {
         ...clock.current,
         position: selectedCue.timeMs,
         at: performance.now(),
       };
+      refreshPlayhead.current();
+    }
   }, [selectedCue?.id, selectedCue?.timeMs]);
   useEffect(() => {
     let raf = 0;
-    const tick = () => {
+    const publish = () => {
       const t = time();
-      if (slider.current) slider.current.value = String(t);
-      if (label.current)
-        label.current.textContent = `${(t / 1000).toFixed(1)} / ${(duration / 1000).toFixed(0)} s`;
-      raf = requestAnimationFrame(tick);
+      const position = String(t);
+      const text = `${(t / 1000).toFixed(1)} / ${(duration / 1000).toFixed(0)} s`;
+      if (slider.current && slider.current.value !== position)
+        slider.current.value = position;
+      if (label.current && label.current.textContent !== text)
+        label.current.textContent = text;
+      return t;
     };
-    raf = requestAnimationFrame(tick);
-    return () => cancelAnimationFrame(raf);
-  }, [time, duration]);
+    const tick = () => {
+      raf = 0;
+      const t = publish();
+      if (clock.current.playing && t < duration && !document.hidden)
+        raf = requestAnimationFrame(tick);
+    };
+    const refresh = () => {
+      cancelAnimationFrame(raf);
+      // Seeking and cue changes publish once even while the clock is paused.
+      tick();
+    };
+    refreshPlayhead.current = refresh;
+    document.addEventListener("visibilitychange", refresh);
+    refresh();
+    return () => {
+      refreshPlayhead.current = () => {};
+      cancelAnimationFrame(raf);
+      document.removeEventListener("visibilitychange", refresh);
+    };
+  }, [time, duration, playing]);
   const specimen = useMemo(
     () => ({
       ...exampleShow(),

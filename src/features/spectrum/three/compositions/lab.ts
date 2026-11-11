@@ -18,15 +18,12 @@ document.querySelector("#composition-lab")!.innerHTML = `
   )
   .join("")}</nav>
 <section class="stage" id="stage"><canvas aria-label="连续三维构图预览"></canvas><div class="reading" hidden><small>READING SPACE</small><p>让旋律经过，<br>让文字留下。</p></div><div class="stage-caption"><span id="scene-title"></span><span id="phase"></span></div></section>
-<section class="controls"><button id="pause">暂停画面</button><label>显示<select id="mode"><option value="immersive">沉浸暗场</option><option value="daily">透明桌面示意</option></select></label><label>音乐力道<select id="level"><option value="sequence">24 秒连续段落</option><option value="quiet">静段</option><option value="normal">普通段</option><option value="strong">强段</option></select></label><label><input type="checkbox" id="reading">阅读避让</label><label><input type="checkbox" id="reduced">减少动态</label><button id="fullscreen">全屏观看</button></section>
-<footer><div><h2 id="family"></h2><p id="description"></p></div><div><h2>音乐如何改变它</h2><p id="mapping"></p><p class="fine">静段有克制的连续流动。减少动态冻结运镜和传播，仅保留缓慢明暗与小幅局部响应。此页独立于正式效果配置。</p></div></footer><p id="error" role="status"></p>`;
+<section class="controls"><button id="pause">暂停画面</button><label>显示<select id="mode"><option value="immersive">沉浸暗场</option><option value="daily">透明桌面示意</option></select></label><label>音乐力道<select id="level"><option value="sequence">24 秒连续段落</option><option value="quiet">静段</option><option value="normal">普通段</option><option value="strong">强段</option></select></label><label><input type="checkbox" id="reading">阅读避让</label><button id="fullscreen">全屏观看</button></section>
+<footer><div><h2 id="family"></h2><p id="description"></p></div><div><h2>音乐如何改变它</h2><p id="mapping"></p><p class="fine">静段有克制的连续流动。此页独立于正式效果配置。</p></div></footer><p id="error" role="status"></p>`;
 const canvas = document.querySelector("canvas")!,
   session = new CompositionStudy(canvas, selected);
 const element = (id: string) => document.getElementById(id)!;
 const mode = element("mode") as HTMLSelectElement;
-const reduced = element("reduced") as HTMLInputElement;
-reduced.checked = matchMedia("(prefers-reduced-motion: reduce)").matches;
-session.reduced = reduced.checked;
 let paused = false,
   last = 0,
   raf = 0,
@@ -64,9 +61,6 @@ mode.onchange = () => {
 };
 (element("level") as HTMLSelectElement).onchange = (e) => {
   session.level = (e.target as HTMLSelectElement).value as StudyLevel;
-};
-reduced.onchange = () => {
-  session.reduced = reduced.checked;
 };
 (element("reading") as HTMLInputElement).onchange = (e) => {
   session.reading = (e.target as HTMLInputElement).checked;

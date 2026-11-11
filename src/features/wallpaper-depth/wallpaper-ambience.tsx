@@ -1,4 +1,4 @@
-import { useEffect, useRef, type RefObject } from "react";
+import { useEffect, useMemo, useRef, type RefObject } from "react";
 import type { SceneMask, WallpaperDepthSettings } from "../spectrum/model";
 import type { AnalysisSnapshot } from "../spectrum/spectrum-canvas";
 import { demoAnalysis } from "../spectrum/music-analysis";
@@ -42,24 +42,20 @@ export function WallpaperAmbience({
   active?: boolean;
 }) {
   const canvas = useRef<HTMLCanvasElement>(null);
-  useEffect(() => {
-    const surface = canvas.current!,
-      context = surface.getContext("2d");
-    if (!context) return;
-    const reduced = matchMedia("(prefers-reduced-motion: reduce)");
-    let frame = 0,
-      timer = 0,
-      envelope = 0,
-      last = performance.now(),
-      time = 0,
-      width = 1,
-      height = 1;
+  // Settings normalization can recreate equal bounds/masks. Pixel generation
+  // depends on geometry alone, independently of color, amount and visibility.
+  const geometryKey = JSON.stringify([settings.ambientBounds, masks]);
+  const geometry = useMemo(() => {
+    const [b, masks] = JSON.parse(geometryKey) as [
+      WallpaperDepthSettings["ambientBounds"],
+      SceneMask[],
+    ];
     const mask = document.createElement("canvas");
     mask.width = 256;
     mask.height = 144;
-    const maskContext = mask.getContext("2d")!;
-    const pixels = maskContext.createImageData(mask.width, mask.height),
-      b = settings.ambientBounds;
+    const maskContext = mask.getContext("2d");
+    if (!maskContext) return null;
+    const pixels = maskContext.createImageData(mask.width, mask.height);
     // One small mask per layout change, shared by the glow and all particles.
     for (let y = 0; y < mask.height; y++)
       for (let x = 0; x < mask.width; x++) {
@@ -78,6 +74,20 @@ export function WallpaperAmbience({
         );
       }
     maskContext.putImageData(pixels, 0, 0);
+    return { mask, bounds: b };
+  }, [geometryKey]);
+  useEffect(() => {
+    const surface = canvas.current!,
+      context = surface.getContext("2d");
+    if (!context || !geometry) return;
+    const { mask, bounds: b } = geometry;
+    let frame = 0,
+      timer = 0,
+      envelope = 0,
+      last = performance.now(),
+      time = 0,
+      width = 1,
+      height = 1;
     const cancel = () => {
       cancelAnimationFrame(frame);
       clearTimeout(timer);
@@ -101,11 +111,11 @@ export function WallpaperAmbience({
       envelope +=
         (target - envelope) *
         (1 - Math.exp(-dt / (target > envelope ? 0.18 : 0.9)));
-      if (!reduced.matches) time += dt * Math.min(1, envelope * 5);
+      time += dt * Math.min(1, envelope * 5);
       context.clearRect(0, 0, width, height);
       const amount = envelope * Math.pow(settings.ambientAmount / 100, 0.72);
       surface.dataset.energy = amount.toFixed(4);
-      surface.dataset.motion = reduced.matches ? "reduced" : "full";
+      surface.dataset.motion = "full";
       if (amount > 0.0005) {
         const cx =
           (b.x + b.width * (0.5 + Math.sin(time * 0.2) * 0.12)) * width;
@@ -211,18 +221,15 @@ export function WallpaperAmbience({
     observer.observe(surface);
     resize();
     document.addEventListener("visibilitychange", wake);
-    reduced.addEventListener("change", wake);
     return () => {
       cancel();
       observer.disconnect();
       document.removeEventListener("visibilitychange", wake);
-      reduced.removeEventListener("change", wake);
     };
   }, [
-    settings.ambientBounds,
+    geometry,
     settings.ambientAmount,
     settings.ambientColor,
-    masks,
     active,
     demo,
     analysis,

@@ -119,7 +119,7 @@ test('rock ledges remain continuous as terrain height and sample position change
 })
 
 test('GPU height pass matches the real audio CPU reference and does not sample each cell on the CPU', async ({ page }) => {
-  await page.goto('/'); await setDemo(page)
+  await page.goto('/#scene'); await setDemo(page)
   const result = await page.evaluate(async () => {
     const [{ SoundFieldRenderer }, { SceneMotion }, { defaults }, T] = await Promise.all([
       import('/src/features/spectrum/three/terrain/terrain-renderer.ts'),
@@ -190,7 +190,7 @@ test('3D scene fills preview, stays soft, responds to interaction and persists c
     // The browser asks for a favicon even though this desktop app has no favicon link.
     if (message.type() === 'error' && !message.location().url.endsWith('/favicon.ico')) errors.push(message.text())
   })
-  await page.goto('/'); await setDemo(page)
+  await page.goto('/#scene'); await setDemo(page)
   await chooseStyle(page, '灯效', '频谱回响')
   await page.getByRole('button', { name: '全屏展示当前灯效', exact: true }).click()
   const canvas = page.locator('.sound-field-surface canvas')
@@ -234,7 +234,7 @@ test('3D desktop masks clip in scene coordinates; switching releases old buffers
     ...defaults, effect: 'sound_field', bounds: { x: 0, y: 0, width: 1, height: 1 },
     masks: [{ id: 'left', bounds: { x: 0, y: 0, width: .5, height: 1 }, feather: 0 }],
   })
-  await page.goto('/'); await setDemo(page)
+  await page.goto('/#scene'); await setDemo(page)
   const canvas = page.locator('.sound-field-surface canvas')
   await expect(canvas).toHaveAttribute('data-renderer', 'three')
   const image = await pixels(canvas)
@@ -253,10 +253,10 @@ test('3D desktop masks clip in scene coordinates; switching releases old buffers
   await expect(page.locator('.sound-field-surface')).toHaveCount(0)
 })
 
-test('live analysis expires, disabled scenes clear, and reduced motion creates no automatic drops', async ({ page }) => {
+test('live analysis expires and disabled scenes clear under the system reduce preference', async ({ page }) => {
   test.setTimeout(45000)
   await page.emulateMedia({ reducedMotion: 'reduce' })
-  await page.goto('/'); await setDemo(page)
+  await page.goto('/#scene'); await setDemo(page)
   await page.evaluate(async () => {
     const { mountSoundFieldProbe } = await import('/tests/fixtures/sound-field-probe.tsx')
     const probe = mountSoundFieldProbe()
@@ -269,7 +269,7 @@ test('live analysis expires, disabled scenes clear, and reduced motion creates n
   const canvas = page.locator('#sound-field-probe canvas')
   await expect(canvas).toHaveAttribute('data-renderer', 'three')
   await expect.poll(async () => (await pixels(canvas)).visible).toBeGreaterThan(500)
-  await expect(canvas).toHaveAttribute('data-drops', '0')
+  await expect(canvas).toHaveAttribute('data-transporting', 'true')
   await page.evaluate(() => (window as unknown as { __fieldProbe: { live: boolean } }).__fieldProbe.live = false)
   await expect.poll(async () => (await pixels(canvas)).visible, { timeout: 12000 }).toBe(0)
   await expect(canvas).toHaveAttribute('data-rms', '0.0000')

@@ -3,6 +3,7 @@ import {
   Suspense,
   useEffect,
   useMemo,
+  useRef,
   useState,
   type CSSProperties,
   type RefObject,
@@ -76,19 +77,44 @@ export function LyricLayer({
   onSnap?: (guides: { x: number | null; y: number | null }) => void;
 }) {
   const movable = draggable && !desktop && !!onBoundsChange;
-  const safe = useMemo(
-    () => avoidRail(settings.bounds, obstacles),
-    [settings.bounds, obstacles],
-  );
+  // Media polling rebuilds obstacle arrays in both desktop and preview hosts.
+  // Reuse the placement search until the actual rectangles change.
+  const placementKey = JSON.stringify([settings.bounds, obstacles]);
+  const safe = useMemo(() => {
+    const [bounds, obstacles] = JSON.parse(placementKey) as [
+      SceneBounds,
+      SceneBounds[],
+    ];
+    return avoidRail(bounds, obstacles);
+  }, [placementKey]);
   const placement = useLyricPlacement(
     safe.bounds,
     movable,
     onBoundsChange,
     onSnap,
   );
-  const [clock, setClock] = useState(Date.now()),
+  const [, refreshLine] = useState(0),
     [demoStart] = useState(Date.now);
-  const [reduced, setReduced] = useState(false);
+  const simulated = demo && !desktop;
+  const valid = document.key === trackKey(info) && document.status === "ready";
+  const lines = simulated ? demoLyrics : valid ? document.lines : [];
+  const demoDuration = (demoLyrics.at(-1)?.end ?? 19200) + 800;
+  const readDisplay = (now: number) => {
+    const synced = playbackPosition(info, now);
+    const time =
+      (simulated ? (now - demoStart) % demoDuration : (synced ?? 0)) +
+      settings.offsetMs;
+    return {
+      synced,
+      time,
+      index: activeLine(lines, time),
+      canShow: simulated || (valid && synced !== null),
+    };
+  };
+  // Parent updates (seek, offsets, track changes) always use the current clock.
+  const { synced, time, index, canShow } = readDisplay(Date.now());
+  const display = useRef({ readDisplay, index, canShow });
+  display.current = { readDisplay, index, canShow };
   const palette = useMemo(
     () => lyricPalette(appearance, cardAccent),
     [
@@ -99,38 +125,26 @@ export function LyricLayer({
     ],
   );
   useEffect(() => {
-    const media = matchMedia("(prefers-reduced-motion: reduce)"),
-      change = () => setReduced(media.matches);
-    change();
-    media.addEventListener("change", change);
-    return () => media.removeEventListener("change", change);
-  }, []);
-  useEffect(() => {
     if (!active || !settings.enabled) return;
-    // React owns line/status accessibility; the canvas owns its frame clock.
-    const timer = setInterval(() => setClock(Date.now()), 250);
+    // Only line/status changes need React; glyphs and particles keep their own clock.
+    const timer = setInterval(() => {
+      const current = display.current;
+      const next = current.readDisplay(Date.now());
+      if (next.index !== current.index || next.canShow !== current.canShow)
+        refreshLine((revision) => revision + 1);
+    }, 250);
     return () => clearInterval(timer);
   }, [active, settings.enabled]);
   if (!settings.enabled || !active) return null;
-  const simulated = demo && !desktop;
   const readAudio = () =>
     readLyricAudio(
       analysis?.current,
       performance.now(),
       appearance?.music,
-      !reduced && (simulated || info.playing),
+      simulated || info.playing,
       simulated,
     );
-  const synced = playbackPosition(info, clock);
-  const valid = document.key === trackKey(info) && document.status === "ready";
-  const lines = simulated ? demoLyrics : valid ? document.lines : [];
-  const demoDuration = (demoLyrics.at(-1)?.end ?? 19200) + 800;
-  const time =
-    (simulated ? (clock - demoStart) % demoDuration : (synced ?? 0)) +
-    settings.offsetMs;
-  const index = activeLine(lines, time),
-    line = lines[index];
-  const canShow = simulated || (valid && synced !== null);
+  const line = lines[index];
   if (desktop && (!canShow || safe.crowded)) return null;
   const b = host ? relativeBounds(placement.bounds, host) : placement.bounds;
   const displayFontSize = Math.max(
@@ -208,7 +222,7 @@ export function LyricLayer({
                 fontStyle={settings.fontStyle}
                 fontSize={displayFontSize}
                 regionWidth={placement.bounds.width}
-                reduced={reduced}
+                reduced={false}
                 backgroundOpacity={settings.backgroundOpacity}
                 palette={palette}
                 readability={settings.readability}
@@ -233,7 +247,7 @@ export function LyricLayer({
               fontSize={displayFontSize}
               regionWidth={placement.bounds.width}
               mode={settings.motion}
-              reduced={reduced}
+              reduced={false}
               backgroundOpacity={settings.backgroundOpacity}
               palette={palette}
               readability={settings.readability}

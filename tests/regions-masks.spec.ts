@@ -13,7 +13,7 @@ const settled = (page: Page) => expect(page.getByText('已保存到此浏览器'
 
 test('selecting region two keeps preview gestures and inspector edits on that region', async ({ page }) => {
   test.setTimeout(60000)
-  await page.goto('/'); await settled(page)
+  await page.goto('/#scene'); await settled(page)
   await page.getByRole('button', { name: '全屏展示当前灯效', exact: true }).click()
   await page.getByLabel('添加装饰区域', { exact: true }).click(); await settled(page)
   const original = await saved(page), id = original.regions[0].id
@@ -70,7 +70,7 @@ test('legacy settings, region isolation and total drawing budgets', () => {
 })
 
 test('regions keep independent appearance, visibility and placement through reload and promotion', async ({ page }) => {
-  await page.goto('/'); await settled(page)
+  await page.goto('/#scene'); await settled(page)
   const original = await saved(page)
   await page.getByLabel('添加装饰区域').click()
   await page.getByLabel('重命名当前区域').click()
@@ -105,7 +105,7 @@ test('regions keep independent appearance, visibility and placement through relo
 })
 
 test('mask drawing, cancellation, centered resize, feather and persistence', async ({ page }) => {
-  await page.goto('/'); await settled(page)
+  await page.goto('/#scene'); await settled(page)
   await page.getByRole('button', { name: '遮罩', exact: true }).click()
   const area = await page.getByLabel('遮罩绘制区域').boundingBox(); if (!area) throw new Error('No mask area')
   const drag = async () => { await page.mouse.move(area.x + area.width * .2, area.y + area.height * .2); await page.mouse.down(); await page.mouse.move(area.x + area.width * .5, area.y + area.height * .6, { steps: 5 }) }
@@ -142,7 +142,7 @@ test('mask drawing, cancellation, centered resize, feather and persistence', asy
 })
 
 test('mask shader uses global top-left coordinates and produces real alpha feathering', async ({ page }) => {
-  await page.goto('/')
+  await page.goto('/#scene')
   const result = await page.evaluate(fragment => {
     const canvas = document.createElement('canvas'); canvas.width = 100; canvas.height = 100
     const gl = canvas.getContext('webgl2')!, program = gl.createProgram()!
@@ -187,7 +187,7 @@ for (const effect of effectIds) test(`${effect}: disappears under a hard mask an
     gl.drawElementsInstanced = function (...args) { instances.apply(this, args); read() }
   }))
   await page.addInitScript(settings => localStorage.setItem('soundspectra.settings.v1', JSON.stringify(settings)), { ...defaults, effect, masks: [{ id: 'full', bounds: { x: 0, y: 0, width: 1, height: 1 }, feather: 0 }] })
-  await page.goto('/'); await settled(page)
+  await page.goto('/#scene'); await settled(page)
   await setDemo(page)
   expect(await sample(), effect).toBe(0)
   await page.getByRole('button', { name: '遮罩', exact: true }).click(); await page.getByLabel('删除当前遮罩').click(); await settled(page)
@@ -196,7 +196,7 @@ for (const effect of effectIds) test(`${effect}: disappears under a hard mask an
 
 test('repeated expanded previews release detached contexts and keep every region rendering', async ({ page }) => {
   const errors: string[] = []; page.on('pageerror', e => errors.push(e.message))
-  await page.goto('/'); await settled(page)
+  await page.goto('/#scene'); await settled(page)
   for (let i = 0; i < 3; i++) await page.getByLabel('添加装饰区域').click()
   for (let i = 0; i < 5; i++) {
     await page.getByLabel('放大预览').click(); await page.getByLabel('关闭放大预览').click()

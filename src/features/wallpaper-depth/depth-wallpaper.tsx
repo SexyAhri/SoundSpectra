@@ -3,6 +3,7 @@ import * as T from "three";
 import { invoke } from "@tauri-apps/api/core";
 import type { WallpaperDepthSettings } from "../spectrum/model";
 import { depthPixels } from "./depth-field";
+import { registerCanvasSnapshot } from "../spectrum/canvas-snapshot";
 import { useDepthImage } from "./image-store";
 import "./wallpaper-depth.css";
 
@@ -52,8 +53,7 @@ export function DepthWallpaper({
       frame = 0,
       poll = 0;
     const pointer = new T.Vector2(),
-      target = new T.Vector2(),
-      reduced = matchMedia("(prefers-reduced-motion: reduce)");
+      target = new T.Vector2();
     const map = depthPixels(settings.profile),
       depth = new T.DataTexture(
         map.pixels,
@@ -83,6 +83,10 @@ export function DepthWallpaper({
       });
     const scene = new T.Scene(),
       camera = new T.Camera();
+    const releaseSnapshot = registerCanvasSnapshot(surface, () => {
+      if (!renderer || !texture || disposed) throw new Error("壁纸还未准备好");
+      renderer.render(scene, camera);
+    });
     scene.add(new T.Mesh(geometry, material));
     const fail = (reason: unknown) => {
       if (!disposed) {
@@ -95,12 +99,10 @@ export function DepthWallpaper({
     const draw = () => {
       frame = 0;
       if (disposed || !renderer || !texture) return;
-      const moving =
-        live.current.active && !document.hidden && !reduced.matches;
+      const moving = live.current.active && !document.hidden;
       pointer.lerp(moving ? target : new T.Vector2(), 0.13);
-      uniforms.uAmount.value = reduced.matches
-        ? 0
-        : Math.min(100, Math.max(0, live.current.amount)) * 0.0003;
+      uniforms.uAmount.value =
+        Math.min(100, Math.max(0, live.current.amount)) * 0.0003;
       uniforms.uOffset.value.set(
         (1 - uniforms.uCover.value.x) * (live.current.focusX / 100 - 0.5),
         (1 - uniforms.uCover.value.y) * (0.5 - live.current.focusY / 100),
@@ -184,7 +186,7 @@ export function DepthWallpaper({
     };
     const sample = async () => {
       if (disposed) return;
-      if (live.current.active && !reduced.matches && !document.hidden)
+      if (live.current.active && !document.hidden)
         try {
           const p = await invoke<[number, number]>("desktop_pointer");
           if (
@@ -204,18 +206,17 @@ export function DepthWallpaper({
       element?.addEventListener("pointermove", move);
       element?.addEventListener("pointerleave", leave);
     }
-    reduced.addEventListener("change", request);
     document.addEventListener("visibilitychange", request);
     // Amount/active updates redraw through the small settings event below.
     surface.addEventListener("depth-settings", request);
     return () => {
+      releaseSnapshot();
       disposed = true;
       cancelAnimationFrame(frame);
       clearTimeout(poll);
       observer.disconnect();
       element?.removeEventListener("pointermove", move);
       element?.removeEventListener("pointerleave", leave);
-      reduced.removeEventListener("change", request);
       document.removeEventListener("visibilitychange", request);
       surface.removeEventListener("depth-settings", request);
       texture?.dispose();

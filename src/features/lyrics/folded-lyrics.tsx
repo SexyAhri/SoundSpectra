@@ -32,6 +32,7 @@ import { lyricRenderBudget } from "./lyric-render-budget";
 import { FrameBudget } from "../spectrum/render-budget";
 import { lyricRelease } from "./lyric-motion";
 import { foldedDust } from "./folded-dust";
+import { sceneData } from "../spectrum/three/scene-data";
 
 export interface FoldedLyricsProps {
   lines: LyricLine[];
@@ -772,33 +773,33 @@ function Scene(props: FoldedLyricsProps) {
       Math.max(0, index) % 3,
       audio,
     );
-    const data = gl.domElement.dataset;
-    data.composition = "folded";
-    data.time = String(Math.round(time));
-    data.line = String(index);
-    data.resources = String(cache.current.size);
-    data.visible = visible.join(",");
-    data.size = `${Math.round(size.width)}x${Math.round(size.height)}`;
-    data.echoes = "0";
-    data.stage = String(!!stage.current?.mesh.visible);
-    data.fontStyle = style;
-    data.fontsReady = "true";
-    data.fontWeight = String(weight);
+    const canvas = gl.domElement;
+    sceneData(canvas, "composition", "folded");
+    sceneData(canvas, "time", String(Math.round(time)));
+    sceneData(canvas, "line", String(index));
+    sceneData(canvas, "resources", String(cache.current.size));
+    sceneData(canvas, "visible", visible.join(","));
+    sceneData(canvas, "size", `${Math.round(size.width)}x${Math.round(size.height)}`);
+    sceneData(canvas, "echoes", "0");
+    sceneData(canvas, "stage", String(!!stage.current?.mesh.visible));
+    sceneData(canvas, "fontStyle", style);
+    sceneData(canvas, "fontsReady", "true");
+    sceneData(canvas, "fontWeight", String(weight));
     if (import.meta.env.DEV) {
-      data.fontSize = String(p.fontSize);
-      data.backgroundOpacity = String(p.backgroundOpacity);
-      data.readability = p.readability;
-      data.audioImpact = audio.impact.toFixed(3);
-      data.audioBands = [audio.bass, audio.body, audio.treble]
+      sceneData(canvas, "fontSize", String(p.fontSize));
+      sceneData(canvas, "backgroundOpacity", String(p.backgroundOpacity));
+      sceneData(canvas, "readability", p.readability);
+      sceneData(canvas, "audioImpact", audio.impact.toFixed(3));
+      sceneData(canvas, "audioBands", [audio.bass, audio.body, audio.treble]
         .map((v) => v.toFixed(3))
-        .join(",");
-      data.preparing = prewarm.current ? String(prewarm.current.index) : "";
+        .join(","));
+      sceneData(canvas, "preparing", prewarm.current ? String(prewarm.current.index) : "");
     }
-    if (import.meta.env.DEV) data.poses = JSON.stringify(poses);
-    data.frames = String(Number(data.frames ?? 0) + 1);
-    data.particles = String(particles);
-    data.quality = p.quality ?? "balanced";
-    data.fps = String(budget.fps);
+    if (import.meta.env.DEV) sceneData(canvas, "poses", JSON.stringify(poses));
+    canvas.dataset.frames = String(Number(canvas.dataset.frames ?? 0) + 1);
+    sceneData(canvas, "particles", String(particles));
+    sceneData(canvas, "quality", p.quality ?? "balanced");
+    sceneData(canvas, "fps", String(budget.fps));
     gl.render(scene, camera);
     schedule();
   }, 1);

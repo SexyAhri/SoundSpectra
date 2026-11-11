@@ -3,7 +3,7 @@ import { musicEffects } from '../src/features/spectrum/music-engine/catalog'
 import { visualProbeHtml } from '../scripts/visual-probe-html.mjs'
 
 test('the workspace waits for music by default and simulation requires an explicit opt-in',async({page})=>{
-  await page.goto('/')
+  await page.goto('/#scene')
   const demo=page.getByRole('switch',{name:'模拟预览',exact:true}),canvas=page.locator('.three-scene-surface canvas').first()
   await expect(demo).not.toBeChecked()
   await expect(canvas).toHaveAttribute('data-transporting','false')

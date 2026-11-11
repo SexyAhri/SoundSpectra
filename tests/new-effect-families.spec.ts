@@ -8,7 +8,7 @@ const additions=[['butterfly_flock','风栖蝶群'],['caustic_light','水光焦�
 test('new effects can be selected, tuned independently, reloaded and exported with their thumbnails',async({page})=>{
   test.setTimeout(60_000)
   await page.addInitScript(()=>{if(!sessionStorage.getItem('new-effects-initialized')){localStorage.clear();sessionStorage.setItem('new-effects-initialized','1')}})
-  await page.goto('/')
+  await page.goto('/#scene')
   const saved=()=>page.evaluate(()=>JSON.parse(localStorage.getItem('soundspectra.settings.v1')!))
   const sensitivities:number[]=[]
   for(const [effect,label] of additions){

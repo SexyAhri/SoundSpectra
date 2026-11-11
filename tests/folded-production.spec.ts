@@ -6,7 +6,7 @@ import { defaults, normalizeSettings } from '../src/features/spectrum/model'
 test('fourth lyric mode is selectable and persists in the actual settings panel', async ({ page }) => {
   const errors: string[] = []; page.on('pageerror', error => errors.push(error.message))
   expect(normalizeSettings({ lyrics: { ...defaults.lyrics, motion: 'folded' } }).lyrics.motion).toBe('folded')
-  await page.goto('/'); await setDemo(page)
+  await page.goto('/#scene'); await setDemo(page)
   await page.getByRole('button', { name: '歌词', exact: true }).click()
   await page.getByRole('switch', { name: '显示桌面歌词', exact: true }).click()
   await chooseStyle(page, '歌词编排', '折幕字场')
@@ -111,7 +111,7 @@ test('folded controls reach the renderer, move the layer and persist from the re
     ...defaults, regionVisible: false,
     lyrics: { ...defaults.lyrics, enabled: true, motion: 'folded', fontSize: 18, backgroundOpacity: 0, bounds: { x: .1, y: .85, width: .86, height: .1 } },
   })
-  await page.goto('/')
+  await page.goto('/#scene')
   await page.getByRole('button', { name: '歌词', exact: true }).click()
   await setDemo(page)
   const canvas = page.locator('.folded-lyrics canvas'), layer = page.getByTestId('lyric-layer')

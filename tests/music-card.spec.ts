@@ -157,7 +157,10 @@ test('rotation survives polling and pause, progress advances continuously and se
   await expect(card.locator('.mc-progress')).toHaveAttribute('aria-valuenow', '4')
   expect(await page.evaluate(() => (window as any).__disc === document.querySelector('.mc-disc') && (window as any).__turn === document.querySelector('.mc-disc')!.getAnimations()[0])).toBe(true)
   await page.emulateMedia({ reducedMotion: 'reduce' })
-  await expect(card.locator('.mc-disc')).toHaveCSS('animation-name', 'none')
+  await expect(card.locator('.mc-disc')).toHaveCSS('animation-name', 'mc-turn')
+  await expect(card.locator('.mc-disc')).toHaveCSS('animation-play-state', 'running')
+  const angle = await card.locator('.mc-disc').evaluate(node => getComputedStyle(node).rotate)
+  await expect.poll(() => card.locator('.mc-disc').evaluate(node => getComputedStyle(node).rotate)).not.toBe(angle)
 })
 
 test('broken covers fall back and stale observations stop the record instead of inventing playback', async ({ page }) => {

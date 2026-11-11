@@ -10,7 +10,7 @@ const saved = (page: Page) => page.evaluate(() => JSON.parse(localStorage.getIte
 test('studio uses the real effect catalog and persists choices through illustrated controls', async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 940 })
   const errors: string[] = []; page.on('pageerror', error => errors.push(error.message))
-  await page.goto('/')
+  await page.goto('/#scene')
   await expect(page.getByRole('heading', { name: '桌面预览', exact: true })).toBeVisible()
   await page.getByRole('button', { name: '更换灯效', exact: true }).click()
   await expect(page.locator('.module-style-option')).toHaveCount(musicEffects.length)
@@ -31,7 +31,7 @@ test('studio uses the real effect catalog and persists choices through illustrat
 })
 
 test('music card supports persistent style, scale and keyboard placement without moving effects', async ({ page }) => {
-  await page.goto('/')
+  await page.goto('/#scene')
   await page.getByRole('switch', { name: '模拟预览', exact: true }).check()
   await page.getByRole('button', { name: '音乐卡片', exact: true }).click()
   await page.getByRole('switch', { name: '显示桌面音乐卡片' }).click()
@@ -82,7 +82,7 @@ test('card participates in host geometry, remains independent from region style 
 
 test('studio controls fit short and narrow windows and retain keyboard access', async ({ page }) => {
   await page.setViewportSize({ width: 1000, height: 620 })
-  await page.goto('/')
+  await page.goto('/#scene')
   await page.getByRole('button', { name: '音乐卡片', exact: true }).click()
   await page.getByText('精确位置', { exact: true }).click()
   await page.getByRole('button', { name: '恢复卡片位置', exact: true }).scrollIntoViewIfNeeded()
@@ -126,7 +126,7 @@ test('native media card renders supplied metadata and clears a previous song whe
       },
     }
   }, { ...defaults, desktopCard: { ...defaults.desktopCard, enabled: true } })
-  await page.goto('/')
+  await page.goto('/#scene')
   const card = page.getByTestId('music-card-layer')
   await expect(card.getByText('测试歌曲', { exact: true })).toBeVisible()
   await expect(card.getByText('测试歌手', { exact: true })).toBeVisible()
@@ -136,5 +136,5 @@ test('native media card renders supplied metadata and clears a previous song whe
   await expect(card.getByText('播放器未提供歌曲信息')).toBeVisible()
   await expect(card.getByText('QQ 音乐', { exact: true })).toBeVisible()
   await page.emulateMedia({ reducedMotion: 'reduce' })
-  await expect(card.locator('.vinyl-disc')).toHaveCSS('animation-name', 'none')
+  await expect(card.locator('.vinyl-disc')).toHaveCSS('animation-name', 'mc-turn')
 })

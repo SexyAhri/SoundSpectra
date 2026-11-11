@@ -16,7 +16,7 @@ test("score entry belongs to preview tools and mapping belongs to the selected s
       }),
     ),
   );
-  await page.goto("/");
+  await page.goto("/#scene");
   await expect(
     page.getByRole("button", { name: "演出编排", exact: true }),
   ).toBeVisible();
@@ -177,7 +177,7 @@ test("the compact score layout creates and edits markers while keeping transport
     ),
   );
   await page.setViewportSize({ width: 1440, height: 940 });
-  await page.goto("/");
+  await page.goto("/#scene");
   await page.getByRole("button", { name: "演出编排", exact: true }).click();
   const dialog = page.getByRole("dialog");
   await dialog

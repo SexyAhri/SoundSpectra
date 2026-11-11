@@ -25,7 +25,7 @@ test('all authoring definitions map art controls into compatible existing settin
 test('art controls persist through the old schema and resetting jellyfish preserves unrelated effect fields',async({page})=>{
   const initial={...structuredClone(defaults),music:{...defaults.music,dragonWidth:1.9,meteorDensity:91}}
   await page.addInitScript(value=>{if(!localStorage.getItem('soundspectra.settings.v1'))localStorage.setItem('soundspectra.settings.v1',JSON.stringify(value))},initial)
-  await page.goto('/')
+  await page.goto('/#scene')
   await settingsSection(page, '动效')
   await expect(page.getByRole('slider',{name:'漂游速度',exact:true})).toHaveCount(0)
   await page.getByRole('slider',{name:'深水空间',exact:true}).press('Home')
@@ -122,7 +122,7 @@ test('lyric focus only changes its local pixels, repeats exactly, and suppresses
 })
 
 test('readable lyrics publish actual placement and clear when simulated playback ends',async({page})=>{
-  await page.goto('/'); await setDemo(page)
+  await page.goto('/#scene'); await setDemo(page)
   await page.getByRole('button',{name:'歌词',exact:true}).click()
   await page.getByRole('switch',{name:'显示桌面歌词',exact:true}).click()
   const canvas=page.locator('.preview-spectrum canvas').first(),layer=page.getByTestId('lyric-layer')
@@ -131,7 +131,7 @@ test('readable lyrics publish actual placement and clear when simulated playback
   expect(JSON.parse((await canvas.getAttribute('data-focus'))!)).toEqual(placement)
   await page.locator('.desktop-preview').screenshot({path:'artifacts/visual-studies/lyrics-focus.png'})
   await page.emulateMedia({reducedMotion:'reduce'})
-  await expect(canvas).toHaveAttribute('data-focus-cue','0.0000')
+  await expect(canvas).toHaveAttribute('data-focus',/^\{/)
   await page.getByRole('switch',{name:'模拟预览',exact:true}).click()
   await expect(canvas).toHaveAttribute('data-focus','')
   await expect(layer.locator('.kinetic-lyrics-canvas')).toHaveCount(0)

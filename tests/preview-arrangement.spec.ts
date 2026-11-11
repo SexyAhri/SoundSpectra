@@ -62,7 +62,7 @@ test('avoidance moves first, shrinks only when needed, handles multiple rails an
 })
 
 test('right click copies only the target, changes persistent layers and never changes order on selection', async ({ page }) => {
-  await page.goto('/'); await settled(page)
+  await page.goto('/#scene'); await settled(page)
   await page.getByRole('button', { name: '布置', exact: true }).click()
   await openMenu(page, 'effect:primary')
   await page.getByRole('menuitem', { name: '复制区域', exact: true }).click(); await settled(page)
@@ -89,7 +89,7 @@ test('right click copies only the target, changes persistent layers and never ch
 })
 
 test('card and lyrics context actions stay local; keyboard menu closes without ending arrangement', async ({ page }) => {
-  await page.goto('/'); await settled(page)
+  await page.goto('/#scene'); await settled(page)
   await page.getByRole('button', { name: '布置', exact: true }).click()
   await openMenu(page, 'card')
   await expect(page.getByRole('menuitem', { name: '复制区域' })).toHaveCount(0)
@@ -112,7 +112,7 @@ test('card and lyrics context actions stay local; keyboard menu closes without e
 for (const theme of ['light', 'dark']) {
   test(`arrangement menu fits the screen edge and enlarged preview in ${theme}`, async ({ page }) => {
     await page.setViewportSize({ width: 1000, height: 620 })
-    await page.goto('/'); await settled(page)
+    await page.goto('/#scene'); await settled(page)
     await page.evaluate(theme => { document.documentElement.dataset.theme = theme; document.documentElement.classList.toggle('dark', theme === 'dark') }, theme)
     await page.getByRole('button', { name: '放大预览' }).click()
     await page.getByRole('button', { name: '布置', exact: true }).last().click()
@@ -131,7 +131,7 @@ for (const theme of ['light', 'dark']) {
 test('preview avoids a live rail and returns to saved placement when rail is disabled', async ({ page }) => {
   const rail = { ...structuredClone(railDefaults), enabled: true }
   await page.addInitScript(rail => localStorage.setItem('soundspectra.rail.v1', JSON.stringify(rail)), rail)
-  await page.goto('/'); await settled(page)
+  await page.goto('/#scene'); await settled(page)
   await expect(page.getByLabel('桌面拾光绳预览')).toBeVisible()
   const bounds = await object(page, 'lyrics').boundingBox()
   const rope = await page.locator('.rail-surface').boundingBox()
@@ -155,7 +155,7 @@ test('global arrangement selects, moves and resizes the rail without opening or 
     if (!localStorage.getItem('soundspectra.rail.v1')) localStorage.setItem('soundspectra.rail.v1', JSON.stringify(value))
   }, rail)
   const savedRail = () => page.evaluate(() => JSON.parse(localStorage.getItem('soundspectra.rail.v1')!))
-  await page.goto('/'); await settled(page)
+  await page.goto('/#scene'); await settled(page)
   // Stay in the lighting inspector: arranging the rail must not require its tab first.
   await page.getByRole('button', { name: '布置', exact: true }).click()
   const target = object(page, 'rail:apps')

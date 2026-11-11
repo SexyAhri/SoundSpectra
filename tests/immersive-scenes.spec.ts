@@ -14,7 +14,7 @@ test('full-screen current effect preserves the selected scene and its tuning aft
   await page.addInitScript(settings => {
     if (!localStorage.getItem('soundspectra.settings.v1')) localStorage.setItem('soundspectra.settings.v1', JSON.stringify(settings))
   }, original)
-  await page.goto('/')
+  await page.goto('/#scene')
   await expect(page.getByRole('group', { name: '当前灯效', exact: true })).toContainText('旋涡')
   await page.getByRole('button', { name: '全屏展示当前灯效', exact: true }).click()
   await expect(page.getByText('已保存到此浏览器', { exact: true })).toBeVisible()
@@ -30,7 +30,7 @@ test('full-screen current effect preserves the selected scene and its tuning aft
 })
 
 test('effect picker omits retired scenes and shortcuts while retaining preferred scenes', async ({ page }) => {
-  await page.goto('/')
+  await page.goto('/#scene')
   for (const name of ['全屏熔金', '跃迁光廊', '熔金潮汐', '水波纹', '丹霞声谷', '晶簇声境', '日冕回响']) {
     await expect(page.getByRole('button', { name, exact: true })).toHaveCount(0)
   }

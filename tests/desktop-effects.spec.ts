@@ -11,7 +11,7 @@ test('fullscreen bounds are supported independently of the small music card boun
 })
 
 test('desktop layout actions persist full-height scenes and preserve the music card', async ({ page }) => {
-  await page.goto('/')
+  await page.goto('/#scene')
   const before = await page.evaluate(() => JSON.parse(localStorage.getItem('soundspectra.settings.v1')!)) ?? structuredClone(defaults)
   await page.getByRole('button', { name: '全屏展示当前灯效', exact: true }).click()
   const saved = () => page.evaluate(() => JSON.parse(localStorage.getItem('soundspectra.settings.v1')!))

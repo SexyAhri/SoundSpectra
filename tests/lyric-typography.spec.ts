@@ -21,7 +21,7 @@ test('font choices migrate, round trip desktop scenes, and keep personal timing 
 
 test('the font selector persists through reload and reaches each production renderer', async ({ page }) => {
   test.setTimeout(90_000)
-  await page.goto('/')
+  await page.goto('/#scene')
   await setDemo(page)
   await page.getByRole('button', { name: '歌词', exact: true }).click()
   await page.getByRole('switch', { name: '显示桌面歌词', exact: true }).check()

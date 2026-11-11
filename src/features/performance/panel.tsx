@@ -642,7 +642,7 @@ export function PerformancePanel({
                   />
                 </div>
                 <p className="performance-transition-note">
-                  空间转场仅用于标注的场景组合，其余组合柔和交叠。减少动态时使用短交叠。保留的区域各自转场，增删区域随布局更新。
+                  空间转场仅用于标注的场景组合，其余组合柔和交叠。保留的区域各自转场，增删区域随布局更新。
                 </p>
               </fieldset>
             </Tabs.Content>

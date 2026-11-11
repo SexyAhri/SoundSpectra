@@ -28,10 +28,16 @@ export function useCardClock(
   layout: string,
 ) {
   const current = useRef(info);
+  const refresh = useRef<(() => void) | undefined>(undefined);
   current.current = info;
   useLayoutEffect(() => {
     const article = root.current;
     if (!article || !active) return;
+    // These nodes only change when the card layout changes, not on media polls.
+    const progress = article.querySelector<HTMLElement>(".mc-progress");
+    const fill = article.querySelector<HTMLElement>(".mc-progress-fill");
+    const arc = article.querySelector<SVGPathElement>(".mc-arc-fill");
+    const clock = article.querySelector<HTMLElement>(".mc-time");
     let frame = 0,
       timer = 0,
       last = 0,
@@ -42,10 +48,6 @@ export function useCardClock(
       const timeline = position === null ? "unavailable" : "available";
       if (article.dataset.timeline !== timeline)
         article.dataset.timeline = timeline;
-      const progress = article.querySelector<HTMLElement>(".mc-progress");
-      const fill = article.querySelector<HTMLElement>(".mc-progress-fill");
-      const arc = article.querySelector<SVGPathElement>(".mc-arc-fill");
-      const clock = article.querySelector<HTMLElement>(".mc-time");
       if (position !== null && progress && fill) {
         const transform = `scaleX(${Number((position / 1000 / value.duration).toFixed(6))})`;
         if (fill.style.transform !== transform)
@@ -83,49 +85,44 @@ export function useCardClock(
     };
     const start = () => {
       cancelAnimationFrame(frame);
-      const running = publish();
-      if (active && visible && (desktop || !document.hidden) && running)
-        frame = requestAnimationFrame(tick);
-    };
-    const observer = new IntersectionObserver((entries) => {
-      visible = entries[0]?.isIntersecting ?? true;
-      if (article.dataset.visible !== String(visible))
-        article.dataset.visible = String(visible);
-      start();
-    });
-    observer.observe(article);
-    const visibility = () => {
+      clearTimeout(timer);
       const hidden = !desktop && document.hidden;
       if (article.dataset.hidden !== String(hidden))
         article.dataset.hidden = String(hidden);
-      if (!hidden) start();
-      else cancelAnimationFrame(frame);
+      if (!visible || hidden) return;
+      const running = publish();
+      // A media correction already painted this instant; do not immediately
+      // repeat it on the next RAF before the normal 30 Hz cadence is due.
+      last = performance.now();
+      if (running) frame = requestAnimationFrame(tick);
+      else if (!current.current.playing && current.current.updated)
+        timer = window.setTimeout(
+          publish,
+          Math.max(0, 4001 - (Date.now() - current.current.updated)),
+        );
     };
-    document.addEventListener("visibilitychange", visibility);
-    visibility();
-    if (!info.playing && info.updated)
-      timer = window.setTimeout(
-        publish,
-        Math.max(0, 4001 - (Date.now() - info.updated)),
-      );
+    const observer = new IntersectionObserver((entries) => {
+      const next = entries[0]?.isIntersecting ?? true;
+      const changed = next !== visible;
+      visible = next;
+      if (article.dataset.visible !== String(visible))
+        article.dataset.visible = String(visible);
+      if (changed) start();
+    });
+    observer.observe(article);
+    document.addEventListener("visibilitychange", start);
+    refresh.current = start;
     return () => {
+      refresh.current = undefined;
       cancelAnimationFrame(frame);
       clearTimeout(timer);
       observer.disconnect();
-      document.removeEventListener("visibilitychange", visibility);
+      document.removeEventListener("visibilitychange", start);
     };
-  }, [
-    info.updated,
-    info.position,
-    info.duration,
-    info.playing,
-    info.timelineAvailable,
-    info.playbackAvailable,
-    info.issue,
-    active,
-    desktop,
-    demo,
-    root,
-    layout,
-  ]);
+  }, [active, desktop, demo, root, layout]);
+  // Pause, seek and fresh observations still apply in the same React commit.
+  // Only the clock's input changes; its observer and DOM nodes stay in place.
+  useLayoutEffect(() => {
+    refresh.current?.();
+  }, [info, active, desktop, demo, root, layout]);
 }

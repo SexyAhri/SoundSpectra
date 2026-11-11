@@ -2,6 +2,7 @@ import {
   createContext,
   useContext,
   useLayoutEffect,
+  useRef,
   useState,
   type ComponentProps,
 } from "react";
@@ -36,11 +37,12 @@ export function useDrawerScope() {
 
 /** A nonblocking panel bounded by the visible part of its settings page. */
 export function DrawerContent({
+  active,
   className,
   style,
   onInteractOutside,
   ...props
-}: ComponentProps<typeof Dialog.Content>) {
+}: ComponentProps<typeof Dialog.Content> & { active: boolean }) {
   const host = useContext(DrawerContext)?.container;
   const [bounds, setBounds] = useState<{
     top: number;
@@ -49,8 +51,11 @@ export function DrawerContent({
     maxWidth: number;
     width: number;
   }>();
+  const measured = useRef<typeof bounds>(undefined);
   useLayoutEffect(() => {
-    if (!host) return;
+    // Radix owns the exit presentation; measurements only belong to an open drawer.
+    if (!active || !host) return;
+    let frame = 0;
     const inspector = host.querySelector<HTMLElement>(
       ".workspace-inspector-container",
     );
@@ -67,29 +72,38 @@ export function DrawerContent({
         ),
         width: Math.max(240, inspectorWidth - 24),
       };
-      setBounds((previous) =>
+      const previous = measured.current;
+      if (
         previous &&
         Object.keys(next).every(
           (key) =>
             previous[key as keyof typeof next] ===
             next[key as keyof typeof next],
         )
-          ? previous
-          : next,
-      );
+      ) return;
+      measured.current = next;
+      setBounds(next);
+    };
+    const schedule = () => {
+      if (!frame)
+        frame = requestAnimationFrame(() => {
+          frame = 0;
+          measure();
+        });
     };
     measure();
-    const observer = new ResizeObserver(measure);
+    const observer = new ResizeObserver(schedule);
     observer.observe(host);
     if (inspector) observer.observe(inspector);
-    window.addEventListener("resize", measure);
-    window.addEventListener("scroll", measure, true);
+    window.addEventListener("resize", schedule);
+    window.addEventListener("scroll", schedule, true);
     return () => {
+      cancelAnimationFrame(frame);
       observer.disconnect();
-      window.removeEventListener("resize", measure);
-      window.removeEventListener("scroll", measure, true);
+      window.removeEventListener("resize", schedule);
+      window.removeEventListener("scroll", schedule, true);
     };
-  }, [host]);
+  }, [active, host]);
   return (
     <Dialog.Portal container={host ?? undefined}>
       <Dialog.Content

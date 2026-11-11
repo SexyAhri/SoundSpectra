@@ -19,6 +19,16 @@ import { applyDesktopScene } from '../preview/scene-client';
 import type { SceneLayout } from '../preview/scene-library';
 import { SettingsHistory } from './settings-history';
 
+function sameStatus(previous: RuntimeStatus, next: RuntimeStatus) {
+  return previous.state === next.state &&
+    previous.message === next.message &&
+    previous.processId === next.processId &&
+    previous.sourceName === next.sourceName &&
+    previous.desktopAttached === next.desktopAttached &&
+    previous.editing === next.editing &&
+    previous.desktopError === next.desktopError;
+}
+
 export function useSettings() {
   const [settings, setSettings] = useState<SpectrumSettings>(
     structuredClone(defaults),
@@ -31,6 +41,8 @@ export function useSettings() {
   );
   const [error, setError] = useState<string | null>(null);
   const latest = useRef(settings);
+  const latestStatus = useRef(status);
+  latestStatus.current = status;
   const queue = useRef(Promise.resolve());
   const revision = useRef(0);
   const committing = useRef(false);
@@ -74,17 +86,22 @@ export function useSettings() {
         if (!disposed) setError(describeError(reason));
       });
     let timer: ReturnType<typeof setTimeout>;
+    const publishStatus = (value: RuntimeStatus) => {
+      if (!disposed && !sameStatus(latestStatus.current, value)) {
+        latestStatus.current = value;
+        setStatus(value);
+      }
+    };
     const poll = async () => {
       try {
         const value = await getStatus();
-        if (!disposed) setStatus(value);
+        publishStatus(value);
       } catch (reason) {
-        if (!disposed)
-          setStatus({
-            ...browserStatus,
-            state: "error",
-            message: describeError(reason),
-          });
+        publishStatus({
+          ...browserStatus,
+          state: "error",
+          message: describeError(reason),
+        });
       }
       if (!disposed) timer = setTimeout(poll, 1500);
     };

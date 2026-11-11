@@ -23,7 +23,7 @@ test.beforeEach(async ({ page }) => {
     },
     { ...defaults, regionVisible: false, quality: "eco" },
   );
-  await page.goto("/");
+  await page.goto("/#scene");
   await expect(
     page.getByText("已保存到此浏览器", { exact: true }),
   ).toBeVisible();

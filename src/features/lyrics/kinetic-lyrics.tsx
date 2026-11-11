@@ -11,6 +11,7 @@ import { quietLyricAudio, type LyricAudio } from "./lyric-audio";
 import type { RenderQuality } from "../spectrum/model";
 import { FrameBudget } from "../spectrum/render-budget";
 import { lyricRenderBudget } from "./lyric-render-budget";
+import { sceneData } from "../spectrum/three/scene-data";
 
 type Props = {
   fontStyle?: LyricFontStyle;
@@ -35,7 +36,7 @@ export function KineticLyrics(props: Props) {
   const canvas = useRef<HTMLCanvasElement>(null),
     engine = useRef(new KineticComposition()),
     latest = useRef(props),
-    draw = useRef<() => void>(() => {});
+    requestDraw = useRef<() => void>(() => {});
   const fontsReady = useLyricFont(props.lines, props.fontStyle);
   latest.current = props;
   const ready = useRef(fontsReady);
@@ -46,8 +47,10 @@ export function KineticLyrics(props: Props) {
     if (!context) return;
     let width = 0,
       height = 0,
+      frame = 0,
       painted: unknown[] = [];
-    draw.current = () => {
+    const cadence = new FrameBudget();
+    const readFrame = () => {
       const p = latest.current;
       if (
         !width ||
@@ -100,6 +103,12 @@ export function KineticLyrics(props: Props) {
       ];
       if (signature.every((value, index) => Object.is(value, painted[index])))
         return;
+      return { p, budget, scale, pw, ph, time, index, audio, signature };
+    };
+    const draw = () => {
+      const next = readFrame();
+      if (!next) return;
+      const { p, budget, scale, pw, ph, time, index, audio, signature } = next;
       if (node.width !== pw || node.height !== ph) {
         node.width = pw;
         node.height = ph;
@@ -115,61 +124,65 @@ export function KineticLyrics(props: Props) {
         backgroundOpacity: p.backgroundOpacity ?? 30,
       });
       painted = signature;
-      node.dataset.time = String(Math.round(time));
-      node.dataset.composition = p.mode;
-      node.dataset.line = String(index);
-      node.dataset.backgroundOpacity = String(p.backgroundOpacity ?? 30);
-      node.dataset.transition = String(engine.current.isTransitioning);
-      node.dataset.fontStyle = p.fontStyle ?? "modern";
-      node.dataset.fontsReady = "true";
-      node.dataset.fontSize = String(p.fontSize);
-      node.dataset.readability = p.readability ?? "soft";
-      node.dataset.particles = String(engine.current.particles);
-      node.dataset.quality = p.quality ?? "balanced";
-      node.dataset.fps = String(budget.fps);
+      sceneData(node, "time", String(Math.round(time)));
+      sceneData(node, "composition", p.mode);
+      sceneData(node, "line", String(index));
+      sceneData(node, "backgroundOpacity", String(p.backgroundOpacity ?? 30));
+      sceneData(node, "transition", String(engine.current.isTransitioning));
+      sceneData(node, "fontStyle", p.fontStyle ?? "modern");
+      sceneData(node, "fontsReady", "true");
+      sceneData(node, "fontSize", String(p.fontSize));
+      sceneData(node, "readability", p.readability ?? "soft");
+      sceneData(node, "particles", String(engine.current.particles));
+      sceneData(node, "quality", p.quality ?? "balanced");
+      sceneData(node, "fps", String(budget.fps));
       if (import.meta.env.DEV)
         node.dataset.frames = String(Number(node.dataset.frames ?? 0) + 1);
       if (import.meta.env.DEV)
-        node.dataset.audioImpact = audio.impact.toFixed(3);
+        sceneData(node, "audioImpact", audio.impact.toFixed(3));
     };
+    const request = () => {
+      if (frame || (!latest.current.desktop && document.hidden)) return;
+      // Paused media polls can replace callbacks/props without changing pixels.
+      // Keep those updates completely idle, including RAF scheduling.
+      if ((!latest.current.readTime || latest.current.playing === false) && !readFrame())
+        return;
+      frame = requestAnimationFrame(tick);
+    };
+    const tick = (now: number) => {
+      frame = 0;
+      const p = latest.current;
+      if (!p.desktop && document.hidden) return;
+      const live = !!p.readTime && p.playing !== false;
+      if (!live || cadence.due(now, lyricRenderBudget(p.quality, p.reduced).fps))
+        draw();
+      if (live && ready.current && width && height) request();
+    };
+    requestDraw.current = request;
     const measure = () => {
       width = node.clientWidth;
       height = node.clientHeight;
-      draw.current();
+      request();
+    };
+    const visibility = () => {
+      cancelAnimationFrame(frame);
+      frame = 0;
+      request();
     };
     const observer = new ResizeObserver(measure);
     observer.observe(node);
     measure();
+    document.addEventListener("visibilitychange", visibility);
     return () => {
+      cancelAnimationFrame(frame);
       observer.disconnect();
-      draw.current = () => {};
+      document.removeEventListener("visibilitychange", visibility);
+      requestDraw.current = () => {};
     };
   }, []);
-  useEffect(() => draw.current(), [props, fontsReady]);
-  const live = !!props.readTime && props.playing !== false;
-  useEffect(() => {
-    let frame = 0;
-    const budget = new FrameBudget();
-    const tick = (now: number) => {
-      const p = latest.current;
-      if (budget.due(now, lyricRenderBudget(p.quality, p.reduced).fps))
-        draw.current();
-      frame = requestAnimationFrame(tick);
-    };
-    const resume = () => {
-      cancelAnimationFrame(frame);
-      // Desktop webviews may report hidden while embedded behind desktop icons.
-      if (!props.desktop && document.hidden) return;
-      draw.current();
-      if (live) frame = requestAnimationFrame(tick);
-    };
-    resume();
-    document.addEventListener("visibilitychange", resume);
-    return () => {
-      cancelAnimationFrame(frame);
-      document.removeEventListener("visibilitychange", resume);
-    };
-  }, [live, props.desktop]);
+  // Resize, fonts, media props and playback all use one pending frame. A React
+  // update must never add a second draw outside the renderer's frame budget.
+  useEffect(() => requestDraw.current(), [props, fontsReady]);
   return (
     <canvas ref={canvas} className="kinetic-lyrics-canvas" aria-hidden="true" />
   );

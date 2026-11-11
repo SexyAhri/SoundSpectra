@@ -89,7 +89,7 @@ test('production effect IDs match the lab and audio changes visible pixels at a 
 })
 
 test('main picker saves all three compositions with thumbnails and remembers each camera',async({page})=>{
-  await page.goto('/')
+  await page.goto('/#scene')
   const saved=()=>page.evaluate(()=>JSON.parse(localStorage.getItem('soundspectra.settings.v1')!))
   await expect(page.getByText('已保存到此浏览器')).toBeVisible()
   const demo=page.getByRole('switch',{name:'模拟预览',exact:true})
@@ -198,7 +198,7 @@ test('review page switches the three compositions and offers restrained reading 
   }
   await page.locator('#mode').selectOption('daily')
   await page.getByLabel('阅读避让',{exact:true}).check()
-  await page.getByLabel('减少动态',{exact:true}).check()
+  await expect(page.getByLabel('减少动态',{exact:true})).toHaveCount(0)
   await expect(page.locator('.reading')).toBeVisible()
   await expect(page.locator('canvas')).toHaveAttribute('data-focus',/width/)
   await page.getByRole('button',{name:'暂停画面'}).click()

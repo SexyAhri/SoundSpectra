@@ -143,7 +143,7 @@ export function MappingControls({
           />
         </label>
         <p className="creative-rule">
-          静音或减少动态时回到基础形状，不改变音频增益。每个区域与场景分别记住选择。
+          静音时回到基础形状，不改变音频增益。每个区域与场景分别记住选择。
         </p>
       </details>
       {error && <p role="alert">{error}</p>}

@@ -64,7 +64,6 @@ export function MusicCard({
   useLayoutEffect(() => {
     if (previous.current === key) return;
     previous.current = key;
-    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
     const nodes =
       !active || controlsOnly
         ? undefined

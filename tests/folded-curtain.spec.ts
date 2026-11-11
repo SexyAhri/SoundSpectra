@@ -44,9 +44,13 @@ test('word boundaries, true sentence-only data, offset and reading stability',as
   await expect.poll(()=>page.evaluate(()=>window.foldStudy!.diagnostics.time)).toBe(3600)
   await page.getByRole('button',{name:'重置样片'}).click()
   await expect.poll(()=>page.evaluate(()=>window.foldStudy!.diagnostics.time)).toBe(500)
-  await page.getByLabel('减少动态').check()
+  await expect(page.getByLabel('减少动态')).toHaveCount(0)
+  await page.emulateMedia({reducedMotion:'reduce'})
   await seek(page,16000)
-  await expect.poll(()=>page.evaluate(()=>window.foldStudy!.diagnostics.panels.filter(p=>p[5]>0).every(p=>p[4]===0 && p[6]===0 && p[7]===0 && p[8]===0))).toBe(true)
+  const panels = await page.evaluate(()=>window.foldStudy!.diagnostics.panels)
+  await page.emulateMedia({reducedMotion:'no-preference'})
+  await seek(page,16000)
+  expect(await page.evaluate(()=>window.foldStudy!.diagnostics.panels)).toEqual(panels)
 })
 test('all lines readable at onset, quick transitions clear previous line, resize and hidden stop drawing',async({page})=>{
   for(const time of [1800,6500,11400,16200,17600,24500]) {

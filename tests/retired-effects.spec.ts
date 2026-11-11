@@ -42,7 +42,7 @@ test('a saved retired selection reloads as a supported effect and exposes no ret
   await page.addInitScript(settings => localStorage.setItem('soundspectra.settings.v1', JSON.stringify(settings)), {
     ...defaults, quality: 'eco', effect: 'spectrum_bars', music: { ...defaults.music, clusterCount: 32 },
   })
-  await page.goto('/')
+  await page.goto('/#scene')
   await expect(page.getByRole('group', { name: '当前灯效', exact: true })).toContainText('频谱回响')
   for (const name of ['晶簇声境', '日冕回响', '熔金潮汐', '水波纹', '丹霞声谷']) {
     await expect(page.getByRole('button', { name, exact: true })).toHaveCount(0)

@@ -72,7 +72,7 @@ test('NetEase native event clock drives lyrics and stops when observations expir
 })
 
 test('lyrics preview animates independently, persists controls and never fabricates live lyrics', async ({ page }) => {
-  await page.goto('/'); await setDemo(page)
+  await page.goto('/#scene'); await setDemo(page)
   await page.getByRole('button', { name: '歌词', exact: true }).click()
   await page.getByRole('switch', { name: '显示桌面歌词', exact: true }).click()
   await expect(page.getByLabel('QQ 音乐歌词目录', { exact: true })).toHaveCount(0)
@@ -156,13 +156,13 @@ for (const mode of ['depth', 'stage', 'stardust']) test(`${mode} lyric backgroun
   }
 })
 
-test('three lyric designs have distinct composition and respect reduced motion', async ({ page }) => {
+test('three lyric designs retain their composition under either system motion preference', async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 940 })
   await page.addInitScript(settings => localStorage.setItem('soundspectra.settings.v1', JSON.stringify(settings)), {
     ...defaults, effect: 'dream_stars', sceneMode: 'immersive', opacity: 100, bounds: { x: 0, y: 0, width: 1, height: 1 },
     lyrics: { ...defaults.lyrics, enabled: true, fontSize: 72, bounds: { x: .06, y: .35, width: .88, height: .34 } },
   })
-  await page.goto('/')
+  await page.goto('/#scene')
   await setDemo(page)
   await page.getByRole('button', { name: '歌词', exact: true }).click()
   const layer = page.getByTestId('lyric-layer')
@@ -277,7 +277,7 @@ test('all lyric scores replace old letter silhouettes with ink dust at handoff',
 })
 
 test('lyrics drag and resize directly without moving the visual effect, and Escape cancels', async ({ page }) => {
-  await page.goto('/')
+  await page.goto('/#scene')
   await page.getByRole('button', { name: '歌词', exact: true }).click()
   await page.getByRole('switch', { name: '显示桌面歌词', exact: true }).click()
   const read = () => page.evaluate(() => JSON.parse(localStorage.getItem('soundspectra.settings.v1')!))

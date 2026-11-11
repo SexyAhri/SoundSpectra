@@ -48,15 +48,6 @@ export function useCoverColors(
   const [colors, setColors] = useState<Record<string, string>>(targets);
   const shown = useRef(colors);
   const wasFollowing = useRef(settings.followCover);
-  const [reduced, setReduced] = useState(
-    () => window.matchMedia("(prefers-reduced-motion: reduce)").matches,
-  );
-  useEffect(() => {
-    const preference = window.matchMedia("(prefers-reduced-motion: reduce)");
-    const change = () => setReduced(preference.matches);
-    preference.addEventListener("change", change);
-    return () => preference.removeEventListener("change", change);
-  }, []);
   useEffect(() => {
     const next = JSON.parse(signature) as Record<string, string>;
     const from = shown.current;
@@ -65,12 +56,15 @@ export function useCoverColors(
     let frame = 0,
       last = 0;
     const publish = (value: Record<string, string>) => {
+      const ids = Object.keys(value);
+      if (ids.length === Object.keys(shown.current).length &&
+        ids.every(id => value[id] === shown.current[id])) return;
       shown.current = value;
       setColors(value);
     };
     // Fixed manual colors and scene changes are immediate unless transitioning
     // away from a cover; there is no persistent animation loop or settings write.
-    if (!animate || reduced || !active || JSON.stringify(from) === signature) {
+    if (!animate || !active || JSON.stringify(from) === signature) {
       publish(next);
       return;
     }
@@ -93,7 +87,7 @@ export function useCoverColors(
     };
     frame = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(frame);
-  }, [signature, active, reduced, settings.followCover]);
+  }, [signature, active, settings.followCover]);
   const display = useMemo(
     () => ({
       ...settings,

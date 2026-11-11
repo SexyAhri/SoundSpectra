@@ -26,7 +26,7 @@ test('suggestions remain distinct and visible on light, dark and monochrome back
 })
 
 test('palette samples the displayed crop, letterbox background and spanning offset', async ({ page }) => {
-  await page.goto('/')
+  await page.goto('/#scene')
   const colors = await page.evaluate(async () => {
     const samplerPath = '/src/features/preview/wallpaper-palette.ts', geometryPath = '/src/features/preview/background.ts'
     const { sampleWallpaper } = await import(samplerPath), { wallpaperPlacement } = await import(geometryPath)
@@ -60,7 +60,7 @@ async function reference(page: Page, color = '#3a7f6b', accent = '#d7a077') {
 const saved = (page: Page) => page.evaluate(() => JSON.parse(localStorage.getItem('soundspectra.settings.v1')!))
 
 test('layout presets apply only geometry, persist, and reflect custom positions', async ({ page }) => {
-  await page.goto('/')
+  await page.goto('/#scene')
   await expect(page.getByText('已保存到此浏览器')).toBeVisible()
   const before = await saved(page)
   await page.getByRole('button', { name: '布置', exact: true }).click()
@@ -84,7 +84,7 @@ test('layout presets apply only geometry, persist, and reflect custom positions'
 })
 
 test('layout controls fit narrow, short and expanded previews', async ({ page }) => {
-  await page.goto('/')
+  await page.goto('/#scene')
   await reference(page)
   for (const viewport of [{ width: 1280, height: 620 }, { width: 390, height: 844 }]) {
     await page.setViewportSize(viewport)

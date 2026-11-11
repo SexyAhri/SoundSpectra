@@ -47,6 +47,7 @@ mod wallpaper_depth;
 use serde::Serialize;
 use settings::Settings;
 use std::{
+    collections::HashMap,
     path::PathBuf,
     sync::{
         atomic::{AtomicBool, Ordering},
@@ -80,7 +81,7 @@ pub struct AppState {
     config_error: Mutex<Option<String>>,
     path: PathBuf,
     shutdown: AtomicBool,
-    desktop_occluded: AtomicBool,
+    desktop_occluded: Mutex<HashMap<String, bool>>,
 }
 
 #[derive(Clone, Serialize)]
@@ -89,9 +90,17 @@ struct DesktopOcclusion {
 }
 
 #[tauri::command]
-fn get_desktop_occlusion(state: State<'_, Arc<AppState>>) -> DesktopOcclusion {
+fn get_desktop_occlusion(
+    window: tauri::WebviewWindow,
+    state: State<'_, Arc<AppState>>,
+) -> DesktopOcclusion {
     DesktopOcclusion {
-        occluded: state.desktop_occluded.load(Ordering::Relaxed),
+        occluded: state
+            .desktop_occluded
+            .lock()
+            .ok()
+            .and_then(|values| values.get(window.label()).copied())
+            .unwrap_or(false),
     }
 }
 
@@ -503,7 +512,7 @@ pub fn run() {
                 config_error: Mutex::new(error),
                 path,
                 shutdown: AtomicBool::new(false),
-                desktop_occluded: AtomicBool::new(false),
+                desktop_occluded: Mutex::new(HashMap::new()),
             });
             app.manage(state.clone());
             state.music.restore(app.handle().clone(), state.clone());

@@ -46,7 +46,7 @@ for (const effect of classicMusicEffects) {
     test.setTimeout(45000)
     const errors: string[] = []
     page.on('pageerror', error => errors.push(error.message))
-    await page.goto('/'); await setDemo(page)
+    await page.goto('/#scene'); await setDemo(page)
     await chooseStyle(page, '灯效', effect.label)
     const canvas = page.locator('.three-scene-surface canvas').first()
     await expect(canvas).toHaveAttribute('data-renderer', 'three')
@@ -72,7 +72,7 @@ test('repeated spatial effect switches release prior buffers and reuse one conte
   test.setTimeout(60000)
   const errors: string[] = []
   page.on('pageerror', error => errors.push(error.message))
-  await page.goto('/'); await setDemo(page)
+  await page.goto('/#scene'); await setDemo(page)
   const canvas = page.locator('.three-scene-surface canvas').first()
   await expect(canvas).toHaveAttribute('data-renderer', 'three')
   await expect(canvas).toHaveAttribute('data-preparing', 'false')
@@ -120,7 +120,7 @@ test('spatial effects respect global masks and live silence', async ({ page }) =
   }, {
     ...defaults, effect: 'ripple', masks: [{ id: 'full', bounds: { x: 0, y: 0, width: 1, height: 1 }, feather: 0 }],
   })
-  await page.goto('/'); await setDemo(page)
+  await page.goto('/#scene'); await setDemo(page)
   await page.waitForTimeout(250)
   expect((await pixels(page)).visible).toBe(0)
   await page.evaluate(() => {
@@ -135,7 +135,7 @@ test('spatial effects respect global masks and live silence', async ({ page }) =
 
 test('all performance presets render spatial scenes', async ({ page }) => {
   test.setTimeout(60000)
-  await page.goto('/'); await setDemo(page)
+  await page.goto('/#scene'); await setDemo(page)
   await chooseStyle(page, '灯效', '银河')
   for (const quality of ['eco', 'balanced', 'smooth', 'unlimited']) {
     await selectChoice(page, '渲染性能', quality)
@@ -144,19 +144,16 @@ test('all performance presets render spatial scenes', async ({ page }) => {
   expect((await pixels(page)).error).toBe(0)
 })
 
-for (const label of ['银河', '浮光水母']) test(`${label}: reduced-motion settles under constant input and still fades at silence`, async ({ page }) => {
+for (const label of ['银河', '浮光水母']) test(`${label}: system reduce preference preserves motion and silence still fades`, async ({ page }) => {
   test.setTimeout(45000)
   await page.emulateMedia({ reducedMotion: 'reduce' })
-  await page.goto('/'); await setDemo(page)
+  await page.goto('/#scene'); await setDemo(page)
   await chooseStyle(page, '灯效', label)
+  await expect(page.locator('.spectrum-surface canvas').first()).toHaveAttribute('data-scene', label === '银河' ? 'dream_stars' : 'rhythm_balls', { timeout: 15000 })
   await expect.poll(async () => (await pixels(page)).visible).toBeGreaterThan(30)
   expect((await pixels(page)).error).toBe(0)
-  let last = 0, stable = 0
-  await expect.poll(async () => {
-    const hash = (await pixels(page)).hash
-    stable = hash === last ? stable + 1 : 0; last = hash
-    return stable
-  }, { timeout: 15000, intervals: [200] }).toBeGreaterThanOrEqual(2)
+  const first = (await pixels(page)).hash
+  await expect.poll(async () => (await pixels(page)).hash).not.toBe(first)
   await page.getByRole('switch', { name: '模拟预览' }).click()
   await expect.poll(async () => (await pixels(page)).visible, { timeout: 6000 }).toBe(0)
 })

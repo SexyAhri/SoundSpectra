@@ -64,7 +64,7 @@ test('every renderer preserves its authored tint policy and responds to palettes
 test('effect tuning survives switching and reload, and palette selection replaces cover tint explicitly', async ({ page }) => {
   const initial = { ...structuredClone(defaults), followCover: true, color: '#d5a3a0', music: { ...defaults.music, jellyCount: 7, speed: 3 } }
   await page.addInitScript(settings => { if (!localStorage.getItem('soundspectra.settings.v1')) localStorage.setItem('soundspectra.settings.v1', JSON.stringify(settings)) }, initial)
-  await page.goto('/')
+  await page.goto('/#scene')
   const saved = () => page.evaluate(() => JSON.parse(localStorage.getItem('soundspectra.settings.v1')!))
   await expect(page.getByText('已保存到此浏览器')).toBeVisible()
   await chooseStyle(page, '灯效', '银河')
@@ -84,7 +84,7 @@ test('effect tuning survives switching and reload, and palette selection replace
 })
 
 test('region appearance history is isolated and corrupt optional history cannot block selection', async ({ page }) => {
-  await page.goto('/')
+  await page.goto('/#scene')
   const result = await page.evaluate(async () => {
     const { defaults } = await import('/src/features/spectrum/model.ts')
     const { selectEffect } = await import('/src/features/settings/effect-memory.ts')

@@ -53,7 +53,7 @@ for (const { value: effect, label } of classicMusicEffects) test(`${effect}: vis
   await page.addInitScript(settings => {
     if (!localStorage.getItem('soundspectra.settings.v1')) localStorage.setItem('soundspectra.settings.v1', JSON.stringify(settings))
   }, old)
-  await page.goto('/')
+  await page.goto('/#scene')
   await expect(page.getByRole('group', { name: '当前灯效', exact: true })).toContainText(label)
   const canvas = page.locator('.three-scene-surface canvas').first()
   await expect(canvas).toHaveAttribute('data-renderer', 'three')

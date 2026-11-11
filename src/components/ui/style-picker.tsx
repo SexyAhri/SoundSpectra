@@ -96,7 +96,7 @@ export function StylePicker({
           </Button>
         </Dialog.Trigger>
       </div>
-      <DrawerContent className="module-style-drawer">
+      <DrawerContent active={open} className="module-style-drawer">
         <header>
           <div>
             <div className="module-style-panel-title">

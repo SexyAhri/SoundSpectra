@@ -88,9 +88,6 @@ function FloatingStudy() {
     [playing, setPlaying] = useState(true);
   const [light, setLight] = useState(paperStudy),
     [quiet, setQuiet] = useState(false);
-  const [reduced, setReduced] = useState(
-    matchMedia("(prefers-reduced-motion: reduce)").matches,
-  );
   const [standby, setStandby] = useState(false);
   const [size, setSize] = useState<"normal" | "small">("normal");
   const [snapshot, setSnapshot] = useState({
@@ -99,8 +96,8 @@ function FloatingStudy() {
   });
   const [error, setError] = useState("");
   const position = useRef(72);
-  const input = useRef({ playing, quiet, reduced });
-  input.current = { playing, quiet, reduced };
+  const input = useRef({ playing, quiet });
+  input.current = { playing, quiet };
   const track = tracks[index];
   useEffect(() => {
     const session = new CompositionStudy(canvas.current!, "sculpture");
@@ -130,7 +127,7 @@ function FloatingStudy() {
       last = now;
       const state = input.current;
       if (!document.hidden) {
-        session.reduced = state.reduced || !state.playing;
+        session.reduced = !state.playing;
         session.level = state.quiet || !state.playing ? "quiet" : "normal";
         session.step(dt);
         receivedAt.current = now;
@@ -317,14 +314,6 @@ function FloatingStudy() {
               onChange={(e) => setQuiet(e.target.checked)}
             />
             静音输入
-          </label>
-          <label>
-            <input
-              type="checkbox"
-              checked={reduced}
-              onChange={(e) => setReduced(e.target.checked)}
-            />
-            减少动态
           </label>
           <label>
             <input

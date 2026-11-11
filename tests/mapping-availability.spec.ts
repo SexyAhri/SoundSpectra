@@ -3,7 +3,7 @@ import { chooseStyle, settingsSection } from './helpers/module-settings'
 
 test('unsupported effects explain mapping availability instead of showing an empty section', async ({ page }) => {
   await page.addInitScript(() => localStorage.setItem('soundspectra.settings.v1', JSON.stringify({ effect: 'rhythm_balls', quality: 'eco', regionVisible: false })))
-  await page.goto('/')
+  await page.goto('/#scene')
   await settingsSection(page, '外观')
   const mapping = page.getByRole('region', { name: '音乐响应映射', exact: true })
   await expect(mapping).toContainText('当前灯效使用自身的音乐响应，暂不支持自定映射。')
@@ -16,7 +16,7 @@ for (const [effect, name] of [['tidal_knot', '潮汐之结'], ['layered_tides', 
     await page.addInitScript(effect => {
       if (!localStorage.getItem('soundspectra.settings.v1')) localStorage.setItem('soundspectra.settings.v1', JSON.stringify({ effect, quality: 'eco', regionVisible: false }))
     }, effect)
-    await page.goto('/')
+    await page.goto('/#scene')
     await settingsSection(page, '外观')
     const preset = page.getByRole('combobox', { name: '音乐映射预设', exact: true })
     await preset.click()

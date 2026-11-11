@@ -9,10 +9,12 @@ export function CardTransport({
   info,
   disabled = false,
   demo = false,
+  supportedOnly = false,
 }: {
   info: NowPlaying;
   disabled?: boolean;
   demo?: boolean;
+  supportedOnly?: boolean;
 }) {
   const [pending, setPending] = useState<Action | null>(null);
   const [error, setError] = useState("");
@@ -68,7 +70,7 @@ export function CardTransport({
       onPointerDown={(event) => event.stopPropagation()}
       onKeyDown={(event) => event.stopPropagation()}
     >
-      {(["previous", toggle, "next"] as const).map((action) => {
+      {(["previous", toggle, "next"] as const).filter((action) => !supportedOnly || info.controls?.[action]).map((action) => {
         const label =
           action === "previous"
             ? "上一首"

@@ -9,7 +9,7 @@ test.beforeEach(async ({ page }) => {
 
 test('the inspector scrolls common controls while its heading, region and footer remain reachable', async ({ page }) => {
   await page.setViewportSize({ width: 1000, height: 620 })
-  await page.goto('/')
+  await page.goto('/#scene')
   const inspector = page.getByRole('complementary', { name: '对象属性' })
   await expect(inspector.getByRole('tab')).toHaveCount(3)
   await expect(page.getByRole('button', { name: '更换灯效', exact: true })).toBeVisible()
@@ -32,7 +32,7 @@ test('the inspector scrolls common controls while its heading, region and footer
 })
 
 test('rename cancellation preserves the region and module switching keeps the edited region', async ({ page }) => {
-  await page.goto('/')
+  await page.goto('/#scene')
   await page.getByLabel('添加装饰区域').click()
   await page.getByLabel('重命名当前区域').click()
   await page.getByLabel('区域名称', { exact: true }).fill('不要保存')

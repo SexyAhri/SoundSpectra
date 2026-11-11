@@ -15,7 +15,7 @@ test('wallpaper parallax defaults off, validates settings and gives foreground m
 
 test('imported wallpaper previews parallax, preserves settings, reloads and can be disabled',async({page})=>{
  const errors:string[]=[];page.on('pageerror',error=>errors.push(error.message))
- await page.goto('/')
+ await page.goto('/#scene')
  await page.getByRole('button',{name:'壁纸',exact:true}).click()
  await page.getByText('空间视差 · 可选增强',{exact:true}).click()
  await expect(page.getByRole('switch',{name:'立体壁纸',exact:true})).toBeDisabled()
@@ -44,9 +44,9 @@ test('imported wallpaper previews parallax, preserves settings, reloads and can 
  expect(errors).toEqual([])
 })
 
-test('wallpaper file failure stays visible and reduced motion holds the camera still',async({page})=>{
+test('wallpaper file failure stays visible under the system reduce preference',async({page})=>{
  await page.emulateMedia({reducedMotion:'reduce'})
- await page.goto('/')
+ await page.goto('/#scene')
  await page.getByRole('button',{name:'壁纸',exact:true}).click()
  await page.getByText('空间视差 · 可选增强',{exact:true}).click()
  await page.getByLabel('壁纸图片文件',{exact:true}).setInputFiles({name:'invalid.jpg',mimeType:'image/jpeg',buffer:Buffer.from('invalid image')})

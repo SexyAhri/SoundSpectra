@@ -213,12 +213,6 @@
   }
 }
 
-@media (prefers-reduced-motion: reduce) {
-  .mc-disc {
-    animation: none !important;
-  }
-}
-
 .card-color-mode {
   display: flex;
   gap: 6px;
@@ -388,11 +382,5 @@
 
   .mc-title {
     font-size: clamp(15px, 4cqw, 23px);
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .mc-control-loading {
-    animation: none;
   }
 }

@@ -15,7 +15,7 @@ export function mountCoverProbe() {
     change = patch => setInfo(value => ({ ...value, ...patch }))
     const color = useCoverColors(settings, info, true)
     return <div id="cover-probe">
-      <output>{JSON.stringify({ color: color.settings.color, stored: settings.color, following: settings.followCover, available: color.available })}</output>
+      <output>{JSON.stringify({ color: color.settings.color, target: color.cardColor, stored: settings.color, following: settings.followCover, available: color.available })}</output>
       <CoverColorControl settings={settings} display={color.settings} message={color.message} available={color.available} disabled={false}
         update={patch => setSettings(current => ({ ...current, ...(typeof patch === 'function' ? patch(current) : patch) }))} />
     </div>

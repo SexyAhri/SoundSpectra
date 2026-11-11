@@ -47,7 +47,7 @@ async function nativeWorkspace(page: Page, desktop: boolean) {
         rms, bands: Array(6).fill(level), spectrum: Array(48).fill(level), skin: [], bandRms: Array(6).fill(rms), spectrumRms: Array(48).fill(rms / 8) })
     }, 22)
   }, { settings, desktop })
-  await page.goto(desktop ? '/?window=overlay' : '/')
+  await page.goto(desktop ? '/?window=overlay' : '/#scene')
   await expect(page.locator('.three-scene-surface canvas')).toHaveCount(2)
   await expect.poll(() => page.evaluate(() => (window as any).sceneIntegration.mediaPolls)).toBeGreaterThan(5)
   // Media polling can finish before shader preparation and the initial resize.

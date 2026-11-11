@@ -12,11 +12,7 @@ export function fadeUpdate(
   const element = document.querySelector<HTMLElement>(selector);
   const opacity = element ? getComputedStyle(element).opacity : "1";
   pending.get(scope)?.cancel();
-  if (
-    !element ||
-    !element.animate ||
-    matchMedia("(prefers-reduced-motion: reduce)").matches
-  ) {
+  if (!element || !element.animate) {
     update();
     return;
   }
@@ -37,7 +33,12 @@ export function fadeUpdate(
   });
   void (async () => {
     try {
-      await animation.finished;
+      // Background WebViews can delay their animation timeline. Navigation
+      // still commits promptly, with the newest request owning the update.
+      await Promise.race([
+        animation.finished,
+        new Promise<void>((resolve) => setTimeout(resolve, 120)),
+      ]);
       if (cancelled || !element.isConnected) return;
       flushSync(update);
       animation.cancel();

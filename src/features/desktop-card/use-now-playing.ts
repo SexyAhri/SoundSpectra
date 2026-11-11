@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { native } from "../spectrum/bridge";
 
@@ -45,20 +45,38 @@ export const emptyNowPlaying: NowPlaying = {
   issue: null,
 };
 
+const snapshotFields = [
+  "title", "artist", "album", "cover", "position", "duration", "playing",
+  "source", "processId", "updated", "issue", "timelineAvailable",
+  "timelineSource", "timelineValidUntil", "trackId", "playbackAvailable", "sessionId",
+] as const satisfies readonly (keyof NowPlaying)[];
+
+function sameNowPlaying(previous: NowPlaying, next: NowPlaying) {
+  if (!snapshotFields.every(field => Object.is(previous[field], next[field]))) return false;
+  const a = previous.controls, b = next.controls;
+  return a === b || Boolean(a && b && a.previous === b.previous &&
+    a.next === b.next && a.play === b.play && a.pause === b.pause);
+}
+
 export function useNowPlaying(active = true, desktop = false) {
   const [value, setValue] = useState<NowPlaying>(emptyNowPlaying);
+  const latest = useRef(value);
   useEffect(() => {
     if (!native || !active) return;
     let disposed = false,
       timer: ReturnType<typeof setTimeout>;
+    const publish = (next: NowPlaying) => {
+      if (disposed || sameNowPlaying(latest.current, next)) return;
+      latest.current = next;
+      setValue(next);
+    };
     const read = async () => {
       if (desktop || !document.hidden) {
         try {
           const next = await invoke<NowPlaying>("get_now_playing");
-          if (!disposed) setValue(next);
+          publish(next);
         } catch {
-          if (!disposed)
-            setValue({ ...emptyNowPlaying, issue: "播放器媒体信息暂不可用" });
+          publish({ ...emptyNowPlaying, issue: "播放器媒体信息暂不可用" });
         }
       }
       if (!disposed) timer = setTimeout(read, 500);

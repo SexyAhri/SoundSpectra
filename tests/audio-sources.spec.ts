@@ -13,7 +13,7 @@ test("removed player selection migrates to auto and the menu lists the four supp
       localStorage.setItem(key, JSON.stringify({ mode: "player", id: "kuwo" })),
     sourceKey,
   );
-  await page.goto("/");
+  await page.goto("/#scene");
   await expect(selector(page)).toHaveText("自动识别");
   await expect(page.getByRole("alert")).toHaveCount(0);
   await selector(page).click();
@@ -32,10 +32,15 @@ test("removed player selection migrates to auto and the menu lists the four supp
 test("browser source persists independently of appearance and reports preview only", async ({
   page,
 }) => {
-  await page.goto("/");
+  await page.goto("/#scene");
   await selector(page).click();
   await page.getByRole("option", { name: "网易云音乐", exact: false }).click();
   await expect(selector(page)).toHaveText("网易云音乐");
+  await expect(page.getByRole("listbox")).toHaveCount(0);
+  // The menu may unmount before its modal pointer guard is released. Move
+  // outside only after that guard settles so the tooltip receives pointerleave.
+  await expect(page.locator("body")).not.toHaveCSS("pointer-events", "none");
+  await page.mouse.move(0, 0);
   await selector(page).hover();
   await expect(page.getByRole("tooltip")).toContainText("仅预览设置");
   await page.mouse.move(0, 0);
@@ -71,7 +76,7 @@ test("corrupt source is preserved until explicit backup and recovery", async ({
     (key) => localStorage.setItem(key, "broken source"),
     sourceKey,
   );
-  await page.goto("/");
+  await page.goto("/#scene");
   await expect(page.getByRole("alert")).toContainText("音源设置读取失败");
   expect(
     await page.evaluate((key) => localStorage.getItem(key), sourceKey),
@@ -217,7 +222,7 @@ async function nativeFixture(page: Page, failFirst = false) {
     },
     { failFirst },
   );
-  await page.goto("/");
+  await page.goto("/#scene");
   await expect(selector(page)).toHaveText("自动识别");
 }
 
@@ -282,7 +287,7 @@ test("source menu fits a narrow viewport with keyboard access", async ({
   page,
 }) => {
   await page.setViewportSize({ width: 390, height: 844 });
-  await page.goto("/");
+  await page.goto("/#scene");
   await selector(page).scrollIntoViewIfNeeded();
   expect(
     await page
@@ -366,6 +371,9 @@ test("KuGou sync stays in the compact source status for automatic and manual sel
   });
   await expect(selector(page)).toHaveText("酷狗音乐");
   await expect(status).toHaveText("酷狗音乐 · 正在重启以启用同步");
+  await expect(page.getByRole("listbox")).toHaveCount(0);
+  await expect(page.locator("body")).not.toHaveCSS("pointer-events", "none");
+  await page.mouse.move(0, 0);
   await selector(page).hover();
   await expect(page.getByRole("tooltip")).toContainText(
     "正在重启酷狗以启用实时歌词同步…",

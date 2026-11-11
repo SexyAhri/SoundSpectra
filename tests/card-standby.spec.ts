@@ -48,7 +48,7 @@ test('original artwork recovers broken covers and gives way to decoded player ar
   }
 })
 
-test('ambient light respects reduced motion and stops when the card is inactive', async ({ page }) => {
+test('ambient light ignores the system motion preference and stops when inactive', async ({ page }) => {
   await page.goto('/tests/fixtures/music-card.html')
   await page.evaluate(info => {
     (window as any).cardProbe.set(info);
@@ -57,7 +57,7 @@ test('ambient light respects reduced motion and stops when the card is inactive'
   const light = page.locator('#card-frame .mc-material-light')
   await expect(light).toHaveCSS('animation-name', 'mc-material-pass')
   await page.emulateMedia({ reducedMotion: 'reduce' })
-  await expect(light).toHaveCSS('animation-name', 'none')
+  await expect(light).toHaveCSS('animation-name', 'mc-material-pass')
   await page.emulateMedia({ reducedMotion: 'no-preference' })
   await page.evaluate(() => (window as any).cardProbe.layout({ active: false }))
   await expect(light).toHaveCSS('animation-play-state', 'paused')

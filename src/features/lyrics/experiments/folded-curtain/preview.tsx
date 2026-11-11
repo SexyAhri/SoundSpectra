@@ -14,9 +14,6 @@ import "./preview.css";
 const clock = new ScoreClock();
 function Preview() {
   const [wordTiming, setWordTiming] = useState(true);
-  const [reduced, setReduced] = useState(
-    matchMedia("(prefers-reduced-motion: reduce)").matches,
-  );
   const [ready, setReady] = useState(false);
   const [revision, setRevision] = useState(0);
   const [playing, setPlaying] = useState(false);
@@ -70,7 +67,6 @@ function Preview() {
       clock,
       diagnostics,
       setWordTiming,
-      setReduced,
       replaceScore: setReplacement,
       reset: () => {
         clock.play(false);
@@ -106,7 +102,7 @@ function Preview() {
               clock={clock}
               lines={replacement ?? (wordTiming ? score : sentenceScore)}
               wordTiming={wordTiming}
-              reduced={reduced}
+              reduced={false}
             />
           )}
         </div>
@@ -164,14 +160,6 @@ function Preview() {
             </select>
           </label>
           <label>
-            <input
-              type="checkbox"
-              checked={reduced}
-              onChange={(e) => setReduced(e.target.checked)}
-            />{" "}
-            减少动态
-          </label>
-          <label>
             歌词偏移{" "}
             <input
               aria-label="歌词偏移"
@@ -211,7 +199,6 @@ declare global {
       clock: ScoreClock;
       diagnostics: typeof diagnostics;
       setWordTiming: (value: boolean) => void;
-      setReduced: (value: boolean) => void;
       replaceScore: (lines: Line[] | null) => void;
       reset: () => void;
     };

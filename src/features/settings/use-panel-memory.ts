@@ -40,23 +40,62 @@ export function usePanelMemory(
         /* Malformed optional memory must not affect editing. */
       }
     };
-    const save = () => {
+    let previous = "";
+    try {
+      previous = sessionStorage.getItem(key) ?? "";
+    } catch {
+      /* Optional memory. */
+    }
+    let saveFrame = 0;
+    let pending: {
+      panes: HTMLElement[];
+      value: { top: number[]; open: Record<string, boolean> };
+    } | null = null;
+    const persist = () => {
+      saveFrame = 0;
+      const snapshot = pending;
+      pending = null;
+      if (!snapshot) return;
       try {
-        sessionStorage.setItem(
-          key,
-          JSON.stringify({
-            top: panes().map((el) => el.scrollTop),
+        const next = JSON.stringify(snapshot.value);
+        if (next === previous) return;
+        sessionStorage.setItem(key, next);
+        previous = next;
+      } catch {
+        /* Optional memory. */
+      }
+    };
+    const flush = () => {
+      cancelAnimationFrame(saveFrame);
+      persist();
+    };
+    const save = (event: Event) => {
+      // Capture the old page's values before React can replace its tab content.
+      // Further events in this frame update only their own target.
+      if (!pending) {
+        const elements = panes();
+        pending = {
+          panes: elements,
+          value: {
+            top: elements.map((el) => el.scrollTop),
             open: Object.fromEntries(
               details().map((el) => [
                 el.querySelector("summary")?.textContent ?? "",
                 el.open,
               ]),
             ),
-          }),
-        );
-      } catch {
-        /* Optional memory. */
+          },
+        };
+      } else if (event.type === "scroll") {
+        const index = pending.panes.indexOf(event.target as HTMLElement);
+        if (index >= 0)
+          pending.value.top[index] = pending.panes[index].scrollTop;
+      } else if (event.target instanceof HTMLDetailsElement) {
+        const detail = event.target;
+        const label = detail.querySelector("summary")?.textContent ?? "";
+        pending.value.open[label] = detail.open;
       }
+      if (!saveFrame) saveFrame = requestAnimationFrame(persist);
     };
     // Radix mounts the selected tab's contents after its parent's layout
     // effects. Expand details once that content exists, then restore scrolling
@@ -65,6 +104,7 @@ export function usePanelMemory(
       restore(true);
       node.addEventListener("scroll", save, true);
       node.addEventListener("toggle", save, true);
+      window.addEventListener("pagehide", flush);
     };
     let disposed = false;
     let frame = 0;
@@ -80,6 +120,8 @@ export function usePanelMemory(
       cancelAnimationFrame(frame);
       node.removeEventListener("scroll", save, true);
       node.removeEventListener("toggle", save, true);
+      window.removeEventListener("pagehide", flush);
+      flush();
     };
   }, [scope, root]);
 }

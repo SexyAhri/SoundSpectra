@@ -9,6 +9,7 @@ import { fullscreenGeometry } from "./resources";
 import { useVisualRuntime } from "./runtime";
 import { visualQuality } from "./quality";
 import { TransitionOutput } from "./transition-output";
+import { sceneData } from "../scene-data";
 import {
   desktopVisibility,
   desktopVisibilitySource,
@@ -219,10 +220,10 @@ export function SceneCompositor() {
       motion.transporting
         ? Math.exp(-pass.cueAge * 5)
         : 0;
-    gl.domElement.dataset.focus = focusBounds
+    sceneData(gl.domElement, "focus", focusBounds
       ? JSON.stringify(focusBounds)
-      : "";
-    gl.domElement.dataset.focusCue = u.uFocusCue.value.toFixed(4);
+      : "");
+    sceneData(gl.domElement, "focusCue", u.uFocusCue.value.toFixed(4));
     // Keep HDR where emitted light needs it. Opaque terrain and nonemissive petals
     // retain their smaller byte targets, especially important for large desktop regions.
     const imageType =
@@ -308,12 +309,12 @@ export function SceneCompositor() {
     pass.output.draw(gl, runtime.transition, pass.uniforms);
     const canvas = gl.domElement;
     canvas.dataset.frames = String(++pass.frames);
-    canvas.dataset.drawCalls = String(gl.info.render.calls);
-    canvas.dataset.geometries = String(gl.info.memory.geometries);
-    canvas.dataset.textures = String(gl.info.memory.textures);
-    canvas.dataset.bloomLevels = bloom ? String(pass.bloom.count) : "0";
-    canvas.dataset.renderScale = String(scale);
-    canvas.dataset.sceneBuffer = `${sceneWidth}x${sceneHeight}`;
+    sceneData(canvas, "drawCalls", String(gl.info.render.calls));
+    sceneData(canvas, "geometries", String(gl.info.memory.geometries));
+    sceneData(canvas, "textures", String(gl.info.memory.textures));
+    sceneData(canvas, "bloomLevels", bloom ? String(pass.bloom.count) : "0");
+    sceneData(canvas, "renderScale", String(scale));
+    sceneData(canvas, "sceneBuffer", `${sceneWidth}x${sceneHeight}`);
   }, 1);
   return createPortal(
     <mesh

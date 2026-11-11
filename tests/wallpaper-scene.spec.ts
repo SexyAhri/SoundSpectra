@@ -164,7 +164,7 @@ test('default light is visible during quiet music and fully clears on pause', as
   await expect.poll(async () => Number(await canvas.getAttribute('data-energy')), { timeout: 8000 }).toBeLessThan(.001)
 })
 
-test('reduced motion keeps the parallax camera still and holds local particle motion', async ({ page }) => {
+test('parallax and ambient particles keep moving under the system reduce preference', async ({ page }) => {
   await page.emulateMedia({ reducedMotion: 'reduce' })
   await page.goto('/#wallpaper'); await importWallpaper(page)
   await page.getByText('空间视差 · 可选增强', { exact: true }).click()
@@ -173,8 +173,12 @@ test('reduced motion keeps the parallax camera still and holds local particle mo
   await expect(depth).toHaveAttribute('data-ready', 'true')
   const box = (await page.locator('.desktop-preview').boundingBox())!
   await page.mouse.move(box.x + box.width * .9, box.y + box.height * .8)
-  await expect(depth.locator('canvas')).toHaveAttribute('data-camera', '0.0000,0.0000')
+  await expect(depth.locator('canvas')).not.toHaveAttribute('data-camera', '0.0000,0.0000')
   await page.goto('/tests/fixtures/wallpaper-ambience.html')
-  await page.getByRole('button', { name: 'Audio', exact: true }).click()
-  await expect(page.getByTestId('wallpaper-ambience')).toHaveAttribute('data-motion', 'reduced')
+  await page.getByRole('button', { name: 'Play', exact: true }).click()
+  const ambience = page.getByTestId('wallpaper-ambience')
+  await expect(ambience).toHaveAttribute('data-motion', 'full')
+  const pixels = () => ambience.evaluate(node => (node as HTMLCanvasElement).toDataURL())
+  const first = await pixels()
+  await expect.poll(pixels).not.toBe(first)
 })
