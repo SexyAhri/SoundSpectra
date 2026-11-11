@@ -370,6 +370,14 @@
     z-index: 20;
   }
 
+  .studio-shell .topbar-actions {
+    gap: 4px;
+  }
+
+  .studio-shell .listening-navigation button {
+    padding-inline: 6px;
+  }
+
   .workspace-mobile-nav {
     display: grid;
     grid-template-columns: repeat(4, minmax(0, 1fr));
