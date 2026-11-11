@@ -177,12 +177,6 @@
   text-align: center;
 }
 
-@media (prefers-reduced-motion: reduce) {
-  .rail-wheel .rail-items>.rail-hanging {
-    transition: none;
-  }
-}
-
 .rail-surface button {
   color: inherit;
   font-family: inherit;
@@ -393,13 +387,6 @@
   transform-origin: 50% 0;
   will-change: transform;
   transform: rotate(var(--rail-sway-angle, 0rad));
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .rail-sway {
-    transform: none;
-    will-change: auto;
-  }
 }
 
 .rail-hanging:hover,
@@ -1644,15 +1631,5 @@
   .studio-shell .workspace-mobile-nav .nav-button {
     font-size: 10px;
     gap: 4px
-  }
-}
-
-@media(prefers-reduced-motion:reduce) {
-
-  .rail-hanging,
-  .rail-header,
-  .rail-body,
-  .rail-popup {
-    transition: none
   }
 }

@@ -137,24 +137,27 @@ pub async fn rail_popup(
         let result = (|| {
             let panel = match app.get_webview_window(&label) {
                 Some(panel) => panel,
-                None => tauri::WebviewWindowBuilder::new(
-                    app,
-                    &label,
-                    tauri::WebviewUrl::App(
-                        format!("index.html?window=rail-popup&group={id}").into(),
-                    ),
-                )
-                .title(format!("SoundSpectra · {}", group.name))
-                .inner_size(request.width + 24.0, 344.0)
-                .transparent(true)
-                .decorations(false)
-                .shadow(false)
-                .skip_taskbar(true)
-                .visible(false)
-                .focused(false)
-                .resizable(false)
-                .build()
-                .map_err(|e| e.to_string())?,
+                None => {
+                    let builder = tauri::WebviewWindowBuilder::new(
+                        app,
+                        &label,
+                        tauri::WebviewUrl::App(
+                            format!("index.html?window=rail-popup&group={id}").into(),
+                        ),
+                    )
+                    .title(format!("SoundSpectra · {}", group.name))
+                    .inner_size(request.width + 24.0, 344.0)
+                    .transparent(true)
+                    .decorations(false)
+                    .shadow(false)
+                    .skip_taskbar(true)
+                    .visible(false)
+                    .focused(false)
+                    .resizable(false);
+                    #[cfg(windows)]
+                    let builder = builder.disable_drag_drop_handler();
+                    builder.build().map_err(|e| e.to_string())?
+                }
             };
             #[cfg(windows)]
             {

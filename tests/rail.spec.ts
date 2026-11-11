@@ -2,6 +2,7 @@ import { railSection } from './helpers/module-settings'
 import { selectChoice } from './helpers/choices'
 import { expect, test } from '@playwright/test'
 import { defaults } from '../src/features/spectrum/model'
+import { clickCord } from './rail-helpers'
 
 test.beforeEach(async ({ page }) => {
   await page.addInitScript(settings => { if (!localStorage.getItem('soundspectra.settings.v1')) localStorage.setItem('soundspectra.settings.v1', JSON.stringify(settings)) }, { ...defaults, regionVisible: false })
@@ -185,7 +186,7 @@ test('mounting and unmounting animate while removed references immediately stop 
   await page.getByRole('button', { name: '挂上去', exact: true }).click()
   await railSection(page, '挂件列表')
   await expect(page.getByRole('button', { name: 'Third，软件', exact: true })).toBeVisible()
-  expect((await motion()).length).toBe(count)
+  expect((await motion()).length).toBeGreaterThan(count)
 })
 
 test('rail tabs keep group controls fixed while their content owns scrolling', async ({ page }) => {
@@ -285,12 +286,7 @@ test('rapid rail changes replace motion instead of stacking and tab switches do 
 
 test('clicking the cord adds a real persisted note and clicking the note edits its content', async ({ page }) => {
   await page.goto('/#rail')
-  const point = await page.locator('.rail-cord-hit').evaluate((path: SVGPathElement) => {
-    const p = path.getPointAtLength(path.getTotalLength() * .75)
-    const result = new DOMPoint(p.x, p.y).matrixTransform(path.getScreenCTM()!)
-    return { x: result.x, y: result.y }
-  })
-  await page.mouse.click(point.x, point.y)
+  await clickCord(page)
   await page.getByRole('button', { name: '写便签', exact: false }).click()
   await page.getByRole('textbox', { name: '便签内容', exact: true }).fill('周末去山里\n记得带相机')
   await page.getByRole('button', { name: '挂上便签', exact: true }).click()

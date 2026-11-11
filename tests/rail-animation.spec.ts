@@ -90,7 +90,7 @@ test('full rail rendering records idle and rotating layout work', async ({ page 
   await cdp.detach()
 })
 
-test('resizing during a turn preserves centering and reduced motion remains immediate', async ({ page }) => {
+test('resizing preserves centering and wheel animation survives system motion changes', async ({ page }) => {
   await fixture(page, 48)
   const surface = page.locator('.rail-surface')
   const active = surface.locator('[data-wheel-active=true]')
@@ -106,12 +106,16 @@ test('resizing during a turn preserves centering and reduced motion remains imme
   })
   await expect.poll(centered).toBeLessThan(2)
   await page.emulateMedia({ reducedMotion: 'reduce' })
-  // The application's reduced-motion reset retains 0.01 ms transitions.
-  // Count visible-duration motion rather than those stubs.
-  const visibleMotion = () => surface.evaluate(node => node.getAnimations({ subtree: true }).filter(a => Number(a.effect?.getComputedTiming().duration) > 1).length)
-  await expect.poll(visibleMotion).toBe(0)
-  await page.evaluate(() => (window as any).selectItem('item-3'))
+  const positions = await surface.evaluate(async node => {
+    (window as any).selectItem('item-3')
+    const values: number[] = []
+    for (let i = 0; i < 40; i++) {
+      await new Promise(requestAnimationFrame)
+      values.push(node.querySelector('[data-rail-item="item-3"]')!.getBoundingClientRect().x)
+    }
+    return values
+  })
+  expect(new Set(positions.map(Math.round)).size).toBeGreaterThan(4)
   await expect(active).toHaveAttribute('data-rail-item', 'item-3')
-  expect(await centered()).toBeLessThan(2)
-  expect(await visibleMotion()).toBe(0)
+  await expect.poll(centered).toBeLessThan(2)
 })

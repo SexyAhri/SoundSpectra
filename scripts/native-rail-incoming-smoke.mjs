@@ -31,6 +31,14 @@ let restoreProbe
 try {
   const diagnostics = await invoke('debug_rail_drop_state')
   assert.ok(diagnostics.find(d => d.label.startsWith('rail-'))?.fileObjectBridge)
+  for (const target of diagnostics) {
+    assert.ok(target.nativeDropReady)
+    const surfaces = target.windows.filter(w => w.dropSurface)
+    assert.equal(surfaces.length, 1, 'Each host needs one native receiving surface')
+    assert.ok(surfaces.every(w => w.process === target.process && w.oleTarget !== '0'), 'Receiving surface must own its OLE target')
+    const foreign = target.windows.filter(w => w.process !== target.process)
+    assert.ok(foreign.every(w => !w.registered && w.oleTarget === '0'), 'Never replace browser-owned OLE targets')
+  }
   if (!wasOpen) {
     const point = await source.locator('.rail-cord-hit').evaluate(path => {
       const p = path.getPointAtLength(path.getTotalLength() * .025)

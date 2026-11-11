@@ -600,18 +600,6 @@
   }
 }
 
-@media (prefers-reduced-motion: reduce) {
-
-  .rail-settings-tabs>[role=tabpanel],
-  .rail-item-controls {
-    animation: none !important;
-  }
-
-  .rail-control-item {
-    transition: none;
-  }
-}
-
 .rail-audio-heading {
   display: flex;
   align-items: center;

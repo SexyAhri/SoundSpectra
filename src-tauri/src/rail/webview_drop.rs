@@ -1,6 +1,6 @@
-//! WebView2's renderer/D3D HWNDs belong to other processes. Overriding OLE on
-//! the host HWND cannot handle their drops. Use the documented File objects in
-//! WebMessageReceived.AdditionalObjects to obtain paths without reading data.
+//! Disable WebView2 external drops and receive external drags on our own native
+//! surface. Retain the File-object bridge for renderer-originated File objects;
+//! external Shell applications and disk files both use the native OLE channel.
 use serde::Deserialize;
 use std::path::Path;
 use tauri::{Emitter, Manager, WebviewWindow};
@@ -151,12 +151,15 @@ pub fn install(window: &WebviewWindow) -> Result<(), String> {
                     let mut token = 0;
                     core.add_WebMessageReceived(&handler, &mut token)
                         .map_err(|e| e.to_string())?;
-                    // Wry disables this by default when it installs its own OLE
-                    // targets. Foreign-process renderer children still need it.
-                    if let Err(error) = external.SetAllowExternalDrop(true) {
+                    // Keep external Shell objects out of Chromium. Wry's own
+                    // drag handler is disabled at WebView construction too.
+                    if let Err(error) = external.SetAllowExternalDrop(false) {
                         let _ = core.remove_WebMessageReceived(token);
                         return Err(error.to_string());
                     }
+                }
+                super::native_drop::install_targets(&target)?;
+                unsafe {
                     SetPropW(root as _, READY.as_ptr(), 1usize as _);
                 }
                 Ok(())

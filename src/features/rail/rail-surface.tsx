@@ -22,7 +22,7 @@ import { native } from "../spectrum/bridge";
 import { dragRailItem, openRailItem } from "./client";
 import { RailMedia } from "./rail-media";
 import { RailItemPicker } from "./rail-item-picker";
-import { kindLabels, railSkin, type RailGroup, type RailItem } from "./model";
+import { isRailPhoto, isRailVideo, kindLabels, railSkin, type RailGroup, type RailItem } from "./model";
 import type { RailController } from "./use-rail";
 import { NoteEditor, RailAddPanel } from "./rail-add-panel";
 import { placeRailPopup } from "./popup-position";
@@ -55,6 +55,7 @@ interface Props {
   controller: RailController;
   selected?: string | null;
   desktop?: boolean;
+  active?: boolean;
   popupWindow?: "source" | "host";
   onSelect?: (groupId: string, itemId?: string) => void;
   onDragGroup?: (
@@ -69,6 +70,7 @@ export function RailSurface({
   controller,
   selected,
   desktop = false,
+  active = true,
   popupWindow,
   onSelect,
   onDragGroup,
@@ -152,7 +154,7 @@ export function RailSurface({
   const itemWidth = (item: RailItem) =>
     item.kind === "app"
       ? Math.min(96, 80 * unit)
-      : (item.kind === "image"
+      : (isRailPhoto(item)
           ? 167
           : item.kind === "file" || item.kind === "folder"
             ? 104
@@ -176,7 +178,7 @@ export function RailSurface({
     theme,
     group.id,
     `${wheel.active}:${group.items.map((item) => item.id).join(",")}`,
-    !!bodyPresent && !group.collapsed && !editing && popupWindow !== "host",
+    active && !!bodyPresent && !group.collapsed && !editing && popupWindow !== "host",
     geometry,
     unit,
     group.audioSync,
@@ -482,7 +484,7 @@ export function RailSurface({
         data-wheel-active={wheel.activeId === item.id ? "true" : undefined}
         inert={!slot.visible}
         aria-hidden={!slot.visible || undefined}
-        className={`rail-hanging rail-${item.kind}${reorder.target === item.id ? " rail-reorder-target" : ""}`}
+        className={`rail-hanging rail-${isRailPhoto(item) ? "image" : item.kind}${isRailVideo(item) ? " rail-video" : ""}${reorder.target === item.id ? " rail-reorder-target" : ""}`}
         style={
           {
             "--hang-drop": "0px",

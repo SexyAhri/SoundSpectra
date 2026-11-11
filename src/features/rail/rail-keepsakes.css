@@ -601,19 +601,3 @@
   background: var(--rail-string);
   box-shadow: 1px 0 #fff8;
 }
-
-@media (prefers-reduced-motion: reduce) {
-  .rail-keepsake {
-    transition: none;
-  }
-
-  .rail-surface .rail-item::after {
-    transition: none;
-  }
-
-  .rail-hanging[data-dragging=true] .rail-keepsake {
-    translate: none;
-    scale: none;
-  }
-
-}

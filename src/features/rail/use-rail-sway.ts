@@ -46,11 +46,12 @@ export function useRailSway(
           sway: node.querySelector<HTMLElement>(".rail-sway")!,
           state: states.get(id)!,
           x: parseFloat(node.style.getPropertyValue("--wheel-x")),
+          angle: undefined as string | undefined,
+          drop: undefined as string | undefined,
         };
       });
     const cord = bindRailCordMotion(host, geometry, unit);
     let music = new RailAudioMotion();
-    const reduced = matchMedia("(prefers-reduced-motion: reduce)");
     const near = new Set<HTMLElement>();
     let frame = 0,
       previous = 0;
@@ -64,6 +65,7 @@ export function useRailSway(
           ?.style.removeProperty("--rail-sway-angle");
         node.style.removeProperty("--rail-audio-drop");
       }
+      for (const entry of entries) entry.angle = entry.drop = undefined;
     };
     const tick = (now: number) => {
       const delta = previous ? (now - previous) / 1000 : 0;
@@ -85,7 +87,8 @@ export function useRailSway(
       if (host.dataset.breezePaused !== breezePaused)
         host.dataset.breezePaused = breezePaused;
       if (settings.enabled) cord.apply(music, settings);
-      for (const { node, sway, state, x } of entries) {
+      for (const entry of entries) {
+        const { node, sway, state, x } = entry;
         if (impulse > 0 && !paused)
           state.kick(
             impulse * (node.dataset.wheelActive === "true" ? 1 : 0.75),
@@ -96,15 +99,18 @@ export function useRailSway(
           theme.physics,
           music.level,
         );
-        sway.style.setProperty(
-          "--rail-sway-angle",
-          `${state.angle.toFixed(6)}rad`,
-        );
-        if (settings.enabled)
-          node.style.setProperty(
-            "--rail-audio-drop",
-            `${cord.offset(x, music, settings).toFixed(3)}px`,
-          );
+        const angle = `${state.angle.toFixed(6)}rad`;
+        if (entry.angle !== angle) {
+          sway.style.setProperty("--rail-sway-angle", angle);
+          entry.angle = angle;
+        }
+        if (settings.enabled) {
+          const drop = `${cord.offset(x, music, settings).toFixed(3)}px`;
+          if (entry.drop !== drop) {
+            node.style.setProperty("--rail-audio-drop", drop);
+            entry.drop = drop;
+          }
+        }
       }
       frame = requestAnimationFrame(tick);
     };
@@ -112,13 +118,10 @@ export function useRailSway(
       cancelAnimationFrame(frame);
       previous = 0;
       reset();
-      host.dataset.breezeActive = String(
-        enabled && !document.hidden && !reduced.matches,
-      );
+      host.dataset.breezeActive = String(enabled && !document.hidden);
       if (
         enabled &&
         !document.hidden &&
-        !reduced.matches &&
         (entries.length || settings.enabled)
       )
         frame = requestAnimationFrame(tick);
@@ -140,29 +143,24 @@ export function useRailSway(
     };
     const leave = () => near.clear();
     const release = (event: Event) => {
-      if (!enabled || reduced.matches || document.hidden) return;
+      if (!enabled || document.hidden) return;
       const id = (event as CustomEvent<{ id: string }>).detail.id;
       states.get(id)?.kick(0.35);
     };
-    reduced.addEventListener("change", sync);
     document.addEventListener("visibilitychange", sync);
     host.addEventListener("pointermove", pointer, { passive: true });
     host.addEventListener("pointerleave", leave);
     host.addEventListener("rail-item-release", release);
-    host.dataset.breezeActive = String(
-      enabled && !document.hidden && !reduced.matches,
-    );
+    host.dataset.breezeActive = String(enabled && !document.hidden);
     if (
       enabled &&
       !document.hidden &&
-      !reduced.matches &&
       (entries.length || settings.enabled)
     )
       frame = requestAnimationFrame(tick);
     else reset();
     return () => {
       cancelAnimationFrame(frame);
-      reduced.removeEventListener("change", sync);
       document.removeEventListener("visibilitychange", sync);
       host.removeEventListener("pointermove", pointer);
       host.removeEventListener("pointerleave", leave);

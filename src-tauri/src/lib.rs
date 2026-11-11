@@ -515,6 +515,10 @@ pub fn run() {
             let autostart = std::env::args().any(|arg| arg == "--autostart");
             for config in &app.config().app.windows {
                 let mut builder = tauri::WebviewWindowBuilder::from_config(app.handle(), config)?;
+                #[cfg(windows)]
+                if config.label == "settings" {
+                    builder = builder.disable_drag_drop_handler();
+                }
                 if autostart && config.label == "settings" {
                     builder = builder.visible(false);
                 }

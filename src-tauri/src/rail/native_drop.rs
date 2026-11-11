@@ -33,6 +33,7 @@ unsafe extern "system" fn receive(
     data: usize,
 ) -> LRESULT {
     if message == WM_NCDESTROY {
+        super::drop_surface::remove(hwnd);
         let _ = windows::Win32::System::Ole::RevokeDragDrop(windows::Win32::Foundation::HWND(hwnd));
         RemoveWindowSubclass(hwnd, Some(receive), SUBCLASS_ID);
         drop(Box::from_raw(data as *mut Target));
@@ -94,9 +95,13 @@ pub(super) unsafe fn read_paths(drop: HDROP) -> Vec<String> {
 }
 
 unsafe fn register(hwnd: HWND, window: &WebviewWindow) -> Result<(), String> {
+    if super::drop_surface::is_surface(hwnd) {
+        return Ok(());
+    }
     let mut process = 0;
     GetWindowThreadProcessId(hwnd, &mut process);
     if process != GetCurrentProcessId() {
+        // Browser-owned HWNDs must retain their own apartment/process targets.
         return Ok(());
     }
     let mut existing = 0;
@@ -119,14 +124,14 @@ unsafe fn register(hwnd: HWND, window: &WebviewWindow) -> Result<(), String> {
 
 unsafe fn enable_legacy_drop(hwnd: HWND) {
     DragAcceptFiles(hwnd, 1);
-    // Keep WebView2's OLE target. Only attribute_helper needs elevation.
 }
 
 pub fn install(window: &WebviewWindow) -> Result<(), String> {
-    // WebView2 owns cross-process child HWNDs which cannot be subclassed here.
-    // Its supported file-object bridge handles those; OLE remains a fallback
-    // for host-process windows and legacy WM_DROPFILES senders.
     super::webview_drop::install(window)?;
+    install_targets(window)
+}
+
+pub(super) fn install_targets(window: &WebviewWindow) -> Result<(), String> {
     struct Context<'a> {
         window: &'a WebviewWindow,
         error: Option<String>,
@@ -152,7 +157,19 @@ pub fn install(window: &WebviewWindow) -> Result<(), String> {
             &mut context as *mut Context<'_> as LPARAM,
         );
     }
-    context.error.map_or(Ok(()), Err)
+    context.error.map_or(Ok(()), Err)?;
+    super::drop_surface::install(window)
+}
+
+static TRACE: std::sync::Mutex<Vec<serde_json::Value>> = std::sync::Mutex::new(Vec::new());
+pub(super) fn trace(stage: &str, detail: serde_json::Value) {
+    if let Ok(mut entries) = TRACE.lock() {
+        if entries.len() >= 48 {
+            entries.remove(0);
+        }
+        entries.push(serde_json::json!({"stage": stage, "detail": detail,
+            "time": std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap_or_default().as_millis()}));
+    }
 }
 
 pub(super) fn diagnostics(window: &WebviewWindow) -> Result<serde_json::Value, String> {
@@ -174,6 +191,7 @@ pub(super) fn diagnostics(window: &WebviewWindow) -> Result<serde_json::Value, S
             "oleTarget": format!("{:x}", GetPropW(hwnd, property.as_ptr()) as usize),
             "rect": [rect.left, rect.top, rect.right, rect.bottom],
             "visible": IsWindowVisible(hwnd) != 0,
+            "dropSurface": super::drop_surface::is_surface(hwnd),
             "enabled": GetWindowLongPtrW(hwnd, GWL_STYLE) & WS_DISABLED as isize == 0,
         })
     }
@@ -185,8 +203,13 @@ pub(super) fn diagnostics(window: &WebviewWindow) -> Result<serde_json::Value, S
     unsafe {
         let mut nodes = vec![describe(root)];
         EnumChildWindows(root, Some(child), &mut nodes as *mut _ as LPARAM);
+        nodes.extend(
+            super::drop_surface::handles(root)
+                .into_iter()
+                .map(|hwnd| describe(hwnd)),
+        );
         Ok(
-            serde_json::json!({ "label": window.label(), "process": GetCurrentProcessId(), "fileObjectBridge": super::webview_drop::ready(root), "windows": nodes }),
+            serde_json::json!({ "label": window.label(), "process": GetCurrentProcessId(), "fileObjectBridge": super::webview_drop::ready(root), "nativeDropReady": super::webview_drop::ready(root), "windows": nodes, "trace": TRACE.lock().map(|v| v.clone()).unwrap_or_default() }),
         )
     }
 }

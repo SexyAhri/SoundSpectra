@@ -3,7 +3,9 @@ import { useRail } from "./use-rail";
 import { useRailPaste } from "./use-rail-paste";
 import { useRailDrop } from "./use-rail-drop";
 import { invoke } from "@tauri-apps/api/core";
+import { useDesktopOcclusion } from "../desktop/use-desktop-occlusion";
 export function RailDesktop() {
+  const occluded = useDesktopOcclusion();
   const controller = useRail(),
     groupId = new URLSearchParams(location.search).get("group");
   const group = controller.settings.groups.find((g) => g.id === groupId);
@@ -20,6 +22,7 @@ export function RailDesktop() {
       {controller.loaded && controller.settings.enabled && group ? (
         <RailSurface
           desktop
+          active={!occluded}
           popupWindow={popupHost ? "host" : "source"}
           group={group}
           controller={controller}

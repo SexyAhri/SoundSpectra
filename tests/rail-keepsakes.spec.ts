@@ -47,6 +47,12 @@ test('lifting shows its vacancy and insertion thread; cancel restores it without
   const before = await order()
   const source = group.locator('[data-rail-item="study-editor"] .rail-item')
   const target = group.locator('[data-rail-item="study-project"]')
+  // Reduced-motion emulation no longer disables the product's entrance/sway.
+  // Wait for entrance geometry, then approach the card before measuring it.
+  await group.evaluate(async node => {
+    await Promise.all(node.getAnimations({ subtree: true }).filter(animation => animation.effect?.getComputedTiming().iterations !== Infinity).map(animation => animation.finished.catch(() => {})))
+  })
+  await source.hover()
   const a = (await source.boundingBox())!, b = (await target.boundingBox())!
   await page.mouse.move(a.x + a.width / 2, a.y + a.height / 2)
   await page.mouse.down()
@@ -72,5 +78,6 @@ test('collapsed groups retain the theme, count and keyboard expansion', async ({
   await page.getByRole('button', { name: '展开桌边常用', exact: true }).press('Enter')
   await expect(group.locator('.rail-hanging')).toHaveCount(3)
   await page.emulateMedia({ reducedMotion: 'reduce' })
-  await expect(group.locator('.rail-sway').first()).toHaveCSS('transform', 'none')
+  await expect(group).toHaveAttribute('data-breeze-active', 'true')
+  await expect(group.locator('.rail-sway').first()).not.toHaveCSS('transform', 'none')
 })

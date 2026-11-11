@@ -197,14 +197,9 @@ export function useRailHitRegions(
       }
       measure(false);
     };
-    const reduced = window.matchMedia(
-      "(prefers-reduced-motion: reduce)",
-    ).matches;
-    measure(!reduced && previous.current.size > 0 && bodyPresent);
-    const settled = window.setTimeout(settle, reduced ? 0 : 440);
-    const observer = new ResizeObserver(() =>
-      measure(!reduced && previous.current.size > 0),
-    );
+    measure(previous.current.size > 0 && bodyPresent);
+    const settled = window.setTimeout(settle, 440);
+    const observer = new ResizeObserver(() => measure(previous.current.size > 0));
     observer.observe(host);
     const panel = host.querySelector(".rail-popup");
     if (panel) observer.observe(panel);

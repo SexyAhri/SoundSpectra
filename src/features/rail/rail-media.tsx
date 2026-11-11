@@ -1,8 +1,8 @@
-import { useEffect, useState } from "react";
-import { AppWindow, File, Folder, Image, StickyNote } from "lucide-react";
-import { railMedia } from "./client";
+import { createContext, useContext, useEffect, useState } from "react";
+import { AppWindow, File, Folder, Image, Play, StickyNote } from "lucide-react";
+import { decodedRailMedia } from "./decoded-media";
 import { native } from "../spectrum/bridge";
-import type { RailItem } from "./model";
+import { isRailPhoto, isRailVideo, type RailItem } from "./model";
 const icons = {
   app: AppWindow,
   file: File,
@@ -10,6 +10,7 @@ const icons = {
   image: Image,
   note: StickyNote,
 };
+export const RailMediaSources = createContext<Readonly<Record<string, string>> | null>(null);
 export function RailMedia({
   item,
   unavailable = false,
@@ -19,6 +20,7 @@ export function RailMedia({
   unavailable?: boolean;
   revision?: number;
 }) {
+  const preview = useContext(RailMediaSources)?.[item.id];
   const [media, setMedia] = useState<string | null>(null),
     [failed, setFailed] = useState(false);
   useEffect(() => {
@@ -27,18 +29,13 @@ export function RailMedia({
     let retries = 0;
     setMedia(null);
     setFailed(false);
-    if (unavailable || !native || item.kind === "note") return;
+    if (preview !== undefined || unavailable || !native || item.kind === "note") return;
     const load = async () => {
       try {
-        const value = await railMedia(item);
+        const value = await decodedRailMedia(item, revision);
         if (!active) return;
         if (value) {
-          // Decode before replacing the fallback. Shell/image startup failures
-          // should recover in the workspace preview as well as desktop windows.
-          const image = new window.Image();
-          image.src = value;
-          await image.decode();
-          if (active) setMedia(value);
+          setMedia(value);
           return;
         }
       } catch {
@@ -53,21 +50,23 @@ export function RailMedia({
       active = false;
       clearTimeout(timer);
     };
-  }, [item.id, item.path, item.kind, unavailable, revision]);
-  const Icon = icons[item.kind];
-  return media && !failed ? (
+  }, [item.id, item.path, item.kind, unavailable, revision, preview]);
+  const video = isRailVideo(item);
+  const Icon = video ? Play : icons[item.kind];
+  const source = preview ?? media;
+  return source && !failed ? (
     <img
       key={revision}
-      src={media}
-      alt={item.kind === "image" ? item.name : ""}
+      src={source}
+      alt={isRailPhoto(item) ? item.name : ""}
       draggable={false}
-      style={{ objectFit: item.kind === "image" ? item.crop : "contain" }}
+      style={{ objectFit: video ? "cover" : item.kind === "image" ? item.crop : "contain" }}
       onError={() => setFailed(true)}
     />
-  ) : item.kind === "image" ? (
+  ) : isRailPhoto(item) ? (
     <span className="rail-photo-placeholder" aria-hidden="true">
       <Icon />
-      <span>暂无预览</span>
+      <span>{video ? "视频暂无预览" : "暂无预览"}</span>
     </span>
   ) : (
     <Icon aria-hidden="true" />

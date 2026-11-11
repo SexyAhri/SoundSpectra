@@ -65,8 +65,7 @@ export function useRailMotion(
     if (
       !priorContext ||
       priorContext.scope !== scope ||
-      priorContext.width !== root.current.clientWidth ||
-      window.matchMedia("(prefers-reduced-motion: reduce)").matches
+      priorContext.width !== root.current.clientWidth
     ) {
       for (const animation of active.current.values()) animation.cancel();
       for (const ghost of ghosts.current) ghost.remove();

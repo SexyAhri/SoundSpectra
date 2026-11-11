@@ -1,9 +1,13 @@
 #[cfg(windows)]
+mod app_window;
+#[cfg(windows)]
 pub(crate) mod attribute_helper;
 mod desktop;
 #[cfg(windows)]
 mod desktop_visibility;
 pub mod detach;
+#[cfg(windows)]
+mod drop_surface;
 pub mod folder;
 mod model;
 #[cfg(windows)]
@@ -14,8 +18,12 @@ mod ole_drop;
 mod popup_focus;
 pub mod popup_window;
 #[cfg(windows)]
+mod shell_drop;
+#[cfg(windows)]
 mod shell_refresh;
 pub mod transfer;
+#[cfg(windows)]
+mod video_thumbnail;
 #[cfg(windows)]
 mod webview_drop;
 #[cfg(windows)]
@@ -373,6 +381,11 @@ pub async fn rail_add_paths(
     if paths.is_empty() || paths.len() > 48 {
         return Err("每次请选择 1～48 个项目".into());
     }
+    #[cfg(windows)]
+    native_drop::trace(
+        "mount-request",
+        serde_json::json!({"label": window.label(), "group": group_id, "count": paths.len()}),
+    );
     let mut items = vec![];
     for value in paths {
         let path = Path::new(&value);
@@ -411,7 +424,7 @@ pub async fn rail_add_paths(
             desktop_identity,
         });
     }
-    commit(&app, &state, |settings| {
+    let result = commit(&app, &state, |settings| {
         if let Some(id) = replace_id {
             if items.len() != 1 {
                 return Err("重新关联时请选择一个目标".into());
@@ -445,7 +458,13 @@ pub async fn rail_add_paths(
             }
         }
         Ok(())
-    })
+    });
+    #[cfg(windows)]
+    native_drop::trace(
+        "mount-result",
+        serde_json::json!({"label": window.label(), "group": group_id, "ok": result.is_ok(), "error": result.as_ref().err()}),
+    );
+    result
 }
 
 #[tauri::command]
@@ -499,12 +518,23 @@ pub async fn rail_open(
     reveal: bool,
 ) -> Result<(), String> {
     allowed(&window)?;
-    let path = item_path(&saved_item(&state, &id)?)?;
+    let item = saved_item(&state, &id)?;
+    let path = item_path(&item)?;
     if reveal {
         app.opener()
             .reveal_item_in_dir(path)
             .map_err(|e| e.to_string())
     } else {
+        #[cfg(windows)]
+        if item.kind == "app" {
+            let target = path.clone();
+            if tauri::async_runtime::spawn_blocking(move || app_window::activate(&target))
+                .await
+                .map_err(|e| e.to_string())??
+            {
+                return Ok(());
+            }
+        }
         app.opener()
             .open_path(path.to_string_lossy().to_string(), None::<&str>)
             .map_err(|e| e.to_string())
@@ -550,6 +580,9 @@ fn load_media(item: &RailItem) -> Result<Option<String>, String> {
     }
     #[cfg(windows)]
     {
+        if item.kind == "file" && video_thumbnail::supports(&path) {
+            return video_thumbnail::load(&path);
+        }
         windows::icon(&path)
     }
     #[cfg(not(windows))]
@@ -631,6 +664,7 @@ fn sync_windows(app: &AppHandle, settings: &RailSettings) -> Result<(), String> 
                 &label,
                 tauri::WebviewUrl::App(format!("index.html?window=rail&group={}", group.id).into()),
             )
+            .disable_drag_drop_handler()
             .title(format!("SoundSpectra · {}", group.name))
             .inner_size(780.0, 220.0)
             .transparent(true)

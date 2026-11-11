@@ -305,7 +305,7 @@ test('native regions cover a full-width cord without gaps and preserve desktop s
   await expect.poll(() => page.evaluate(() => (window as any).popupRequests.filter(Boolean).at(-1)?.mode)).toBe('add')
 })
 
-test('wind sways hangings independently and pauses for interaction and reduced motion', async ({ page }) => {
+test('wind pauses for interaction and resumes under the system reduce preference', async ({ page }) => {
   await fixture(page, true, 'source')
   await page.mouse.move(5, 5)
   const sway = page.locator('[data-rail-item="one"] .rail-sway')
@@ -320,13 +320,15 @@ test('wind sways hangings independently and pauses for interaction and reduced m
   await page.getByRole('button', { name: 'one的操作', exact: true }).focus()
   await page.mouse.move(5, 5)
   await expect.poll(angle).toBeLessThan(.0001)
+  await page.emulateMedia({ reducedMotion: 'reduce' })
+  await page.evaluate(() => (document.activeElement as HTMLElement)?.blur())
+  await page.mouse.move(5, 5)
+  await expect.poll(angle).toBeGreaterThan(.0002)
+  await expect(sway).not.toHaveCSS('transform', 'none')
   await page.getByRole('button', { name: 'one，软件', exact: true }).click({ button: 'right' })
   expect(await page.evaluate(() => (window as any).popupRequests.filter(Boolean))).toEqual([])
   await page.getByRole('button', { name: 'one的操作', exact: true }).press('Enter')
   await expect.poll(() => page.evaluate(() => (window as any).popupRequests.filter(Boolean).at(-1)?.mode)).toBe('menu')
-  await page.emulateMedia({ reducedMotion: 'reduce' })
-  await expect(sway).toHaveCSS('transform', 'none')
-  expect(await angle()).toBe(0)
 })
 
 test('native animation keeps moving cards inside the region without updates on every frame', async ({ page }) => {

@@ -16,9 +16,9 @@ export function useRailDrop(
     if (!native) return;
     let disposed = false;
     const stops: (() => void)[] = [];
-    // Let WebView2 deliver OS file objects through its own renderer window.
-    // Registering OLE on the outer Tauri HWND cannot override a target owned
-    // by the browser/GPU process. JS never guesses paths from file names.
+    // External Windows files and Shell apps use native OLE. Keep the DOM
+    // bridge for renderer-originated File objects and block file navigation.
+    // JS never guesses paths from file names.
     const fileDrag = (event: DragEvent) =>
       !!event.dataTransfer &&
       Array.from(event.dataTransfer.types).includes("Files");

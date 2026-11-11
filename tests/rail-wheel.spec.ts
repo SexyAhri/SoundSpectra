@@ -66,7 +66,7 @@ test('wheel, keyboard, wrapping and removal always keep an available item center
   await expect(active).toHaveAttribute('data-rail-item', 'item-3')
   await page.emulateMedia({ reducedMotion: 'reduce' })
   await active.locator('.rail-item').press('ArrowRight')
-  expect(await active.evaluate(node => parseFloat(getComputedStyle(node).transitionDuration))).toBeLessThanOrEqual(.001)
+  expect(await active.evaluate(node => parseFloat(getComputedStyle(node).transitionDuration))).toBe(.38)
 })
 
 test('arc remains contained on narrow screens and its add menu stays accessible', async ({ page }) => {

@@ -23,14 +23,44 @@ test.beforeEach(async ({ page }) => {
       return valid;
     } };
     function Fixture() {
-      const [item, setItem] = React.useState({ id:'one', path:'C:/one.lnk', kind:new URLSearchParams(location.search).get('kind') ?? 'app', name:'App', crop:'contain' });
+      const [item, setItem] = React.useState({ id:'one', path:new URLSearchParams(location.search).get('path') ?? 'C:/one.lnk', kind:new URLSearchParams(location.search).get('kind') ?? 'app', name:'App', crop:'contain' });
       const [visible, setVisible] = React.useState(true);
       window.replace = () => setItem({ ...item, id:'two', path:'C:/two.lnk' });
       window.unmount = () => setVisible(false);
-      return React.createElement('main', null, visible && React.createElement(RailMedia, { item, unavailable: mode === 'unavailable' }));
+      return React.createElement('main', null, visible && React.createElement(React.Fragment, null,
+        React.createElement(RailMedia, { item, unavailable: mode === 'unavailable' }),
+        new URLSearchParams(location.search).has('twins') && React.createElement(RailMedia, { item })
+      ));
     }
     ReactDOM.createRoot(document.getElementById('root')).render(React.createElement(Fixture));
   `))
+})
+
+test('concurrent copies share native media reads and decoding without caching stale files', async ({ page }) => {
+  await page.addInitScript(() => {
+    const decode = HTMLImageElement.prototype.decode
+    ;(window as any).decodes = 0
+    HTMLImageElement.prototype.decode = function () { (window as any).decodes++; return decode.call(this) }
+  })
+  await page.goto('/?mode=pending&twins')
+  await expect.poll(() => page.evaluate(() => (window as any).calls.length)).toBe(1)
+  await page.evaluate(() => (window as any).finish('data:image/svg+xml,' + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64"><rect width="64" height="64" fill="red"/></svg>')))
+  await expect(page.locator('main img')).toHaveCount(2)
+  expect(await page.evaluate(() => (window as any).decodes)).toBe(1)
+  await page.evaluate(() => (window as any).replace())
+  await expect.poll(() => page.evaluate(() => (window as any).calls)).toEqual(['one', 'two'])
+})
+
+test('video waits for a decoded frame instead of displaying a large generic file icon', async ({ page }) => {
+  await page.goto('/?mode=pending&kind=file&path=C:/video.MP4')
+  await expect(page.getByText('视频暂无预览', { exact: true })).toBeVisible()
+  await expect.poll(() => page.evaluate(() => (window as any).calls.length)).toBe(1)
+  await page.evaluate(() => (window as any).finish('data:image/svg+xml,' + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="480" height="270"><rect width="480" height="270" fill="green"/></svg>')))
+  const image = page.getByRole('img', { name: 'App', exact: true })
+  await expect(image).toBeVisible()
+  await expect(image).toHaveCSS('object-fit', 'cover')
+  expect(await image.evaluate((image: HTMLImageElement) => image.naturalWidth)).toBe(480)
+  await expect(page.locator('.rail-photo-placeholder')).toHaveCount(0)
 })
 
 for (const mode of ['empty', 'error', 'invalid']) {

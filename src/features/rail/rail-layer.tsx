@@ -19,6 +19,7 @@ function RailLayerContent({
   arranging = false,
   locked = [],
   interactive = true,
+  active = true,
   onSelect,
   desktopWidth,
 }: {
@@ -28,6 +29,7 @@ function RailLayerContent({
   arranging?: boolean;
   locked?: string[];
   interactive?: boolean;
+  active?: boolean;
   onSelect: (groupId: string, itemId?: string) => void;
   desktopWidth?: number;
 }) {
@@ -235,6 +237,7 @@ function RailLayerContent({
             }
           >
             <RailSurface
+              active={active}
               layoutWidth={
                 desktopWidth ? desktopWidth * placement.width : undefined
               }

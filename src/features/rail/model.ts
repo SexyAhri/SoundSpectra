@@ -89,6 +89,15 @@ export const kindLabels: Record<RailKind, string> = {
   image: "图片",
   note: "便签",
 };
+/** Videos keep their saved file kind and file operations, with a photo presentation. */
+export function isRailVideo(item: Pick<RailItem, "kind" | "path">) {
+  return item.kind === "file" && /\.(mp4|m4v|mov|mkv|avi|webm|wmv|mpeg|mpg|mts|m2ts|ts|flv)$/i.test(item.path);
+}
+
+export function isRailPhoto(item: Pick<RailItem, "kind" | "path">) {
+  return item.kind === "image" || isRailVideo(item);
+}
+
 export function classifyPath(path: string): RailKind {
   if (/[\\/]$/.test(path)) return "folder";
   if (/\.(exe|lnk|appref-ms|app)$/i.test(path)) return "app";
