@@ -49,6 +49,7 @@ test("browser source persists independently of appearance and reports preview on
   await page.keyboard.press("ArrowLeft");
   await expect(page.getByText("已保存到此浏览器")).toBeVisible();
   await page.reload();
+  await expect(page.locator(".startup-screen")).toHaveCount(0);
   await expect(selector(page)).toHaveText("网易云音乐");
   expect(
     await page.evaluate(
@@ -305,8 +306,8 @@ test("source menu fits a narrow viewport with keyboard access", async ({
   const rect = await menu.boundingBox();
   expect(rect!.x).toBeGreaterThanOrEqual(0);
   expect(rect!.x + rect!.width).toBeLessThanOrEqual(390);
-  expect(
-    await page.evaluate(
+  await expect.poll(() =>
+    page.evaluate(
       () => document.documentElement.scrollWidth <= innerWidth,
     ),
   ).toBe(true);
@@ -380,8 +381,8 @@ test("KuGou sync stays in the compact source status for automatic and manual sel
   );
   await page.setViewportSize({ width: 390, height: 844 });
   await selector(page).scrollIntoViewIfNeeded();
-  expect(
-    await page.evaluate(
+  await expect.poll(() =>
+    page.evaluate(
       () => document.documentElement.scrollWidth <= innerWidth,
     ),
   ).toBe(true);

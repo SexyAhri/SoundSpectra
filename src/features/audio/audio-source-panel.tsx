@@ -176,37 +176,38 @@ export function AudioSourcePanel({
       className="source-section audio-source-panel"
       aria-label="音频来源"
     >
-      <Hint text={sourceDetail}>
-        <div className="audio-source-choice">
-          <span
-            className="audio-source-indicator"
-            data-state={indicator}
-            aria-hidden="true"
-          >
-            <Headphones size={16} />
-            <i />
-          </span>
-          {snapshot ? (
-            <ChoiceSelect
-              label="音乐来源"
-              value={
-                snapshot.builtin?.active
-                  ? "builtin"
-                  : sourceKey(snapshot.selection)
-              }
-              options={sourceOptions(snapshot)}
-              disabled={saving}
-              onChange={(value) =>
-                value === "builtin"
-                  ? void resumeBuiltin()
-                  : void save(sourceFromKey(value))
-              }
-            />
-          ) : (
+      <div className="audio-source-choice">
+        <span
+          className="audio-source-indicator"
+          data-state={indicator}
+          aria-hidden="true"
+        >
+          <Headphones size={16} />
+          <i />
+        </span>
+        {snapshot ? (
+          <ChoiceSelect
+            label="音乐来源"
+            hint={sourceDetail}
+            value={
+              snapshot.builtin?.active
+                ? "builtin"
+                : sourceKey(snapshot.selection)
+            }
+            options={sourceOptions(snapshot)}
+            disabled={saving}
+            onChange={(value) =>
+              value === "builtin"
+                ? void resumeBuiltin()
+                : void save(sourceFromKey(value))
+            }
+          />
+        ) : (
+          <Hint text={sourceDetail}>
             <span className="source-placeholder">正在读取…</span>
-          )}
-        </div>
-      </Hint>
+          </Hint>
+        )}
+      </div>
       <span className="source-status" role="status">
         {statusText}
       </span>

@@ -1,5 +1,6 @@
 import { Select } from "radix-ui";
 import { Check, ChevronDown, ChevronUp } from "lucide-react";
+import { Hint } from "./hint";
 import "./choice-select.css";
 
 export interface ChoiceOption {
@@ -18,6 +19,7 @@ export function ChoiceSelect({
   className = "",
   menuClassName = "",
   placeholder,
+  hint,
 }: {
   label: string;
   value: string;
@@ -27,18 +29,22 @@ export function ChoiceSelect({
   className?: string;
   menuClassName?: string;
   placeholder?: string;
+  hint?: string;
 }) {
+  const trigger = (
+    <Select.Trigger
+      aria-label={label}
+      className={`choice-trigger ${className}`}
+    >
+      <Select.Value placeholder={placeholder} />
+      <Select.Icon>
+        <ChevronDown size={14} />
+      </Select.Icon>
+    </Select.Trigger>
+  );
   return (
     <Select.Root value={value} onValueChange={onChange} disabled={disabled}>
-      <Select.Trigger
-        aria-label={label}
-        className={`choice-trigger ${className}`}
-      >
-        <Select.Value placeholder={placeholder} />
-        <Select.Icon>
-          <ChevronDown size={14} />
-        </Select.Icon>
-      </Select.Trigger>
+      {hint ? <Hint text={hint}>{trigger}</Hint> : trigger}
       <Select.Portal>
         <Select.Content
           className={`choice-menu ${menuClassName}`}
