@@ -296,11 +296,7 @@ test("music library uses the existing workspace and honestly disables browser lo
   page,
 }) => {
   await page.goto("/#music");
-  await expect(
-    page
-      .getByRole("navigation", { name: "主导航" })
-      .or(page.getByRole("complementary", { name: "主导航" })),
-  ).toBeVisible();
+  await expect(page.getByRole("navigation", { name: "聆听导航" })).toBeVisible();
   await expect(
     page.getByRole("region", { name: "音乐库", exact: true }),
   ).toBeVisible();
@@ -308,12 +304,11 @@ test("music library uses the existing workspace and honestly disables browser lo
   await expect(
     page.getByRole("button", { name: "获取登录二维码" }),
   ).toHaveCount(0);
-  await page.getByRole("button", { name: "桌面与性能", exact: true }).click();
+  await page.getByRole("button", { name: "编辑场景", exact: true }).click();
+  await expect(page.getByRole("complementary", { name: "对象属性" })).toBeVisible();
   await expect(
-    page
-      .getByRole("button", { name: "显示到桌面", exact: false })
-      .or(page.getByText("显示到桌面", { exact: true })),
-  ).toBeVisible();
+    page.getByRole("switch", { name: "显示到桌面", exact: true }),
+  ).toBeDisabled();
 });
 
 test("filtered songs preserve server offsets and the loaded queue", async ({
@@ -1188,6 +1183,15 @@ test("timeline combines playback, download and seek states and separates time ra
   await expect(page.locator(".library-progress-loading")).toHaveCount(0);
   await expect(slider).toBeEnabled();
   await page.emulateMedia({ reducedMotion: "reduce" });
+  // System motion preferences no longer freeze the live playback clock.
+  // Pause explicitly so a keyboard seek has a deterministic starting point.
+  await page.evaluate(() =>
+    Object.assign((window as any).musicState.playback, {
+      phase: "paused",
+      playing: false,
+    }),
+  );
+  await expect(states).toHaveAttribute("data-states", "paused");
   await expect(slider).toHaveValue("12");
   await slider.focus();
   await page.keyboard.press("ArrowRight");
@@ -1201,9 +1205,11 @@ test("timeline combines playback, download and seek states and separates time ra
       ),
     )
     .toMatchObject({ action: "seek", value: 12.01 });
-  await page.evaluate(
-    () => ((window as any).musicState.playback.transfer.status = "cached"),
-  );
+  await page.evaluate(() => {
+    const playback = (window as any).musicState.playback;
+    playback.transfer.status = "cached";
+    Object.assign(playback, { phase: "playing", playing: true });
+  });
   await expect(states).toHaveAttribute("data-states", "playing");
   await expect(download).toHaveCount(0);
   await expect(states).not.toContainText(/已下载|本地缓存/);
@@ -1301,7 +1307,11 @@ test("timeline layers fit narrow windows and animate under both system motion pr
       .boundingBox();
     expect(download!.y).toBe(track!.y);
     expect(download!.height).toBe(track!.height);
-    expect(download!.width / track!.width).toBeCloseTo(0.4, 1);
+    await expect.poll(async () => {
+      const track = (await page.locator(".library-progress-track").boundingBox())!;
+      const download = (await page.locator(".library-progress-download").boundingBox())!;
+      return download.width / track.width;
+    }).toBeCloseTo(0.4, 1);
   }
   await page.emulateMedia({ reducedMotion: "reduce" });
   expect(
@@ -1878,7 +1888,10 @@ test("track selection, inline actions and density remain independent of playback
   await page.getByRole("button", { name: "列表选项", exact: true }).click();
   await page.getByRole("combobox", { name: "列表密度" }).click();
   await page.getByRole("option", { name: "紧凑", exact: true }).click();
+  await expect(page.getByRole("listbox")).toHaveCount(0);
+  await expect(page.locator("body")).not.toHaveCSS("pointer-events", "none");
   await page.keyboard.press("Escape");
+  await expect(page.locator(".library-view-options")).toHaveCount(0);
   expect(
     await row.evaluate((node) => node.getBoundingClientRect().height),
   ).toBe(49);

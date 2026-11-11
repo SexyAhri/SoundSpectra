@@ -20,7 +20,7 @@ import {
   Disc3,
   FolderHeart,
 } from "lucide-react";
-import { MusicButton as Button } from "./music-hint";
+import { MusicButton as Button, MusicHint } from "./music-hint";
 import { ChoiceSelect } from "@/components/ui/choice-select";
 import { musicClient } from "./client";
 import { MusicCover } from "./music-cover";
@@ -283,7 +283,9 @@ function LibraryBrowser({
               )}
             </span>
             <div className="library-collection-copy">
-              <h3 title={library.selected.name}>{library.selected.name}</h3>
+              <MusicHint text={library.selected.name}>
+                <h3>{library.selected.name}</h3>
+              </MusicHint>
               <p>
                 已加载 {all.length} / {library.tracks?.total ?? "…"} 首
                 {Boolean(library.tracks?.filtered) &&
